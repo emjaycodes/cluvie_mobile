@@ -1,4 +1,5 @@
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
+import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -19,7 +20,7 @@ class MovieListScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Discover Movies"),
+        title: const Text("Discover Movies", style :AppTextStyles.appBarTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -56,7 +57,7 @@ class MovieItemWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.5),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
