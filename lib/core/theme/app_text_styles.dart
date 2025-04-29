@@ -34,7 +34,7 @@ class AppTextStyles {
   static const TextStyle button = TextStyle(
   fontSize: 16,
   fontWeight: FontWeight.w600,
-  color: Colors.white, // reminder AppColors.textOnPrimary 
+  color: Colors.white, //todo: reminder AppColors.textOnPrimary 
 );
 
   static TextTheme get textTheme => const TextTheme(

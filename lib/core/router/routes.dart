@@ -48,7 +48,7 @@ final router = GoRouter(
           name: RouteNames.movies,
           path: '/movies',
           parentNavigatorKey: _shellNavigatorKey,
-          builder: (context, state) => const MovieListScreen(),
+          builder: (context, state) =>  MovieListScreen(),
         ),
         GoRoute(
           name: RouteNames.communities,
