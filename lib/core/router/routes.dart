@@ -66,6 +66,12 @@ final router = GoRouter(
       builder: (context, state) => CreateCommunityScreen(),
     ),
 
+     GoRoute(
+      name: RouteNames.allCommunities,
+      path: '/allCommunities',
+      builder: (context, state) => CommunityListScreen(),
+    ),
+
 
     // ShellRoute for Bottom Navigation Tabs
     ShellRoute(
@@ -80,7 +86,7 @@ final router = GoRouter(
           builder: (context, state) => MovieListScreen(),
         ),
         GoRoute(
-          name: RouteNames.communities,
+          name: RouteNames.joinedCommunities,
           path: '/communities',
           parentNavigatorKey: _shellNavigatorKey,
           builder: (context, state) => const JoinedCommunitiesScreen(),

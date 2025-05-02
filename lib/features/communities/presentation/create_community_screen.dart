@@ -40,9 +40,7 @@ class CreateCommunityScreenState extends State<CreateCommunityScreen> {
                 TextFormField(
                   controller: _communityNameController,
                   decoration: const InputDecoration(
-                    labelText: 'Community Name',
                     hintText: 'Enter community name',
-                    border: OutlineInputBorder(),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -57,7 +55,6 @@ class CreateCommunityScreenState extends State<CreateCommunityScreen> {
                 TextFormField(
                   controller: _communityDescriptionController,
                   decoration: const InputDecoration(
-                    labelText: 'Community Description',
                     hintText: 'Describe your community',
                     border: OutlineInputBorder(),
                   ),

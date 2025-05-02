@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 // class MovieListScreen extends StatelessWidget {
 //   const MovieListScreen({super.key});
@@ -91,25 +92,41 @@ class _MovieListScreenState extends ConsumerState<MovieListScreen> {
           child: ListView(
             children: [
               //  🟥 Featured Movie Banner
-             
-                FeaturedMovieWidget(
-                  movie: numberOneMovie,
-                  showShimmer: false, // Since loading is false
-                  error: movieState.error,
-                ),
-              
+              FeaturedMovieWidget(
+                movie: numberOneMovie,
+                showShimmer: false, // Since loading is false
+                error: movieState.error,
+              ),
 
               const SizedBox(height: AppSpacing.lg),
 
               // 🟩 Trending Discussions
-              SectionTitle(title: "What's Trending in Discussions"),
+              SectionTitle(title: "Trending in Discussions"),
               const SizedBox(height: AppSpacing.sm),
               const TrendingDiscussionsList(),
 
               const SizedBox(height: AppSpacing.lg),
 
               // 🟦 Explore Communities
-              SectionTitle(title: "Join a Community"),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  SectionTitle(title: "Join a Community"),
+                  TextButton(
+                    onPressed: () {
+                      // Navigate to community screen or perform action
+                      context.pushNamed('allCommunities');
+                    },
+                    child: const Text(
+                      'See more',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: AppSpacing.sm),
               const CommunityList(),
 
@@ -189,12 +206,17 @@ class FeaturedMovieWidget extends StatelessWidget {
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Image.network(
-          movie.poster,
-          // width: 345,
-          // height: 250,
-          fit: BoxFit.fill,
-        ),
+        child: CachedNetworkImage(
+        imageUrl: movie.poster,
+        placeholder: (context, url) => CircularProgressIndicator(),
+        errorWidget: (context, url, error) => Icon(Icons.error),
+     ),
+        // Image.network(
+        //   movie.poster,
+        //   // width: 345,
+        //   // height: 250,
+        //   fit: BoxFit.fill,
+        // ),
       ),
     );
     // : SizedBox(height: 20,);
@@ -222,6 +244,24 @@ class TrendingDiscussionsList extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 color: Colors.white,
               ),
+              child: Column(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/images/dis.png',
+                      fit: BoxFit.cover,
+                      width: 200,
+                      height: 80,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  const Text(
+                    "Discussion Title",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -242,11 +282,13 @@ class CommunityList extends StatelessWidget {
         itemCount: 5, // Real communities later
         separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, index) {
-          return Shimmer.fromColors(
-            baseColor: Colors.grey.shade300,
-            highlightColor: Colors.grey.shade100,
-            child: CircleAvatar(radius: 40, backgroundColor: Colors.white),
-          );
+          return CircleAvatar(radius: 40, foregroundImage: const AssetImage('assets/images/group.jpg'));
+          // Shimmer.fromColors(
+          //   enabled: false,
+          //   baseColor: Colors.grey.shade300,
+          //   highlightColor: Colors.grey.shade100,
+          //   child: 
+          // );
         },
       ),
     );

@@ -7,7 +7,9 @@ class RouteNames {
   static const home = 'home';
   static const movies = 'movies';
   static const movieSearch = 'movieSearch';
-  static const communities = 'communities';
+  static const joinedCommunities = 'joinedCommunities';
+  static const allCommunities = 'allCommunities';
+
   static const discussions = 'discussions';
   static const profile = 'profile';
 
