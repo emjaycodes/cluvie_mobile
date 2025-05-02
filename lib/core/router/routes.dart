@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/core/models/movie.dart';
 import 'package:cluvie_mobile/core/router/routes_name.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_bottom_nav_bar.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/login_screen.dart';
@@ -5,7 +6,12 @@ import 'package:cluvie_mobile/features/authentication/presentation/onboarding_sc
 import 'package:cluvie_mobile/features/authentication/presentation/sigup_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/splash_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/community_list_screen.dart';
+import 'package:cluvie_mobile/features/communities/presentation/joined_community_screen.dart';
+import 'package:cluvie_mobile/features/movies/presentation/discussion_list_screen.dart';
+import 'package:cluvie_mobile/features/movies/presentation/movie_details_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_list_screen.dart';
+import 'package:cluvie_mobile/features/movies/presentation/movie_search_screen.dart';
+import 'package:cluvie_mobile/features/user_profile/presentation/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -38,6 +44,21 @@ final router = GoRouter(
       builder: (context, state) => const SignupScreen(),
     ),
 
+    GoRoute(
+      name: RouteNames.movieDetails,
+      path: '/MovieDetails',
+      builder: (context, state) {
+        final movie = state.extra as Movie;
+        return MovieDetailScreen(movie: movie);
+      },
+    ),
+
+    GoRoute(
+      name: RouteNames.movieSearch,
+      path: '/MovieSearch',
+      builder: (context, state) => MovieSearchScreen(),
+    ),
+
     // ShellRoute for Bottom Navigation Tabs
     ShellRoute(
       parentNavigatorKey: _rootNavigatorKey,
@@ -48,26 +69,26 @@ final router = GoRouter(
           name: RouteNames.movies,
           path: '/movies',
           parentNavigatorKey: _shellNavigatorKey,
-          builder: (context, state) =>  MovieListScreen(),
+          builder: (context, state) => MovieListScreen(),
         ),
         GoRoute(
           name: RouteNames.communities,
           path: '/communities',
           parentNavigatorKey: _shellNavigatorKey,
-          builder: (context, state) => const CommunityListScreen(),
+          builder: (context, state) => const JoinedCommunitiesScreen(),
         ),
-        // GoRoute(
-        //   name: RouteNames.discussions,
-        //   path: '/discussions',
-        //   parentNavigatorKey: _shellNavigatorKey,
-        //   builder: (context, state) => const DiscussionListScreen(),
-        // ),
-        // GoRoute(
-        //   name: RouteNames.profile,
-        //   path: '/profile',
-        //   parentNavigatorKey: _shellNavigatorKey,
-        //   builder: (context, state) => const UserProfileScreen(),
-        // ),
+        GoRoute(
+          name: RouteNames.discussions,
+          path: '/discussions',
+          parentNavigatorKey: _shellNavigatorKey,
+          builder: (context, state) => const DiscussionListScreen(),
+        ),
+        GoRoute(
+          name: RouteNames.profile,
+          path: '/profile',
+          parentNavigatorKey: _shellNavigatorKey,
+          builder: (context, state) => const ProfileScreen(),
+        ),
       ],
     ),
   ],

@@ -2,6 +2,8 @@ import 'package:cluvie_mobile/core/router/routes_name.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
+import 'package:cluvie_mobile/core/theme/widgets/cl_loading.dart';
+import 'package:cluvie_mobile/features/authentication/data/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,28 +21,46 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   String _email = '';
   String _password = '';
-  bool _loading = false;
+
 
   void _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
 
-    setState(() => _loading = true);
+     await ref.read(authNotifierProvider.notifier).login("email", "password");
 
-    await Future.delayed(const Duration(seconds: 2)); // simulate login
-
-    ref.read(authProvider.notifier).state = true;
-
-    // if (context.mounted) {
-    //   context.goNamed(RouteNames.movies); // go to home
-    // }
+    if (context.mounted) {
+      context.goNamed(RouteNames.movies); // go to home
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+      final authState = ref.watch(authNotifierProvider);
+
+    if (authState.isLoading) {
+      return Scaffold(
+        body: Center(child: ClLoading()), 
+      );
+    }
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: authState.error != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(authState.error!, style: TextStyle(color: Colors.red)),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await ref.read(authNotifierProvider.notifier).login("email", "password");
+                    },
+                    child: Text("Retry"),
+                  ),
+                ],
+              ),
+            )
+          : Padding(
           padding: AppSpacing.clPadding,
           child: Form(
             key: _formKey,
@@ -98,8 +118,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: AppSpacing.sm),
                 // Login Button
                 ClButton(
-                  label: _loading ? 'Logging in...' : 'Login',
-                  onPressed: _loading ? () {} : _handleLogin,
+                  label: 'Login',
+                  onPressed: _handleLogin,
                 ),
 
                 const SizedBox(height: AppSpacing.md),

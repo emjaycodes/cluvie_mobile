@@ -47,10 +47,8 @@ class _ClBottomNavBarState extends State<ClBottomNavBar> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: changeTab,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textSecondary,
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
+
         elevation: 10,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
         items: const [

@@ -17,7 +17,9 @@ class ClTabBar extends StatelessWidget {
       controller: controller,
       tabs: tabs,
       labelColor: AppColors.primary,
-      unselectedLabelColor: AppColors.textSecondary,
+      unselectedLabelColor: Theme.of(context).brightness == Brightness.dark
+      ? AppColors.textSecondaryDark
+      : AppColors.textSecondaryLight,
       indicatorColor: AppColors.primary,
       indicatorWeight: 3,
       labelStyle: const TextStyle(fontWeight: FontWeight.w600),

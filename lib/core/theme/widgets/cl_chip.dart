@@ -21,16 +21,20 @@ class ClChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         margin: const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.background,
+          color: isSelected ? AppColors.primary :Theme.of(context).brightness == Brightness.dark
+      ? AppColors.backgroundDark
+      : AppColors.backgroundLight,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
+            color: isSelected ? AppColors.primary :Theme.of(context).brightness == Brightness.dark
+      ? AppColors.borderDark
+      : AppColors.borderLight,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : AppColors.textPrimary,
+            color: isSelected ? Colors.white : AppColors.textPrimaryDark,
             fontWeight: FontWeight.w500,
           ),
         ),

@@ -27,9 +27,11 @@ class ClTextField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(
+            style:  TextStyle(
               fontWeight: FontWeight.w500,
-              color: AppColors.textPrimary,
+              color: Theme.of(context).brightness == Brightness.dark
+      ? AppColors.textSecondaryDark
+      : AppColors.textSecondaryLight,
               fontSize: 14,
             )),
         const SizedBox(height: 6),

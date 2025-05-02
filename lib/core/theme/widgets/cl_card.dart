@@ -24,7 +24,9 @@ class ClCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor ?? Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).brightness == Brightness.dark
+      ? AppColors.borderDark
+      : AppColors.borderLight,),
       ),
       child: child,
     );

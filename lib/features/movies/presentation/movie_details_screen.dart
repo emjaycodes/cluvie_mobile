@@ -1,126 +1,159 @@
-// import 'package:cluvie_mobile/core/theme/app_spacing.dart';
-// import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
-// import 'package:flutter/material.dart';
-// import 'package:go_router/go_router.dart';
+import 'package:cluvie_mobile/core/models/movie.dart';
+import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
+import 'package:flutter/material.dart';
 
-// class MovieDetailScreen extends StatelessWidget {
-//   final String movieTitle;
+class MovieDetailScreen extends StatelessWidget {
+  final Movie movie;
 
-//   const MovieDetailScreen({super.key, required this.movieTitle});
+  const MovieDetailScreen({super.key, required this.movie});
 
-//   @override
-//   Widget build(BuildContext context) {
-//     // Simulate movie details
-//     final String movieDescription =
-//         "A mind-bending thriller directed by Christopher Nolan, following a thief who enters the dreams of others.";
+  @override
+  Widget build(BuildContext context) {
+    print('MovieDetailScreen: ${movie.genreNames?[0]}');
+    return Scaffold(
+      body: DefaultTabController(
+        length: 2,
+        child: NestedScrollView(
+          headerSliverBuilder:
+              (context, innerBoxIsScrolled) => [
+                SliverAppBar(
+                  expandedHeight: 300,
+                  pinned: true,
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Hero(
+                      tag: movie.id,
+                      child: Image.network(movie.backdrop, fit: BoxFit.cover),
+                    ),
+                    // title: Text(movie.title),
+                  ),
+                ),
+              ],
+          body: Column(
+            children: [
+              _MovieInfo(movie: movie),
+              DefaultTabController(
+                length: 2,
+                child: Column(
+                  children: [
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        // color: Colors.grey[900], // Background of the TabBar
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: TabBar(
+                        indicator: BoxDecoration(
+                          color:
+                              AppColors
+                                  .primary, // Change to your desired selected tab color
+                          borderRadius: BorderRadius.circular(
+                            8,
+                          ), // Optional: Rounded corners
+                        ),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        tabs: [Tab(text: 'Talks'), Tab(text: 'Discussions')],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    MovieTalksTab(movieId: movie.id),
+                    MovieDiscussionsTab(movieId: movie.id),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: Text(movieTitle),
-//       ),
-//       body: SafeArea(
-//         child: Padding(
-//           padding: AppSpacing.md,
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               // Movie Description
-//               Text(
-//                 "Description:",
-//                 style: Theme.of(context).textTheme.headlineSmall,
-//               ),
-//               const SizedBox(height: 8),
-//               Text(movieDescription),
-//               const SizedBox(height: 32),
+class _MovieInfo extends StatelessWidget {
+  final Movie movie;
 
-//               // Voting section
-//               Text(
-//                 "Rate this movie:",
-//                 style: Theme.of(context).textTheme.headlineSmall,
-//               ),
-//               const SizedBox(height: 8),
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.start,
-//                 children: List.generate(5, (index) {
-//                   return IconButton(
-//                     icon: Icon(
-//                       index < 3 ? Icons.star : Icons.star_border,
-//                       color: index < 3 ? Colors.orange : Colors.grey,
-//                     ),
-//                     onPressed: () {
-//                       // Handle voting logic here
-//                       print("Voted on $movieTitle with rating ${index + 1}");
-//                     },
-//                   );
-//                 }),
-//               ),
-//               const SizedBox(height: 32),
+  const _MovieInfo({required this.movie});
 
-//               // Comment section
-//               Text(
-//                 "Comments:",
-//                 style: Theme.of(context).textTheme.headlineSmall,
-//               ),
-//               const SizedBox(height: 8),
-//               Expanded(
-//                 child: ListView(
-//                   children: [
-//                     _CommentWidget(comment: "Amazing movie! A must-watch."),
-//                     _CommentWidget(comment: "Loved the visuals and plot twist."),
-//                   ],
-//                 ),
-//               ),
-//               const SizedBox(height: 16),
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            movie.title,
+            style: AppTextStyles.heading1.copyWith(
+              fontSize: 40,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${movie.releaseDate} • ${movie.genreNames?.join(', ') ?? ''}',
+            style: AppTextStyles.body.copyWith(color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            movie.description,
+            style: AppTextStyles.body.copyWith(fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-//               // Add Comment Button
-//               ClButton(
-//                 onPressed: () {
-//                   // Simulate comment dialog or navigation
-//                   showDialog(
-//                     context: context,
-//                     builder: (_) => AlertDialog(
-//                       title: const Text("Add Comment"),
-//                       content: TextField(
-//                         decoration: const InputDecoration(hintText: "Write your comment..."),
-//                         onSubmitted: (value) {
-//                           // Handle comment submission logic
-//                           print("Comment added: $value");
-//                           Navigator.pop(context);
-//                         },
-//                       ),
-//                       actions: [
-//                         TextButton(
-//                           onPressed: () => Navigator.pop(context),
-//                           child: const Text("Cancel"),
-//                         ),
-//                       ],
-//                     ),
-//                   );
-//                 }, label: 'Add Comment',
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
+class MovieTalksTab extends StatelessWidget {
+  final String movieId;
 
-// class _CommentWidget extends StatelessWidget {
-//   final String comment;
+  const MovieTalksTab({super.key, required this.movieId});
 
-//   const _CommentWidget({super.key, required this.comment});
+  @override
+  Widget build(BuildContext context) {
+    // Replace with your state management logic
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 10,
+      itemBuilder: (context, index) {
+        return ListTile(
+          leading: const CircleAvatar(child: Icon(Icons.person)),
+          title: Text("User $index"),
+          subtitle: Text("This movie was 🔥🔥🔥"),
+        );
+      },
+    );
+  }
+}
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Padding(
-//       padding: const EdgeInsets.only(bottom: 8),
-//       child: Card(
-//         child: Padding(
-//           padding: const EdgeInsets.all(8.0),
-//           child: Text(comment),
-//         ),
-//       ),
-//     );
-//   }
-// }
+class MovieDiscussionsTab extends StatelessWidget {
+  final String movieId;
+
+  const MovieDiscussionsTab({super.key, required this.movieId});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 5,
+      itemBuilder: (context, index) {
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ListTile(
+            title: Text("Discussion Topic $index"),
+            subtitle: Text("Started by @user_${index + 1}"),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+            onTap: () {
+              // Navigate to discussion thread
+            },
+          ),
+        );
+      },
+    );
+  }
+}

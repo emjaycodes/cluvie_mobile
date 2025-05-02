@@ -12,7 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Flutter Demo',
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.darkTheme,
   // MovieListScreen
       // home: const OnboardingScreen() ,
       routerConfig: router,
