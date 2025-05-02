@@ -43,6 +43,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             child: Form(
               key: _formKey,
               child: ListView(
+                
                 children: [
                   const SizedBox(height: 40),
                   Text("Create Account", style: AppTextStyles.heading1),

@@ -1,4 +1,3 @@
-
 import 'package:cluvie_mobile/core/models/movie.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
@@ -60,25 +59,11 @@ class _MovieListScreenState extends ConsumerState<MovieListScreen> {
     'assets/images/f1.png',
   ];
 
-  bool _showShimmer = false;
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _showShimmer = false;
-        });
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final movieState = ref.watch(movieNotifierProvider);
-    //     if (movieState.isLoading) {
-    //   return FeaturedMovieWidget(showShimmer: true);
+    //     if (movieState.isLoading || movieState.movies.isEmpty) {
+    //   return FeaturedMovieWidget(showShimmer: true, movie:movieState.movies[0]);
     // }
 
     if (movieState.error != null) {
@@ -106,11 +91,13 @@ class _MovieListScreenState extends ConsumerState<MovieListScreen> {
           child: ListView(
             children: [
               //  🟥 Featured Movie Banner
-              FeaturedMovieWidget(
-                movie: numberOneMovie,
-                showShimmer: movieState.isLoading,
-                error: movieState.error,
-              ),
+             
+                FeaturedMovieWidget(
+                  movie: numberOneMovie,
+                  showShimmer: false, // Since loading is false
+                  error: movieState.error,
+                ),
+              
 
               const SizedBox(height: AppSpacing.lg),
 
@@ -198,10 +185,7 @@ class FeaturedMovieWidget extends StatelessWidget {
     }
     return InkWell(
       onTap: () {
-        context.pushNamed(
-          'movieDetails',
-          extra: movie,
-        );
+        context.pushNamed('movieDetails', extra: movie);
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
@@ -326,17 +310,11 @@ class PopularMoviesGrid extends StatelessWidget {
         final movie = movies[index];
         return InkWell(
           onTap: () {
-        context.pushNamed(
-          'movieDetails',
-          extra: movie,
-        );
-      },
+            context.pushNamed('movieDetails', extra: movie);
+          },
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              movie.poster,
-              fit: BoxFit.cover,
-            ),
+            child: Image.network(movie.poster, fit: BoxFit.cover),
           ),
         );
       },

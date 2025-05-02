@@ -27,12 +27,12 @@ class _ClBottomNavBarState extends State<ClBottomNavBar> {
       case 1:  
         context.go('/communities');
         break;
-      // case 2:  
-      //   context.go('/Discussion');
-      //   break;
-      // case 3:  
-      //   context.go('/profile');
-      //   break;
+      case 2:  
+        context.go('/Discussions');
+        break;
+      case 3:  
+        context.go('/profile');
+        break;
       default:
         context.go('/');
         break;

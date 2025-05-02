@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,13 @@ class JoinedCommunitiesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: AppColors.primary,
+        onPressed: () {
+          context.pushNamed('createCommunity');
+        },
+        child: const Icon(Icons.add),
+      ),
       // backgroundColor: Colors.black, // Netflix style
       appBar: AppBar(
         // backgroundColor: Colors.black,
@@ -77,7 +85,7 @@ class JoinedCommunitiesScreen extends StatelessWidget {
                 return Container(
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.1),
-                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                    border: Border.all(color: AppColors.secondary.withOpacity(0.3)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.5),

@@ -6,6 +6,7 @@ import 'package:cluvie_mobile/features/authentication/presentation/onboarding_sc
 import 'package:cluvie_mobile/features/authentication/presentation/sigup_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/splash_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/community_list_screen.dart';
+import 'package:cluvie_mobile/features/communities/presentation/create_community_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/joined_community_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/discussion_list_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_details_screen.dart';
@@ -58,6 +59,13 @@ final router = GoRouter(
       path: '/MovieSearch',
       builder: (context, state) => MovieSearchScreen(),
     ),
+
+     GoRoute(
+      name: RouteNames.createCommunity,
+      path: '/createCommunity',
+      builder: (context, state) => CreateCommunityScreen(),
+    ),
+
 
     // ShellRoute for Bottom Navigation Tabs
     ShellRoute(

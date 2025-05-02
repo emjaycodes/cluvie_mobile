@@ -65,7 +65,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Form(
             key: _formKey,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              
               children: [
                 const Spacer(),
                 Text("Welcome Back 👋", style: AppTextStyles.heading1),

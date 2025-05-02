@@ -1,81 +1,104 @@
-// import 'package:flutter/material.dart';
-// import 'package:go_router/go_router.dart';
-// import '../../../../core/theme/spacing.dart';
-// import '../../../../core/widgets/cl_primary_button.dart';
+import 'package:cluvie_mobile/core/theme/app_spacing.dart';
+import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
-// class CreateCommunityScreen extends StatefulWidget {
-//   const CreateCommunityScreen({super.key});
 
-//   @override
-//   _CreateCommunityScreenState createState() => _CreateCommunityScreenState();
-// }
+class CreateCommunityScreen extends StatefulWidget {
+  const CreateCommunityScreen({super.key});
 
-// class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
-//   final _formKey = GlobalKey<FormState>();
-//   final _communityNameController = TextEditingController();
-//   final _communityDescriptionController = TextEditingController();
+  @override
+  CreateCommunityScreenState createState() => CreateCommunityScreenState();
+}
 
-//   @override
-//   void dispose() {
-//     _communityNameController.dispose();
-//     _communityDescriptionController.dispose();
-//     super.dispose();
-//   }
+class CreateCommunityScreenState extends State<CreateCommunityScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _communityNameController = TextEditingController();
+  final _communityDescriptionController = TextEditingController();
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: const Text("Create New Community"),
-//       ),
-//       body: SafeArea(
-//         child: Padding(
-//           padding: AppSpacing.screenPadding,
-//           child: Form(
-//             key: _formKey,
-//             child: Column(
-//               children: [
-//                 // Community Name
-//                 TextFormField(
-//                   controller: _communityNameController,
-//                   decoration: const InputDecoration(
-//                     labelText: 'Community Name',
-//                     hintText: 'Enter community name',
-//                     border: OutlineInputBorder(),
-//                   ),
-//                   validator: (value) {
-//                     if (value == null || value.isEmpty) {
-//                       return 'Please enter a community name';
-//                     }
-//                     return null;
-//                   },
-//                 ),
-//                 const SizedBox(height: 16),
+  @override
+  void dispose() {
+    _communityNameController.dispose();
+    _communityDescriptionController.dispose();
+    super.dispose();
+  }
 
-//                 // Community Description
-//                 TextFormField(
-//                   controller: _communityDescriptionController,
-//                   decoration: const InputDecoration(
-//                     labelText: 'Community Description',
-//                     hintText: 'Describe your community',
-//                     border: OutlineInputBorder(),
-//                   ),
-//                   validator: (value) {
-//                     if (value == null || value.isEmpty) {
-//                       return 'Please enter a community description';
-//                     }
-//                     return null;
-//                   },
-//                   maxLines: 4,
-//                 ),
-//                 const SizedBox(height: 32),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Create New Community"),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: AppSpacing.clPadding,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                // Community Name
+                TextFormField(
+                  controller: _communityNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Community Name',
+                    hintText: 'Enter community name',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a community name';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
 
-//                 // Submit Button
-//                 ClPrimaryButton(
-//                   text: "Create Community",
-//                   onPressed: _createCommunity,
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ),
+                // Community Description
+                TextFormField(
+                  controller: _communityDescriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Community Description',
+                    hintText: 'Describe your community',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a community description';
+                    }
+                    return null;
+                  },
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 32),
+
+                // Submit Button
+                ClButton(
+                  label: "Create Community",
+                  onPressed: _createCommunity,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+    void _createCommunity() {
+    if (_formKey.currentState?.validate() ?? false) {
+      // Handle community creation logic here
+      final communityName = _communityNameController.text;
+      final communityDescription = _communityDescriptionController.text;
+
+      // For now, just print the values to the console
+      print('Community Name: $communityName');
+      print('Community Description: $communityDescription');
+
+      // Optionally, navigate back or show a success message
+      context.pop();
+    }
+  }
+}
+
+
+
