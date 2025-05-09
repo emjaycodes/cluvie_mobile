@@ -37,7 +37,7 @@ class Movie {
               : 'https://image.tmdb.org/t/p/w500/r46leE6PSzLR3pnVzaxx5Q30yUF.jpg', // Fallback for poster
       backdrop:
           json['backdrop_path'] != null
-              ? 'https://image.tmdb.org/t/p/w500${json['backdrop_path']}'
+              ? 'https://image.tmdb.org/t/p/original${json['backdrop_path']}'
               : 'https://image.tmdb.org/t/p/w500/44YfHklKam8COMUxDZop2Lnp0CS.jpg',
       releaseDate: json['release_date'] ?? '2025-04-24',
       genreIds:

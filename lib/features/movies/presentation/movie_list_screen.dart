@@ -174,8 +174,20 @@ class FeaturedMovieWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (showShimmer) {
-      return Shimmer.fromColors(
+   if (error?.isNotEmpty == true || error != null) {
+      return Center(
+        child: Text(error!, style: const TextStyle(color: Colors.red)),
+      );
+    }
+    return InkWell(
+      onTap: () {
+        context.pushNamed('movieDetails', extra: movie);
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: CachedNetworkImage(
+        imageUrl: movie.poster,
+        placeholder: (context, url) => Shimmer.fromColors(
         baseColor: Colors.grey.shade300,
         highlightColor: Colors.grey.shade100,
         child: Container(
@@ -194,21 +206,7 @@ class FeaturedMovieWidget extends StatelessWidget {
             ],
           ),
         ),
-      );
-    } else if (error?.isNotEmpty == true || error != null) {
-      return Center(
-        child: Text(error!, style: const TextStyle(color: Colors.red)),
-      );
-    }
-    return InkWell(
-      onTap: () {
-        context.pushNamed('movieDetails', extra: movie);
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: CachedNetworkImage(
-        imageUrl: movie.poster,
-        placeholder: (context, url) => CircularProgressIndicator(),
+      ),
         errorWidget: (context, url, error) => Icon(Icons.error),
      ),
         // Image.network(
@@ -235,16 +233,7 @@ class TrendingDiscussionsList extends StatelessWidget {
         itemCount: 5, // Later you replace this with real discussions
         separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, index) {
-          return Shimmer.fromColors(
-            baseColor: Colors.grey.shade300,
-            highlightColor: Colors.grey.shade100,
-            child: Container(
-              width: 200,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.white,
-              ),
-              child: Column(
+          return  Column(
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
@@ -261,9 +250,20 @@ class TrendingDiscussionsList extends StatelessWidget {
                     style: TextStyle(color: Colors.white),
                   ),
                 ],
-              ),
-            ),
-          );
+              );
+          // Shimmer.fromColors(
+          //   baseColor: Colors.grey.shade300,
+          //   highlightColor: Colors.grey.shade100,
+          //   child: Container(
+          //     width: 200,
+          //     decoration: BoxDecoration(
+          //       borderRadius: BorderRadius.circular(12),
+          //       color: Colors.white,
+          //     ),
+              
+              
+          //   ),
+          // );
         },
       ),
     );
@@ -356,7 +356,22 @@ class PopularMoviesGrid extends StatelessWidget {
           },
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(movie.poster, fit: BoxFit.cover),
+            child: CachedNetworkImage(
+        imageUrl: movie.poster,
+        placeholder: (context, url) => Shimmer.fromColors(
+              baseColor: Colors.grey.shade300,
+              highlightColor: Colors.grey.shade100,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                ),
+              ),
+            ),
+        errorWidget: (context, url, error) => Icon(Icons.error),
+     ),
+            
+            //  Image.network(movie.poster, fit: BoxFit.cover),
           ),
         );
       },

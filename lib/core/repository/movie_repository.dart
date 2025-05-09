@@ -29,6 +29,23 @@ class MovieRepository {
     return results.map((e) => Movie.fromJson(e)).toList();
   }
 
+  Future<List<Movie>> fetchTrendingMovies({String timeWindow = 'day'}) async {
+  final response = await _dio.get(
+    'https://api.themoviedb.org/3/trending/movie/$timeWindow',
+    queryParameters: {
+      // 'api_key': apiKey, // if not already added via an interceptor
+      'language': 'en-US',
+    },
+  );
+
+  final results = response.data['results'] as List;
+  return results.map((e) => Movie.fromJson(e)).toList();
+}
+
+// final trendingToday = await fetchTrendingMovies(); // defaults to 'day'
+// final trendingThisWeek = await fetchTrendingMovies(timeWindow: 'week');
+
+
    Future<Map<int, String>> getGenres() async {
     final response = await _dio.get(
       'https://api.themoviedb.org/3/genre/movie/list',

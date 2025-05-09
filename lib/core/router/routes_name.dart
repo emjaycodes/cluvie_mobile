@@ -9,6 +9,10 @@ class RouteNames {
   static const movieSearch = 'movieSearch';
   static const joinedCommunities = 'joinedCommunities';
   static const allCommunities = 'allCommunities';
+  static const communityChat = 'CommunityChat';
+  static const communityInfo = 'communityInfo';
+
+  
 
   static const discussions = 'discussions';
   static const profile = 'profile';

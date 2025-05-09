@@ -1,7 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cluvie_mobile/core/models/movie.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
+import 'package:cluvie_mobile/core/utils/date_time_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
 
 class MovieDetailScreen extends StatelessWidget {
   final Movie movie;
@@ -18,13 +21,24 @@ class MovieDetailScreen extends StatelessWidget {
           headerSliverBuilder:
               (context, innerBoxIsScrolled) => [
                 SliverAppBar(
-                  expandedHeight: 300,
+                  expandedHeight: 200,
                   pinned: true,
                   flexibleSpace: FlexibleSpaceBar(
-                    background: Hero(
-                      tag: movie.id,
-                      child: Image.network(movie.backdrop, fit: BoxFit.cover),
-                    ),
+                    background: CachedNetworkImage(
+                            imageUrl: movie.backdrop,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Shimmer.fromColors(
+                                  baseColor: Colors.grey.shade300,
+                                  highlightColor: Colors.grey.shade100,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                            errorWidget: (context, url, error) => Icon(Icons.error),
+                         ),
                     // title: Text(movie.title),
                   ),
                 ),
@@ -95,7 +109,7 @@ class _MovieInfo extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '${movie.releaseDate} • ${movie.genreNames?.join(', ') ?? ''}',
+            '${DateTimeHelper.getYear(movie.releaseDate)} • ${movie.genreNames?.join(', ') ?? ''}',
             style: AppTextStyles.body.copyWith(color: Colors.grey),
           ),
           const SizedBox(height: 12),

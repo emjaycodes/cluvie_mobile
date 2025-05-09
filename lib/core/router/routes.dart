@@ -5,6 +5,8 @@ import 'package:cluvie_mobile/features/authentication/presentation/login_screen.
 import 'package:cluvie_mobile/features/authentication/presentation/onboarding_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/sigup_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/splash_screen.dart';
+import 'package:cluvie_mobile/features/communities/presentation/community_chat_screen.dart';
+import 'package:cluvie_mobile/features/communities/presentation/community_info_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/community_list_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/create_community_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/joined_community_screen.dart';
@@ -18,6 +20,8 @@ import 'package:go_router/go_router.dart';
 
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
+
+
 
 final router = GoRouter(
   navigatorKey: _rootNavigatorKey,
@@ -60,17 +64,45 @@ final router = GoRouter(
       builder: (context, state) => MovieSearchScreen(),
     ),
 
-     GoRoute(
+    GoRoute(
       name: RouteNames.createCommunity,
       path: '/createCommunity',
       builder: (context, state) => CreateCommunityScreen(),
     ),
 
-     GoRoute(
+    GoRoute(
       name: RouteNames.allCommunities,
       path: '/allCommunities',
       builder: (context, state) => CommunityListScreen(),
     ),
+
+    GoRoute(
+      name: RouteNames.communityChat,
+      path: '/communityChat',
+      builder: (context, state) => CommunityChatScreen(),
+    ),
+
+GoRoute(
+  name: RouteNames.communityInfo,
+  path: '/communityInfo',
+  builder: (context, state) { 
+    final Community community = Community(
+      name: "Sci-Fi",
+      description: "A community for lovers of sci-fi classics and futuristic cinema. Share, discuss, and vote on what to watch next!",
+      imageUrl: 'assets/images/dis.png',
+      membersCount: 2560,
+      postsCount: 732,
+      createdAt: DateTime(2023, 6, 12),
+      isUserMember: true,
+      category: "Movies • Sci-Fi",
+    );
+
+    // Optional: Only use `state.extra` if needed
+    // final movie = state.extra as Movie;
+
+    return CommunityInfoScreen(community: community);
+  },
+),
 
 
     // ShellRoute for Bottom Navigation Tabs

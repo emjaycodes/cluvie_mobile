@@ -8,13 +8,7 @@ class CommunityListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Simulate a list of communities (in a real app, this data would come from the backend)
-    final List<String> communities = [
-      'Movie Buffs',
-      'Sci-Fi Lovers',
-      'Horror Enthusiasts',
-      'Action Movie Fans',
-    ];
+
 
     return
     Scaffold(
@@ -34,10 +28,15 @@ class CommunityListScreen extends StatelessWidget {
             children: [
               // Display the list of communities
               Expanded(
-                child: ListView.builder(
+                child: ListView.separated(
                   itemCount: 4,
+                   separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
                   itemBuilder: (context, index) {
-                    return CommunityCard();
+                    return InkWell(
+                      onTap: () {
+                        print('tappeed');
+                         context.push('/communityChat');},
+                      child: CommunityCard());
                   },
                 ),
               ),
