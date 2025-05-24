@@ -3,15 +3,28 @@ import 'package:dio/dio.dart';
 
 import '../errors/api_exceptions.dart';
 
-class ApiClient {
-  final Dio _dio = Dio(BaseOptions(baseUrl: 'https://api.cluvie.com'));
 
-  Future<Response> post(String path, {Map<String, dynamic>? data}) async {
-    try {
-      return await _dio.post(path, data: data);
-    } catch (e) {
-      throw ApiException.fromDioError(e);
-    }
+class ApiClient {
+  static final ApiClient _instance = ApiClient._internal();
+
+  factory ApiClient() => _instance;
+
+  late final Dio _dio;
+
+  ApiClient._internal() {
+    _dio = Dio(BaseOptions(
+      baseUrl: 'http://localhost:5000/api',
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+    ));
+  }
+
+  void setAuthToken(String token) {
+    _dio.options.headers['Authorization'] = 'Bearer $token';
+  }
+
+  void clearAuthToken() {
+    _dio.options.headers.remove('Authorization');
   }
 
   Future<Response> get(String path, {Map<String, dynamic>? params}) async {
@@ -22,11 +35,29 @@ class ApiClient {
     }
   }
 
-  void setAuthToken(String token) {
-    _dio.options.headers['Authorization'] = 'Bearer $token';
+  Future<Response> post(String path, {Map<String, dynamic>? data}) async {
+    try {
+      return await _dio.post(path, data: data);
+    } catch (e) {
+      throw ApiException.fromDioError(e);
+    }
   }
 
-  void clearAuthToken() {
-    _dio.options.headers.remove('Authorization');
+  Future<Response> put(String path, {Map<String, dynamic>? data}) async {
+    try {
+      return await _dio.put(path, data: data);
+    } catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  Future<Response> delete(String path) async {
+    try {
+      return await _dio.delete(path);
+    } catch (e) {
+      throw ApiException.fromDioError(e);
+    }
   }
 }
+
+

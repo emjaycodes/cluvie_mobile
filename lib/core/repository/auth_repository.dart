@@ -33,7 +33,7 @@ class AuthRepository {
 
     final token = response.data['token'];
     final userJson = response.data['user'];
-
+    
     await _saveToken(token);
     return UserModel.fromJson(userJson);
   }
