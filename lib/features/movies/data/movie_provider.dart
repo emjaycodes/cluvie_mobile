@@ -22,6 +22,7 @@ class MovieNotifier extends StateNotifier<MovieState> {
     try {
       final movies = await movieRepository.fetchAllMovies();
       state = MovieState.success(movies);
+      print('Fetched movies: ${movies.length}');
     } catch (e) {
       state = MovieState.error(e.toString());
     }
@@ -37,12 +38,12 @@ Future<void> fetchMovieDetails(String movieId) async {
   }
 }
 
-  void addMovie(Movie movie) {
-    state = state.copyWith(movies: [...state.movies, movie]);
-  }
+  // void addMovie(Movie movie) {
+  //   state = state.copyWith(movies: [...state.movies, movie]);
+  // }
 
-  void removeMovie(int movieId) {
-    final updated = state.movies.where((m) => m.id != movieId).toList();
-    state = state.copyWith(movies: updated);
-  }
+  // void removeMovie(int movieId) {
+  //   final updated = state.movies.where((m) => m.id != movieId).toList();
+  //   state = state.copyWith(movies: updated);
+  // }
 }

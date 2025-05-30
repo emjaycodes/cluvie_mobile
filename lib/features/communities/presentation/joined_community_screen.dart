@@ -1,14 +1,28 @@
+import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
+import 'package:cluvie_mobile/features/communities/data/comunity_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class JoinedCommunitiesScreen extends StatelessWidget {
+class JoinedCommunitiesScreen extends ConsumerStatefulWidget {
   const JoinedCommunitiesScreen({super.key});
 
   @override
+  ConsumerState<JoinedCommunitiesScreen> createState() => _JoinedCommunitiesScreenConsumerState();
+}
+
+class _JoinedCommunitiesScreenConsumerState extends ConsumerState<JoinedCommunitiesScreen> {
+  @override
   Widget build(BuildContext context) {
+    final community = ref.watch(communityNotifierProvider);
+    if (community.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    } else if (community.error != null) {
+      return Center(child: Text('Error: ${community.error}'));
+    }
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
@@ -82,7 +96,7 @@ class JoinedCommunitiesScreen extends StatelessWidget {
               itemCount: 5, // all joined communities
               separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
               itemBuilder: (context, index) {
-                return CommunityCard();
+                return CommunityCard(community: community.communities[index],);
               },
             ),
           ],
@@ -93,8 +107,9 @@ class JoinedCommunitiesScreen extends StatelessWidget {
 }
 
 class CommunityCard extends StatelessWidget {
+  final Community community; 
   const CommunityCard({
-    super.key,
+    super.key, required this.community,
   });
 
   @override
@@ -126,9 +141,9 @@ class CommunityCard extends StatelessWidget {
             fit: BoxFit.cover,
           ),
         ),
-        title: const Text("Sci-Fi & Fantasy", style: TextStyle(color: Colors.white)),
-        subtitle: const Text(
-          "800 Members · 🔥 Trending discussion",
+        title:  Text(community.name, style: TextStyle(color: Colors.white)),
+        subtitle: Text(
+          '${community.members.length} · 🔥 Trending discussion',
           style: TextStyle(color: Colors.grey),
         ),
         trailing: IconButton(

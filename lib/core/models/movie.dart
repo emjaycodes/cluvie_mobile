@@ -4,12 +4,18 @@ class Movie {
   final String title;
   final String description;
   final String poster;
-  final String backdrop; // Not used in the current implementation
+  final String backdrop;
   final String releaseDate;
   final List<int> genreIds;
-   List<String>? genreNames; 
+  List<String>? genreNames;
   final double rating;
-  final String suggestedBy;
+  // final String addedBy;
+  final int commentCount;
+  final int discussionCount;
+  final int engagementScore;
+  final DateTime createdAt;
+  final int votes;
+  final List<String> voters;
 
   Movie({
     required this.id,
@@ -17,53 +23,73 @@ class Movie {
     required this.title,
     required this.description,
     required this.poster,
-    required this.backdrop, // Optional, not used in the current implementation
+    required this.backdrop,
     required this.releaseDate,
     required this.genreIds,
     this.genreNames,
     required this.rating,
-    required this.suggestedBy,
+    // required this.addedBy,
+    required this.commentCount,
+    required this.discussionCount,
+    required this.engagementScore,
+    required this.createdAt,
+    required this.votes,
+    required this.voters,
   });
 
   factory Movie.fromJson(Map<String, dynamic> json) {
     return Movie(
-      id: json['_id'] ?? '', // from MongoDB
-      tmdbId: json['id'] ?? 0, // from tmdB
+      id: json['_id'] ?? '',
+      tmdbId: json['tmdbId'] ?? 0,
       title: json['title'] ?? 'Unknown Title',
       description: json['overview'] ?? 'No description available',
-      poster:
-          json['poster_path'] != null
-              ? 'https://image.tmdb.org/t/p/w500${json['poster_path']}'
-              : 'https://image.tmdb.org/t/p/w500/r46leE6PSzLR3pnVzaxx5Q30yUF.jpg', // Fallback for poster
-      backdrop:
-          json['backdrop_path'] != null
-              ? 'https://image.tmdb.org/t/p/original${json['backdrop_path']}'
-              : 'https://image.tmdb.org/t/p/w500/44YfHklKam8COMUxDZop2Lnp0CS.jpg',
-      releaseDate: json['release_date'] ?? '2025-04-24',
-      genreIds:
+      poster: (json['posterPath'] != null && json['posterPath'].toString().isNotEmpty)
+          ? 'https://image.tmdb.org/t/p/w500${json['posterPath']}'
+          : 'https://image.tmdb.org/t/p/w500/r46leE6PSzLR3pnVzaxx5Q30yUF.jpg',
+      backdrop: (json['backdropPath'] != null && json['backdropPath'].toString().isNotEmpty)
+          ? 'https://image.tmdb.org/t/p/original${json['backdropPath']}'
+          : 'https://image.tmdb.org/t/p/w500/44YfHklKam8COMUxDZop2Lnp0CS.jpg',
+      releaseDate: json['releaseDate'] ?? 'Unknown Date',
+     genreIds:
           json['genre_ids'] != null
               ? List<int>.from(json['genre_ids'])
-              : [], // Ensure genre IDs are parsed as integers
-      rating:
-          (json['popularity'] as num?)?.toDouble() ?? 0.0, // Rating fallback
-      suggestedBy:
-          json['suggestedBy'] ?? 'John Doe', // From MongoDB or your source
+              : [], 
+      // genreNames: (json['genres'] as List?)?.map((e) => e.toString()).toList(),
+      rating: (json['popularity'] as num?)?.toDouble() ?? 0.0,
+      // addedBy: json['addedBy'] ?? 'Unknown',
+      commentCount: json['commentCount'] ?? 0,
+      discussionCount: json['discussionCount'] ?? 0,
+      engagementScore: json['engagementScore'] ?? 0,
+      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      votes: json['votes'] ?? 0,
+      voters: (json['voters'] as List?)?.map((e) => e.toString()).toList() ?? [],
     );
-  }
+  } 
+  
 
   Map<String, dynamic> toJson() {
     return {
       '_id': id,
-      'id': tmdbId,
+      'tmdbId': tmdbId,
       'title': title,
       'overview': description,
-      'poster_path': poster,
-      'release_date': releaseDate,
+      'posterPath': poster.replaceAll('https://image.tmdb.org/t/p/w500', ''),
+      'backdropPath': backdrop.replaceAll('https://image.tmdb.org/t/p/original', ''),
+      'releaseDate': releaseDate,
       'genre_ids': genreIds,
+      'genres': genreNames,
       'popularity': rating,
-      'suggestedBy': suggestedBy,
+      // 'addedBy': addedBy,
+      'commentCount': commentCount,
+      'discussionCount': discussionCount,
+      'engagementScore': engagementScore,
+      'createdAt': createdAt.toIso8601String(),
+      'votes': votes,
+      'voters': voters,
     };
   }
+
+
 
   // factory Movie.placeholder() {
   //   return Movie(
@@ -75,7 +101,7 @@ class Movie {
   //     releaseDate: '2025-01-01',
   //     genres: [28, 29],
   //     rating: 0.0,
-  //     suggestedBy: 'placeholder_user',
+  //     addedBy: 'placeholder_user',
   //   );
   // }
 }

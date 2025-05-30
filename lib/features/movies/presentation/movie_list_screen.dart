@@ -75,6 +75,31 @@ class _MovieListScreenState extends ConsumerState<MovieListScreen> {
       return const Center(child: Text('No movies available'));
     }
 
+
+    
+    // if (movieState.movies. == null) {
+    //   return Center(child: Shimmer.fromColors(
+    //     baseColor: Colors.grey.shade300,
+    //     highlightColor: Colors.grey.shade100,
+    //     child: Container(
+    //       width: 345,
+    //       height: 487,
+    //       margin: const EdgeInsets.only(bottom: AppSpacing.md),
+    //       decoration: BoxDecoration(
+    //         color: Colors.grey[200],
+    //         borderRadius: BorderRadius.circular(16),
+    //         boxShadow: [
+    //           BoxShadow(
+    //             color: Colors.black.withOpacity(0.5),
+    //             blurRadius: 4,
+    //             offset: const Offset(0, 2),
+    //           ),
+    //         ],
+    //       ),
+    //     ),
+    //   ),);
+    // }
+
     final numberOneMovie = movieState.movies[0];
     return Scaffold(
       appBar: AppBar(

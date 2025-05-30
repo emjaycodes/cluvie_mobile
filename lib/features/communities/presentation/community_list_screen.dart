@@ -1,14 +1,22 @@
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
+import 'package:cluvie_mobile/features/communities/data/comunity_provider.dart';
 import 'package:cluvie_mobile/features/communities/presentation/joined_community_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class CommunityListScreen extends StatelessWidget {
+class CommunityListScreen extends ConsumerStatefulWidget {
   const CommunityListScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  ConsumerState<CommunityListScreen> createState() => _CommunityListScreenConsumerState();
+}
 
+class _CommunityListScreenConsumerState extends ConsumerState<CommunityListScreen> {
+  @override
+  Widget build(BuildContext context) {
+    
+    final community = ref.watch(communityNotifierProvider);
 
     return
     Scaffold(
@@ -36,7 +44,8 @@ class CommunityListScreen extends StatelessWidget {
                       onTap: () {
                         print('tappeed');
                          context.push('/communityChat');},
-                      child: CommunityCard());
+                      // child: CommunityCard(community: community.communities,)
+                      );
                   },
                 ),
               ),

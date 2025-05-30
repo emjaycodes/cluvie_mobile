@@ -43,23 +43,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   AuthNotifier() : super(AuthState()); // initial state is an empty AuthState
 
-  Future<void> login(String email, String password) async {
+  Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true); // Update state to loading
     try {
       final user = await _repository.login(email, password);
+      print("usreeeeeeeee $user");
       state = AuthState.success(user); // Update state to success
+      return true;
     } catch (e) {
       state = AuthState.error("Login failed: ${e.toString()}"); // Update state to error
+      return false;
     }
   }
 
-  Future<void> register(String username, String email, String password) async {
+  Future<bool> register(String username, String email, String password) async {
     state = state.copyWith(isLoading: true); // Update state to loading
     try {
       final user = await _repository.register(username, email, password);
       state = AuthState.success(user); // Update state to success
+      return true;
     } catch (e) {
       state = AuthState.error("Registration failed: ${e.toString()}"); // Update state to error
+      return false;
     }
   }
 

@@ -22,18 +22,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String _email = '';
   String _password = '';
 
+void _handleLogin() async {
+  if (!_formKey.currentState!.validate()) return;
+  _formKey.currentState!.save();
 
-  void _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
-    _formKey.currentState!.save();
+  final success = await ref.read(authNotifierProvider.notifier).login(_email, _password);
 
-     await ref.read(authNotifierProvider.notifier).login("email", "password");
-
-    if (context.mounted) {
-      context.goNamed(RouteNames.movies); // go to home
-    }
+  if (success && context.mounted) {
+    context.goNamed(RouteNames.movies); // Navigate to home
   }
-
+}
   @override
   Widget build(BuildContext context) {
       final authState = ref.watch(authNotifierProvider);

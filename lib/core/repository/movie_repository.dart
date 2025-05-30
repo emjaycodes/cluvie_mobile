@@ -74,42 +74,81 @@ class MovieRepository {
 
   // Refresh movies from TMDB trending endpoint
   Future<int> refreshMovies() async {
+    try{
     final response = await apiClient.get('/movies/refresh');
-    return response.data['count'] as int;
+        return response.data['count'] as int;
+    } catch (e){
+        print('Error fetching communities: $e');
+        rethrow;
+    }
+   
   }
 
   // Get all movies, sorted by votes desc
   Future<List<Movie>> fetchAllMovies() async {
-    final response = await apiClient.get('/movies/list');
+    try{
+        final response = await apiClient.get('/movies/list');
     return (response.data as List).map((json) => Movie.fromJson(json)).toList();
+    }catch (e) {
+      print('Error fetching all movies: ${e.toString()}');
+      rethrow;
+    }
   }
 
   // Get trending movies by engagement score for last week, limit 10
   Future<List<Movie>> fetchTrendingByEngagement() async {
-    final response = await apiClient.get('/movies/trending-engagement');
+    try{
+      final response = await apiClient.get('/movies/trending-engagement');
     return (response.data as List).map((json) => Movie.fromJson(json)).toList();
+    }catch (e) {
+      print('Error fetching trending movies by engagement: $e');
+      rethrow;
+    }
+    
   }
 
   // Get movie details by id
   Future<Movie> fetchMovieDetails(String id) async {
-    final response = await apiClient.get('/movies/$id');
+    try{
+      final response = await apiClient.get('/movies/$id');
     return Movie.fromJson(response.data);
+    }catch (e) {
+      print('Error fetching movie details: $e');
+      rethrow;
+    }
+    
   }
 
   // Delete movie by id (admin only)
   Future<void> deleteMovie(String id) async {
-    await apiClient.delete('/movies/$id');
+    try{
+      await apiClient.delete('/movies/$id');
+    }catch (e) {
+      print('Error deleting movie: $e');
+      rethrow;
+    }
+    
   }
 
   // Vote for a movie (authenticated user)
   Future<int> voteMovie(String id) async {
-    final response = await apiClient.post('/movies/$id/vote');
-    return response.data['votes'] as int;
+    try{
+      final response = await apiClient.post('/movies/$id/vote');
+    return response.data['votes'] as int;}catch (e) {
+      print('Error voting for movie: $e');
+      rethrow;
+    }
+    
   }
 
   // Remove vote from a movie (authenticated user)
   Future<int> downvoteMovie(String id) async {
-    final response = await apiClient.post('/movies/$id/downvote');
-    return response.data['votes'] as int;
+    try{
+      final response = await apiClient.post('/movies/$id/downvote');
+    return response.data['votes'] as int;}catch (e) {
+      print('Error downvoting movie: $e');
+      rethrow;
+    }
+    
   }
 }
