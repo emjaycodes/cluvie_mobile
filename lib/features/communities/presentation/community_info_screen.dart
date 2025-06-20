@@ -1,32 +1,10 @@
 // 📁 community_info_screen.dart
 
+import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 
-// 🧱 MOCK DATA MODEL
-class Community {
-  final String name;
-  final String description;
-  final String imageUrl;
-  final int membersCount;
-  final int postsCount;
-  final DateTime createdAt;
-  final bool isUserMember;
-  final String category;
-
-  Community({
-    required this.name,
-    required this.description,
-    required this.imageUrl,
-    required this.membersCount,
-    required this.postsCount,
-    required this.createdAt,
-    required this.isUserMember,
-    required this.category,
-  });
-}
 
 // 🧩 MAIN SCREEN
 class CommunityInfoScreen extends StatelessWidget {
@@ -53,7 +31,7 @@ class CommunityInfoScreen extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   Image.asset(
-                    community.imageUrl,
+                  'assets/images/dis.png',
                     fit: BoxFit.cover,
                   ),
                   const DecoratedBox(
@@ -79,7 +57,8 @@ class CommunityInfoScreen extends StatelessWidget {
                 children: [
                   // 🔹 Category
                   Text(
-                    community.category.toUpperCase(),
+                    // community.category.toUpperCase(),
+                    "horror".toUpperCase(),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.primary,
                       letterSpacing: 1.2,
@@ -103,12 +82,12 @@ class CommunityInfoScreen extends StatelessWidget {
                       _InfoTile(
                         icon: Icons.people,
                         label: "Members",
-                        value: "${community.membersCount}",
+                        value: "${community.members.length}",
                       ),
                       _InfoTile(
                         icon: Icons.chat_bubble_outline,
                         label: "Posts",
-                        value: "${community.postsCount}",
+                        value: "800",
                       ),
                       _InfoTile(
                         icon: Icons.calendar_today,
@@ -121,11 +100,11 @@ class CommunityInfoScreen extends StatelessWidget {
                    Divider(),
 
                   const SizedBox(height: 24),
-
-                  // 🟧 Conditional Section: Join Button or Admin Tools
-                  community.isUserMember
-                      ? _MemberFeatures()
-                      : _JoinPrompt(community: community),
+                  //   final bool isMember = community.members.contains(); // Replace with actual user ID check
+                  // // 🟧 Conditional Section: Join Button or Admin Tools
+                  // community.
+                      _MemberFeatures(),
+                      // : _JoinPrompt(community: community),
 
                   const SizedBox(height: 24),
 

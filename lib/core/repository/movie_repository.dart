@@ -1,6 +1,5 @@
 import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/models/movie.dart';
-import 'package:dio/dio.dart';
 
 // class MovieRepository {
 //  final _dio = Dio(

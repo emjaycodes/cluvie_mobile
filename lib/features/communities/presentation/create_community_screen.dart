@@ -1,26 +1,57 @@
+import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
+import 'package:cluvie_mobile/features/communities/data/comunity_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-
-class CreateCommunityScreen extends StatefulWidget {
+class CreateCommunityScreen extends ConsumerStatefulWidget {
   const CreateCommunityScreen({super.key});
 
   @override
-  CreateCommunityScreenState createState() => CreateCommunityScreenState();
+  ConsumerState<CreateCommunityScreen> createState() =>
+      _CreateCommunityScreenConsumerState();
 }
 
-class CreateCommunityScreenState extends State<CreateCommunityScreen> {
+class _CreateCommunityScreenConsumerState
+    extends ConsumerState<CreateCommunityScreen> {
   final _formKey = GlobalKey<FormState>();
   final _communityNameController = TextEditingController();
   final _communityDescriptionController = TextEditingController();
+
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
     _communityNameController.dispose();
     _communityDescriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _createCommunity() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSubmitting = true);
+
+    final name = _communityNameController.text.trim();
+    final description = _communityDescriptionController.text.trim();
+
+    try {
+
+      await ref.read(joinedCommunitiesProvider.notifier).createCommunity(
+        name,
+        description,
+      );
+      context.pop(); // Go back after successful creation
+    } catch (e) {
+      // Show snackbar or error dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -70,8 +101,8 @@ class CreateCommunityScreenState extends State<CreateCommunityScreen> {
 
                 // Submit Button
                 ClButton(
-                  label: "Create Community",
-                  onPressed: _createCommunity,
+                  label: _isSubmitting ? "Creating..." : "Create Community",
+                  onPressed: _isSubmitting ? (){} : _createCommunity,
                 ),
               ],
             ),
@@ -80,22 +111,4 @@ class CreateCommunityScreenState extends State<CreateCommunityScreen> {
       ),
     );
   }
-  
-    void _createCommunity() {
-    if (_formKey.currentState?.validate() ?? false) {
-      // Handle community creation logic here
-      final communityName = _communityNameController.text;
-      final communityDescription = _communityDescriptionController.text;
-
-      // For now, just print the values to the console
-      print('Community Name: $communityName');
-      print('Community Description: $communityDescription');
-
-      // Optionally, navigate back or show a success message
-      context.pop();
-    }
-  }
 }
-
-
-

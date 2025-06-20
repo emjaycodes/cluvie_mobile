@@ -1,6 +1,5 @@
 import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/models/community.dart';
-import 'package:dio/dio.dart';
 
 class CommunityRepository {
   // final Dio _dio;
@@ -12,17 +11,31 @@ class CommunityRepository {
 
 
   // Fetch all communities
-  Future<List<Community>> fetchCommunities() async {
+  Future<List<Community>> fetchJoinedCommunities() async {
     try {
       final response = await _apiClient.get('/communities/joined');
-      final data = response.data as List;
-      return data.map((json) => Community.fromJson(json)).toList();
+      final data = response.data;
+      final communityList = data['communities'] as List;
+      final communities = communityList.map((json) => Community.fromJson(json)).toList();
+      return communities;
     } catch (e) {
       print('Error fetching communities: $e');
       rethrow;
     }
   }
 
+  Future<List<Community>> fetchAllCommunities() async {
+    try {
+      final response = await _apiClient.get('/communities/all');
+      final data = response.data;
+      final communityList = data['communities'] as List;
+      final communities = communityList.map((json) => Community.fromJson(json)).toList();
+      return communities;
+    } catch (e) {
+      print('Error fetching communities: $e');
+      rethrow;
+    }
+  }
 
 
   // Fetch a single community by ID
@@ -37,13 +50,20 @@ class CommunityRepository {
   }
 
   // Create a new community
-  Future<Community> createCommunity(Community community) async {
+  Future<Community> createCommunity(String name, String description) async {
     try {
       final response = await _apiClient.post(
         '/communities',
-        data: community.toJson(),
+        data: {
+          'name': name,
+          'description': description,
+        }
       );
-      return Community.fromJson(response.data);
+      final data = response.data;
+      final community= data['community'];
+      print('✅ Success: ${response.data}');
+      return Community.fromJson(community);
+      
     } catch (e) {
       print('Error creating community: $e');
       rethrow;

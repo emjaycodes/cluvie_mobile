@@ -7,8 +7,8 @@ import 'package:cluvie_mobile/core/router/routes_name.dart';
 import 'package:go_router/go_router.dart';
 
 class CommunityChatScreen extends StatefulWidget {
-  const CommunityChatScreen({super.key});
-
+  const CommunityChatScreen({super.key, required this.community});
+   final Community community;
   @override
   State<CommunityChatScreen> createState() => _CommunityChatScreenState();
 }
@@ -185,7 +185,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
                       decoration: InputDecoration(
                         hintText: "Write a message...",
                         filled: true,
-                        fillColor: theme.colorScheme.surfaceVariant,
+                        fillColor: theme.colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide.none,
@@ -327,7 +327,7 @@ class ChatBubble extends StatelessWidget {
     final bgColor =
         isMe
             ? theme.colorScheme.primary.withOpacity(0.9)
-            : theme.colorScheme.surfaceVariant;
+            : theme.colorScheme.surfaceContainerHighest;
     final textColor = isMe ? Colors.white : Colors.black87;
 
     return GestureDetector(
@@ -466,7 +466,7 @@ class _ThreadBottomSheetState extends State<ThreadBottomSheet> {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: theme.colorScheme.background,
+            color: theme.colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
@@ -513,7 +513,7 @@ class _ThreadBottomSheetState extends State<ThreadBottomSheet> {
                         decoration: InputDecoration(
                           hintText: "Write a reply...",
                           filled: true,
-                          fillColor: theme.colorScheme.surfaceVariant,
+                          fillColor: theme.colorScheme.surfaceContainerHighest,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
                             borderSide: BorderSide.none,
@@ -559,7 +559,7 @@ class _ReplyBubble extends StatelessWidget {
           color:
               isMe
                   ? theme.colorScheme.primary.withOpacity(0.85)
-                  : theme.colorScheme.surfaceVariant,
+                  : theme.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -597,7 +597,7 @@ class _ParentMessageCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.7),
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.7),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

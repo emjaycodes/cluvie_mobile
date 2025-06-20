@@ -13,10 +13,32 @@ class ApiClient {
 
   ApiClient._internal() {
     _dio = Dio(BaseOptions(
-      baseUrl: 'http://192.168.126.216:5000/api',
+      baseUrl: 'http://192.168.1.55:5000/api',
       connectTimeout: const Duration(days: 1),
       // receiveTimeout: const Duration(seconds: 10),
     ));
+  }
+
+  void setupDioLogging() {
+  _dio.interceptors.add(InterceptorsWrapper(
+    onRequest: (options, handler) {
+      print('➡️ REQUEST[${options.method}] => PATH: ${options.uri}');
+      print('Headers: ${options.headers}');
+      print('Data: ${options.data}');
+      return handler.next(options);
+    },
+    onResponse: (response, handler) {
+      print('✅ RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.uri}');
+      print('Data: ${response.data}');
+      return handler.next(response);
+    },
+    onError: (DioException e, handler) {
+      print('❌ ERROR[${e.response?.statusCode}] => PATH: ${e.requestOptions.uri}');
+      print('Message: ${e.message}');
+      print('Error Data: ${e.response?.data}');
+      return handler.next(e);
+    },
+  ));
   }
 
   void setAuthToken(String token) {
@@ -31,7 +53,7 @@ class ApiClient {
     try {
       return await _dio.get(path, queryParameters: params);
     } catch (e) {
-      throw ApiException.fromDioError(e);
+      throw ApiException.fromDio(e);
     }
   }
 
@@ -39,7 +61,7 @@ class ApiClient {
     try {
       return await _dio.post(path, data: data);
     } catch (e) {
-      throw ApiException.fromDioError(e);
+      throw ApiException.fromDio(e);
     }
   }
 
@@ -47,7 +69,7 @@ class ApiClient {
     try {
       return await _dio.put(path, data: data);
     } catch (e) {
-      throw ApiException.fromDioError(e);
+      throw ApiException.fromDio(e);
     }
   }
 
@@ -55,7 +77,7 @@ class ApiClient {
     try {
       return await _dio.delete(path);
     } catch (e) {
-      throw ApiException.fromDioError(e);
+      throw ApiException.fromDio(e);
     }
   }
 }

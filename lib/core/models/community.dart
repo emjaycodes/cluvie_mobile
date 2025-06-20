@@ -24,8 +24,13 @@ class Community {
       id: json['_id'],
       name: json['name'],
       description: json['description'],
-      members: List<String>.from(json['members'] ?? []),
-      admins: List<String>.from(json['admins'] ?? []),
+         members: (json['members'] as List<dynamic>?)
+        ?.map((e) => e['user'] as String)
+        .toList() ?? [],
+    admins: (json['members'] as List<dynamic>?)
+        ?.where((e) => e['role'] == 'admin')
+        .map((e) => e['user'] as String)
+        .toList() ?? [],
       votes: List<String>.from(json['votes'] ?? []),
       movieSuggestions: List<String>.from(json['movie_suggestions'] ?? []),
       createdAt: DateTime.parse(json['createdAt']),

@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/models/movie.dart';
 import 'package:cluvie_mobile/core/router/routes_name.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_bottom_nav_bar.dart';
@@ -79,27 +80,16 @@ final router = GoRouter(
     GoRoute(
       name: RouteNames.communityChat,
       path: '/communityChat',
-      builder: (context, state) => CommunityChatScreen(),
+      builder: (context, state) {  
+        final community = state.extra as Community;
+    return CommunityChatScreen(community:community );},
     ),
 
 GoRoute(
   name: RouteNames.communityInfo,
   path: '/communityInfo',
   builder: (context, state) { 
-    final Community community = Community(
-      name: "Sci-Fi",
-      description: "A community for lovers of sci-fi classics and futuristic cinema. Share, discuss, and vote on what to watch next!",
-      imageUrl: 'assets/images/dis.png',
-      membersCount: 2560,
-      postsCount: 732,
-      createdAt: DateTime(2023, 6, 12),
-      isUserMember: true,
-      category: "Movies • Sci-Fi",
-    );
-
-    // Optional: Only use `state.extra` if needed
-    // final movie = state.extra as Movie;
-
+      final community = state.extra as Community;
     return CommunityInfoScreen(community: community);
   },
 ),

@@ -1,5 +1,4 @@
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
-import 'package:cluvie_mobile/core/models/movie.dart';
 import 'package:cluvie_mobile/core/repository/movie_repository.dart';
 import 'package:cluvie_mobile/features/movies/states/movie_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
