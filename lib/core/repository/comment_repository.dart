@@ -6,11 +6,11 @@ class CommentRepository {
   final ApiClient _apiClient;
   CommentRepository({required ApiClient apiClient}) : _apiClient = apiClient;
 
-  /// Fetch all comments for a movie
-  Future<List<MovieComment>> fetchComments(String movieId) async {
+  // Fetch all comments for a movie
+  Future<List<MovieComment>> fetchMovieComments(String movieId) async {
     try {
       final response = await _apiClient.get('/movies/$movieId/comments');
-      if (response.statusCode == 200) {
+      if (response.statusCode == 201) {
         final data = response.data as List;
         return data.map((json) => MovieComment.fromJson(json)).toList();
       } else {
@@ -25,8 +25,8 @@ class CommentRepository {
     }
   }
 
-  /// Create a new comment for a movie
-  Future<MovieComment> createComment(String movieId, String text) async {
+  // Create a new comment for a movie
+  Future<MovieComment> createMovieComment(String movieId, String text) async {
     try {
       final response = await _apiClient.post(
         '/movies/$movieId/comments',
@@ -46,27 +46,9 @@ class CommentRepository {
     }
   }
 
-  // Get all comments for a movie
-  Future<List<MovieComment>> getAllComments(String movieId) async {
-    try {
-      final response = await _apiClient.get('/movies/$movieId/comments');
-      if (response.statusCode == 200) {
-        final data = response.data as List;
-        return data.map((json) => MovieComment.fromJson(json)).toList();
-      } else {
-        throw ApiException(
-          message: response.statusMessage!,
-          statusCode: response.statusCode,
-        );
-      }
-    } catch (e) {
-      print('Error fetching all comments: $e');
-      rethrow;
-    }
-  }
 
-  /// Delete a comment by ID (admin or owner)
-  Future<void> deleteComment(String commentId) async {
+  // Delete a comment by ID (admin or owner)
+  Future<void> deleteMovieComment(String commentId) async {
     try {
       final response = await _apiClient.delete('/comments/$commentId');
       if (response.statusCode != 204) {
