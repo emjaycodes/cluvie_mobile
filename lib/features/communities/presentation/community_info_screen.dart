@@ -226,10 +226,14 @@ class _ActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ActionChip(
-      label: Text(label),
-      avatar: Icon(icon, size: 18),
-      onPressed: () {},
+    return Container(
+      width: 174,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ActionChip(
+        label: Text(label),
+        avatar: Icon(icon, size: 18),
+        onPressed: () {},
+      ),
     );
   }
 }

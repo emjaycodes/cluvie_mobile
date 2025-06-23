@@ -133,7 +133,8 @@ class MovieRepository {
   Future<int> voteMovie(String id) async {
     try{
       final response = await apiClient.post('/movies/$id/vote');
-    return response.data['votes'] as int;}catch (e) {
+    return response.data['votes'] as int;}
+    catch (e) {
       print('Error voting for movie: $e');
       rethrow;
     }
@@ -148,6 +149,6 @@ class MovieRepository {
       print('Error downvoting movie: $e');
       rethrow;
     }
-    
   }
+
 }

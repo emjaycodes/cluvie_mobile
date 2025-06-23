@@ -18,16 +18,16 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
   final TextEditingController messageController = TextEditingController();
 
   bool isTyping = false;
-  final Community community =  Community(
-    id: '682abc123def456ghi789jkl',
-    name: 'Action Movie Fans',
-    description: 'Explosions, car chases, and muscle. That’s our vibe.',
-    members: ['user4', 'user5'],
-    admins: ['user4'],
-    votes: [],
-    movieSuggestions: ['movie3'],
-    createdAt: DateTime.now().subtract(Duration(days: 2)),
-  );
+  // final Community community =  Community(
+  //   id: '682abc123def456ghi789jkl',
+  //   name: 'Action Movie Fans',
+  //   description: 'Explosions, car chases, and muscle. That’s our vibe.',
+  //   members: ['user4', 'user5'],
+  //   admins: ['user4'],
+  //   votes: [],
+  //   movieSuggestions: ['movie3'],
+  //   createdAt: DateTime.now().subtract(Duration(days: 2)),
+  // );
   
   @override
   void initState() {
@@ -134,7 +134,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
       body: Column(
         children: [
           // 🟩 App Bar Section
-          SliverAppBarSection(community: community),
+          SliverAppBarSection(community: widget.community),
 
           // 🟦 Typing Indicator or pinned message
           if (isTyping)

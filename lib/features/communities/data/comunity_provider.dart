@@ -23,6 +23,12 @@ class AllCommunitiesNotifier extends AsyncNotifier<List<Community>> {
     _repository = CommunityRepository(apiClient: apiClient);
     return await _repository.fetchAllCommunities();
   }
+
+  /// 🔁 Refresh the list
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() => _repository.fetchAllCommunities());
+  }
 }
 
 class JoinedCommunityNotifier extends AsyncNotifier<List<Community>> {

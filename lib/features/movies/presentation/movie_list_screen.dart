@@ -116,7 +116,7 @@ class _MovieListScreenState extends ConsumerState<MovieListScreen> {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: ListView(
             children: [
-              //  🟥 Featured Movie Banner
+              //   Featured Movie Banner
               FeaturedMovieWidget(
                 movie: numberOneMovie,
                 showShimmer: false, // Since loading is false

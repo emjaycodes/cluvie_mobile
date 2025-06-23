@@ -12,6 +12,8 @@ class CommunityListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+
+   
     final allCommunityAsync = ref.watch(allCommunitiesProvider);
 
     return Scaffold(
@@ -19,50 +21,64 @@ class CommunityListScreen extends ConsumerWidget {
         title: const Text("Communities"),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: AppSpacing.clPadding,
-          child: allCommunityAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text("Error: $e")),
-            data: (communities) {
-              if (communities.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        "No communities yet.",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(height: 24),
-                      ClButton(
-                        onPressed: () => context.push('/create-community'),
-                        label: "Create a Community",
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return Column(
+        child: RefreshIndicator(
+          onRefresh:  () => ref.refresh(allCommunitiesProvider.future),
+          child: Padding(
+            padding: AppSpacing.clPadding,
+            child: allCommunityAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Column(
                 children: [
-                  Expanded(
-                    child: ListView.separated(
-                      itemCount: communities.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-                      itemBuilder: (context, index) {
-                        final community = communities[index];
-                        return InkWell(
-                          onTap: () => context.push('/communityChat'),
-                          child: CommunityCard(community: community),
-                        );
-                      },
+                  Text("Error: $e"),
+          
+                  ElevatedButton(
+                      onPressed: () =>
+                        ref.refresh(allCommunitiesProvider.future),
+                      
+                      child: Text("Retry"),
                     ),
-                  ),
-                  const SizedBox(height: 32),
                 ],
-              );
-            },
+              )),
+              data: (communities) {
+                if (communities.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          "No communities yet.",
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 24),
+                        ClButton(
+                          onPressed: () => context.push('/create-community'),
+                          label: "Create a Community",
+                        ),
+                      ],
+                    ),
+                  );
+                }
+          
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: communities.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+                        itemBuilder: (context, index) {
+                          final community = communities[index];
+                          return InkWell(
+                            onTap: () => context.push('/communityChat', extra: community),
+                            child: CommunityCard(community: community),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),

@@ -123,7 +123,7 @@ GoRoute(
           name: RouteNames.profile,
           path: '/profile',
           parentNavigatorKey: _shellNavigatorKey,
-          builder: (context, state) => const ProfileScreen(),
+          builder: (context, state) => const ProfileScreen(username: 'jay', email: 'justicethedev@gmail.com', joinedCommunities: 4, totalPosts: 18,),
         ),
       ],
     ),

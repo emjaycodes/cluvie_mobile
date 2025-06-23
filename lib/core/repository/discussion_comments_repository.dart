@@ -1,10 +1,10 @@
 import 'package:cluvie_mobile/core/models/discussion_comments.dart';
 import 'package:dio/dio.dart';
 
-class DiscussionCommentRepository {
+class CommentRepository {
   final Dio _dio;
 
-  DiscussionCommentRepository({Dio? dio}) : _dio = dio ?? Dio();
+  CommentRepository({Dio? dio}) : _dio = dio ?? Dio();
 
   /// Fetch all comments for a discussion
   Future<List<DiscussionComment>> fetchComments(String discussionId) async {
