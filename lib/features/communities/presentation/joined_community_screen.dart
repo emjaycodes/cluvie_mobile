@@ -17,12 +17,12 @@ class JoinedCommunitiesScreen extends ConsumerWidget {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.accent,
         onPressed: () => context.pushNamed('createCommunity'),
         child: const Icon(Icons.add),
       ),
       appBar: AppBar(
-        title: const Text("Your Communities", style: AppTextStyles.appBarTitle),
+        title:  Text("Your Communities", style: AppTextStyles.appBarTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -67,7 +67,7 @@ class JoinedCommunitiesScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 🔹 Continue Participating (placeholder content)
-                  const Text("Continue Participating",
+                   Text("Continue Participating",
                       style: AppTextStyles.heading2),
                   const SizedBox(height: AppSpacing.sm),
                   SizedBox(
@@ -84,7 +84,7 @@ class JoinedCommunitiesScreen extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.lg),
 
                   // 🟦 All Joined Communities
-                  const Text("All Joined Communities",
+                   Text("All Joined Communities",
                       style: AppTextStyles.heading2),
                   const SizedBox(height: AppSpacing.sm),
                   ListView.separated(
@@ -145,7 +145,7 @@ class CommunityCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.1),
-          border: Border.all(color: AppColors.secondary.withOpacity(0.3)),
+          border: Border.all(color: AppColors.accent.withOpacity(0.3)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.5),

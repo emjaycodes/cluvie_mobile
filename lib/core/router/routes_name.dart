@@ -3,6 +3,7 @@ class RouteNames {
   static const login = 'login';
   static const signup = 'signup';
   static const forgotPassword = 'forgotPassword';
+  static const welcome = 'welcome';  
 
   static const home = 'home';
   static const movies = 'movies';

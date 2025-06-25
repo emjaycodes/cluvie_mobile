@@ -6,6 +6,7 @@ import 'package:cluvie_mobile/features/authentication/presentation/login_screen.
 import 'package:cluvie_mobile/features/authentication/presentation/onboarding_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/sigup_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/splash_screen.dart';
+import 'package:cluvie_mobile/features/authentication/presentation/welcome_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/community_chat_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/community_info_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/community_list_screen.dart';
@@ -26,7 +27,7 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final router = GoRouter(
   navigatorKey: _rootNavigatorKey,
-  initialLocation: '/login',
+  initialLocation: '/welcome',
   routes: [
     GoRoute(
       path: '/',
@@ -37,6 +38,11 @@ final router = GoRouter(
       name: RouteNames.splash,
       path: '/splash',
       builder: (context, state) => const SplashScreen(),
+    ),
+    GoRoute(
+      name: RouteNames.welcome,
+      path: '/welcome',
+      builder: (context, state) => const WelcomeScreen(),
     ),
     GoRoute(
       name: RouteNames.login,

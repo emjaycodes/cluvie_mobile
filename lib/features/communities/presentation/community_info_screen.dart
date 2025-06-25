@@ -209,7 +209,7 @@ class _JoinPrompt extends StatelessWidget {
           label: const Text("Join Community"),
           style: ElevatedButton.styleFrom(
             minimumSize: const Size(double.infinity, 48),
-            backgroundColor: AppColors.primary,
+            backgroundColor: AppColors.cinematicPurple,
           ),
         ),
       ],

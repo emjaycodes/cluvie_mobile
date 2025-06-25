@@ -21,7 +21,7 @@ Future<void> showClDialog({
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
+            backgroundColor: AppColors.cinematicPurple,
           ),
           onPressed: () {
             Navigator.pop(context);

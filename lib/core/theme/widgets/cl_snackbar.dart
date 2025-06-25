@@ -9,9 +9,9 @@ void showCluvieSnackBar({
   ClSnackType type = ClSnackType.info,
 }) {
   final color = switch (type) {
-    ClSnackType.success => Colors.green,
-    ClSnackType.error => Colors.red,
-    ClSnackType.info => AppColors.primary,
+    ClSnackType.success => AppColors.success,
+    ClSnackType.error => AppColors.error,
+    ClSnackType.info => AppColors.cinematicPurple,
   };
 
   ScaffoldMessenger.of(context).showSnackBar(

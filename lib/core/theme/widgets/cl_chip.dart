@@ -1,5 +1,5 @@
-import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:flutter/material.dart';
+import 'package:cluvie_mobile/core/theme/app_color.dart';
 
 class ClChip extends StatelessWidget {
   final String label;
@@ -21,20 +21,22 @@ class ClChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         margin: const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary :Theme.of(context).brightness == Brightness.dark
-      ? AppColors.backgroundDark
-      : AppColors.backgroundLight,
+          color: isSelected
+              ? AppColors.cinematicPurple
+              : AppColors.lightBackground,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.primary :Theme.of(context).brightness == Brightness.dark
-      ? AppColors.borderDark
-      : AppColors.borderLight,
+            color: isSelected
+                ? AppColors.cinematicPurple
+                : AppColors.lightBorder,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : AppColors.textPrimaryDark,
+            color: isSelected
+                ? Colors.white
+                : AppColors.lightTextSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),

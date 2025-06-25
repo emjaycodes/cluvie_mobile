@@ -6,26 +6,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cluvie_mobile/core/repository/comment_repository.dart';
 
-// final movieCommentsProvider =
-//   AsyncNotifierProvider.family<MovieCommentNotifier, List<MovieComment>, String>(
-//     MovieCommentNotifier(movieId: sr ),
-// );
+final movieCommentsProvider =
+    AsyncNotifierProvider.family<MovieCommentNotifier, List<MovieComment>, String>(
+  MovieCommentNotifier.new,
+);
 
-class MovieCommentNotifier extends AsyncNotifier<List<MovieComment>> {
+class MovieCommentNotifier extends FamilyAsyncNotifier<List<MovieComment>, String> {
 
   late final CommentRepository _repository;
-
-  final String movieId;
-  MovieCommentNotifier({required this.movieId});
+  late final String movieId;
 
 
   @override
-  Future<List<MovieComment>> build() async {
+  Future<List<MovieComment>> build(String arg) async {
     final apiClient = ref.read(apiClientProvider);
-    final movie = ref.watch(movieNotifierProvider);
-    final movieId = movie.
+ 
+    movieId = arg;
     _repository = CommentRepository(apiClient: apiClient);
-    return await _repository.fetchMovieComments(movieId.);
+    return await _repository.fetchMovieComments(movieId);
   }
 
   /// 🔁 Refresh the list of comments

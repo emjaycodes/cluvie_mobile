@@ -70,7 +70,7 @@ class Pages extends StatelessWidget {
         child:  Text(
               "skip",
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.cinematicPurple),
             ),
       ),
     ),

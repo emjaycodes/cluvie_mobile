@@ -60,7 +60,7 @@ class MovieDetailScreen extends StatelessWidget {
                         indicator: BoxDecoration(
                           color:
                               AppColors
-                                  .primary, // Change to your desired selected tab color
+                                  .cinematicPurple, // Change to your desired selected tab color
                           borderRadius: BorderRadius.circular(
                             8,
                           ), // Optional: Rounded corners

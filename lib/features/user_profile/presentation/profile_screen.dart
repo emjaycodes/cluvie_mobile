@@ -22,7 +22,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile', style: AppTextStyles.appBarTitle),
+        title:  Text('Profile', style: AppTextStyles.appBarTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -41,7 +41,7 @@ class ProfileScreen extends StatelessWidget {
             // Avatar
             CircleAvatar(
               radius: 48,
-              backgroundColor: AppColors.primary,
+              backgroundColor: AppColors.cinematicPurple,
               child: Text(
                 username[0].toUpperCase(),
                 style: const TextStyle(fontSize: 32, color: Colors.white),
@@ -74,7 +74,7 @@ class ProfileScreen extends StatelessWidget {
                 icon: const Icon(Icons.edit),
                 label: const Text("Edit Profile"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: AppColors.cinematicPurple,
                   minimumSize: const Size(double.infinity, 48),
                 ),
                 onPressed: () {

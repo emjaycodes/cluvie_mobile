@@ -1,41 +1,38 @@
 import 'package:flutter/material.dart';
-
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTextStyles {
-  static const TextStyle appBarTitle = TextStyle(
+  static final TextStyle appBarTitle = GoogleFonts.quicksand(
     fontSize: 24,
     fontWeight: FontWeight.w600,
-    
   );
 
-  static const TextStyle heading1 = TextStyle(
+  static final TextStyle heading1 = GoogleFonts.quicksand(
     fontSize: 32,
     fontWeight: FontWeight.w900,
-   
   );
 
-  static const TextStyle heading2 = TextStyle(
+  static final TextStyle heading2 = GoogleFonts.quicksand(
     fontSize: 24,
     fontWeight: FontWeight.w600,
-    
   );
 
-  static const TextStyle body = TextStyle(
+  static final TextStyle body = GoogleFonts.quicksand(
     fontSize: 16,
-    
+    fontWeight: FontWeight.w400,
   );
 
-  static const TextStyle caption = TextStyle(
+  static final TextStyle caption = GoogleFonts.quicksand(
     fontSize: 13,
+    fontWeight: FontWeight.w400,
   );
 
-  static const TextStyle button = TextStyle(
-  fontSize: 16,
-  fontWeight: FontWeight.w600,
- 
-);
+  static final TextStyle button = GoogleFonts.quicksand(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  );
 
-  static TextTheme get textTheme => const TextTheme(
+  static TextTheme get textTheme => TextTheme(
         titleLarge: heading1,
         titleMedium: heading2,
         bodyLarge: body,

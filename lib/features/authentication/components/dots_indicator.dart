@@ -15,7 +15,7 @@ class DotsIndicatorWidget extends StatelessWidget {
   position: currentPage.toDouble(),
   decorator: DotsDecorator(
     color: Colors.grey, // Inactive color
-    activeColor:AppColors.primary,
+    activeColor:AppColors.cinematicPurple,
   ),
 );
   }

@@ -30,8 +30,8 @@ class ClTextField extends StatelessWidget {
             style:  TextStyle(
               fontWeight: FontWeight.w500,
               color: Theme.of(context).brightness == Brightness.dark
-      ? AppColors.textSecondaryDark
-      : AppColors.textSecondaryLight,
+      ? AppColors.darkTextSecondary
+      : AppColors.lightTextSecondary,
               fontSize: 14,
             )),
         const SizedBox(height: 6),
