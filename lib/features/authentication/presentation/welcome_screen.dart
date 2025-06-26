@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/core/router/routes_name.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
@@ -25,18 +26,25 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           child: Column(
             children: [
               Text("CLUVIE🍿", style: AppTextStyles.heading1),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.xs * 5),
               Text("Join the club", style: AppTextStyles.heading1),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                          "Log in to continue using Cluvie.",
-                          style: AppTextStyles.heading2,
-                        ),
+                "Sign up to start suggesting, voting and discussing your favorite films.",
+                style: AppTextStyles.heading2.copyWith(
+                  fontSize: 17,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.xl * 2),
+
               Center(
                 child: AuthGlassmorphicContainer(
+                  width: double.infinity,
+                  height: 380,
                   child: Column(
-                    
                     children: [
+                      const SizedBox(height: AppSpacing.xl ),
                       AuthButton(
                         label: 'Continue with Apple',
                         onPressed: () {},
@@ -46,10 +54,6 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                           height: 24,
                         ),
                         color: AppColors.black,
-                        // style: ElevatedButton.styleFrom(
-                        //   backgroundColor: Colors.black,
-                        //   foregroundColor: Colors.white,
-                        // ),
                       ),
 
                       SizedBox(height: 16),
@@ -63,32 +67,38 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                           height: 24,
                         ),
                         color: AppColors.darkSurface,
-
                       ),
 
-                      SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Divider(
+                                color: AppColors.darkBorder,
+                                thickness: 1,
+                                endIndent: 8,
+                                indent: 32,
+                              ),
+                            ),
+                            const Text(
+                              'or',
+                              style: TextStyle(
+                                color: AppColors.white,
 
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Divider(
-                            color: Colors.white,
-                            thickness: 1,
-                            endIndent: 8,
-                            indent: 8,
-                          ),
-                          const Text(
-                            'or',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                          const SizedBox(width: 8),
-                          Divider(
-                            color: Colors.white,
-                            thickness: 1,
-                            endIndent: 8,
-                            indent: 8,
-                          ),
-                        ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(
+                                color: AppColors.darkBorder,
+                                thickness: 1,
+                                indent: 8,
+                                endIndent: 32,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       AuthButton(
@@ -96,6 +106,16 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                         onPressed: () => context.pushNamed('signup'),
                         icon: Icon(Icons.email, size: 24, color: Colors.white),
                         color: AppColors.darkSurface,
+                      ),
+
+                      const SizedBox(height: AppSpacing.xl ),
+
+                      Text("Already have an account?"),
+                      // const SizedBox(width: AppSpacing.xs),
+                      TextButton(
+                        onPressed:
+                            () => context.pushNamed(RouteNames.login),
+                        child: const Text("Log in"),
                       ),
                     ],
                   ),
@@ -127,7 +147,10 @@ class AuthButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ElevatedButton.icon(
-      label: Text(label, style: AppTextStyles.button.copyWith(color: AppColors.darkTextPrimary)),
+      label: Text(
+        label,
+        style: AppTextStyles.button.copyWith(color: AppColors.darkTextPrimary),
+      ),
       onPressed: onPressed ?? () {},
       icon: icon,
       style:

@@ -98,7 +98,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                               : 'Enter valid email',
                                 ),
                                 const SizedBox(height: 16),
-                                                      
+
                                 // Password
                                 TextFormField(
                                   decoration: const InputDecoration(
@@ -125,16 +125,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   ],
                                 ),
-                                                      
+
                                 const SizedBox(height: AppSpacing.sm),
                                 // Login Button
                                 ClButton(
                                   label: 'Log in',
                                   onPressed: _handleLogin,
                                 ),
-                                                      
+
                                 const SizedBox(height: AppSpacing.md),
-                                                      
+
                                 // Links
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -240,38 +240,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
 class AuthGlassmorphicContainer extends StatelessWidget {
   final Widget? child;
+  final double? width;
+  final double? height;
+
   const AuthGlassmorphicContainer({
-    super.key, this.child,
+    super.key,
+    this.child,
+    this.width,
+    this.height,
   });
 
   @override
   Widget build(BuildContext context) {
     return GlassmorphicContainer(
-      width: 427.5,
-      height: 427.5,
+      width: width ?? 427.5,
+      height: height ?? 427.5,
       borderRadius: 20,
       linearGradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
           Colors.white.withOpacity(0.1),
-          Colors.purpleAccent.withOpacity(
-            0.05,
-          ), // adds a subtle hue
+          Colors.purpleAccent.withOpacity(0.05), // adds a subtle hue
         ],
       ),
       border: 1,
       blur: 10,
       borderGradient: LinearGradient(
-        colors: [
-          Colors.white.withOpacity(0.2),
-          Colors.white.withOpacity(0.05),
-        ],
+        colors: [Colors.white.withOpacity(0.2), Colors.white.withOpacity(0.05)],
       ),
-      child: Padding(
-        padding: AppSpacing.clPadding,
-        child: child,
-      )
+      child: Padding(padding: AppSpacing.clPadding, child: child),
     );
   }
 }

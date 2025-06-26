@@ -75,10 +75,10 @@ class AppTheme {
       seedColor: AppColors.accent,
       brightness: Brightness.dark,
     ),
-    scaffoldBackgroundColor: AppColors.darkBackground,
+    scaffoldBackgroundColor: AppColors.cinematicPurple,
 
     appBarTheme: AppBarTheme(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: AppColors.cinematicPurple,
       elevation: 0,
       titleTextStyle: AppTextStyles.appBarTitle.copyWith(
         color: AppColors.darkTextPrimary,
@@ -102,7 +102,7 @@ class AppTheme {
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       filled: true,
-      fillColor: AppColors.accent.withOpacity(0.1),
+      fillColor: AppColors.darkSurface.withOpacity(0.1),
     ),
 
     elevatedButtonTheme: ElevatedButtonThemeData(

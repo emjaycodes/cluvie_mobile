@@ -12,10 +12,13 @@ import 'package:cluvie_mobile/features/communities/presentation/community_info_s
 import 'package:cluvie_mobile/features/communities/presentation/community_list_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/create_community_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/joined_community_screen.dart';
+import 'package:cluvie_mobile/features/discover/presentation/discover_screen.dart';
+import 'package:cluvie_mobile/features/home/presentation/home_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/discussion_list_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_details_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_list_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_search_screen.dart';
+import 'package:cluvie_mobile/features/suggest/presentation/suggestion_screen.dart';
 import 'package:cluvie_mobile/features/user_profile/presentation/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -23,11 +26,9 @@ import 'package:go_router/go_router.dart';
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-
-
 final router = GoRouter(
   navigatorKey: _rootNavigatorKey,
-  initialLocation: '/welcome',
+  initialLocation: '/suggest',
   routes: [
     GoRoute(
       path: '/',
@@ -55,6 +56,22 @@ final router = GoRouter(
       path: '/signup',
       builder: (context, state) => const SignupScreen(),
     ),
+
+    GoRoute(
+    path: '/home', 
+    builder: (context, state) => const HomeScreen()),
+
+    GoRoute(
+      path: '/discover',
+      builder: (context, state) => const DiscoverScreen(),
+    ),
+
+    GoRoute(
+      path: '/suggest',
+      name: RouteNames.suggest,
+      builder: (context, state) => const SuggestMovieScreen(),
+    ),
+
 
     GoRoute(
       name: RouteNames.movieDetails,
@@ -86,20 +103,20 @@ final router = GoRouter(
     GoRoute(
       name: RouteNames.communityChat,
       path: '/communityChat',
-      builder: (context, state) {  
+      builder: (context, state) {
         final community = state.extra as Community;
-    return CommunityChatScreen(community:community );},
+        return CommunityChatScreen(community: community);
+      },
     ),
 
-GoRoute(
-  name: RouteNames.communityInfo,
-  path: '/communityInfo',
-  builder: (context, state) { 
-      final community = state.extra as Community;
-    return CommunityInfoScreen(community: community);
-  },
-),
-
+    GoRoute(
+      name: RouteNames.communityInfo,
+      path: '/communityInfo',
+      builder: (context, state) {
+        final community = state.extra as Community;
+        return CommunityInfoScreen(community: community);
+      },
+    ),
 
     // ShellRoute for Bottom Navigation Tabs
     ShellRoute(
@@ -129,7 +146,13 @@ GoRoute(
           name: RouteNames.profile,
           path: '/profile',
           parentNavigatorKey: _shellNavigatorKey,
-          builder: (context, state) => const ProfileScreen(username: 'jay', email: 'justicethedev@gmail.com', joinedCommunities: 4, totalPosts: 18,),
+          builder:
+              (context, state) => const ProfileScreen(
+                username: 'jay',
+                email: 'justicethedev@gmail.com',
+                joinedCommunities: 4,
+                totalPosts: 18,
+              ),
         ),
       ],
     ),

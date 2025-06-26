@@ -6,6 +6,8 @@ class RouteNames {
   static const welcome = 'welcome';  
 
   static const home = 'home';
+  static const discover = 'discover';
+  static const suggest = 'suggest';
   static const movies = 'movies';
   static const movieSearch = 'movieSearch';
   static const joinedCommunities = 'joinedCommunities';
