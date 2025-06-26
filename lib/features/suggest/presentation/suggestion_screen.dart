@@ -29,22 +29,20 @@ class SuggestMovieScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: AppColors.darkBackground,
         elevation: 0,
         title: const Text('Suggest a Movie'),
         titleTextStyle: AppTextStyles.heading1.copyWith(color: Colors.white),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.white),
-            onPressed: () {},
-          )
+          // IconButton(
+          //   icon: const Icon(Icons.search, color: Colors.white),
+          //   onPressed: () {},
+          // )
         ],
         leading: TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+          child: const Icon(Icons.cancel_outlined, color: Colors.white),
         ),
       ),
       body: Padding(
@@ -52,19 +50,19 @@ class SuggestMovieScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            buildSearchBar(),
+            BuildSearchBar(),
             const SizedBox(height: 20),
             Row(
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.asset('assets/arrival.jpg', width: 60, height: 80, fit: BoxFit.cover),
+                  child: Image.network('https://image.tmdb.org/t/p/w500/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg', width: 60, height: 80, fit: BoxFit.cover),
                 ),
                 const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Arrival", style: AppTextStyles.heading2.copyWith(color: Colors.white)),
+                    Text("Everything everywhere at once", style: AppTextStyles.heading2.copyWith(color: Colors.white), overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
                     Text("2016 · 1 hr 56m · Sci-Fi", style: AppTextStyles.caption.copyWith(color: AppColors.darkTextPrimary)),
                   ],
@@ -74,7 +72,7 @@ class SuggestMovieScreen extends StatelessWidget {
             const SizedBox(height: 24),
             Text("Where would you like to suggest this movie?", style: AppTextStyles.body.copyWith(color: Colors.white)),
             const SizedBox(height: 12),
-            ...clubs.map((club) => ClubCard(club: club)).toList(),
+            ...clubs.map((club) => ClubCard(club: club)),
             const SizedBox(height: 16),
             Text("Set default club for suggestions", style: AppTextStyles.caption.copyWith(color: AppColors.accent)),
             const SizedBox(height: 24),
@@ -83,7 +81,7 @@ class SuggestMovieScreen extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () {},
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.cinematicPurple,
+                  backgroundColor: AppColors.accent,
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
@@ -97,13 +95,13 @@ class SuggestMovieScreen extends StatelessWidget {
   }
   
   
-  // Widget _buildSearchBar() {
+  // Widget _BuildSearchBar() {
   //   return 
   // }
 }
 
-class buildSearchBar extends StatelessWidget {
-    const buildSearchBar({super.key});
+class BuildSearchBar extends StatelessWidget {
+    const BuildSearchBar({super.key});
   
     @override
     Widget build(BuildContext context) {
@@ -128,7 +126,7 @@ class buildSearchBar extends StatelessWidget {
 
 class ClubCard extends StatelessWidget {
   final Map club;
-  const ClubCard({required this.club});
+  const ClubCard({super.key, required this.club});
 
   @override
   Widget build(BuildContext context) {
@@ -136,13 +134,13 @@ class ClubCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: Colors.white.withOpacity(0.08),
+            backgroundColor: Colors.white.withValues(alpha: 0.08),
             child: Icon(club['icon'], color: Colors.white),
           ),
           const SizedBox(width: 12),
