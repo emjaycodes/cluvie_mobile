@@ -24,8 +24,8 @@ class AppColors {
   static const Color lightTextPrimary = Color(0xFF1C1C1E);
   static const Color lightTextSecondary = Color(0xFF6E6E73);
 
-  // === Dark Theme ===
-  static const Color darkBackground = Color(0xFF0D0D0F); // Night Slate
+  // === Dark Theme === 0xFF0E0C1E
+  static const Color darkBackground = Color(0xFF0E0C1E); // Night Slate
   static const Color darkSurface = Color(0xFF1A122A); // Cards/panels
   static const Color darkBorder = Color(0xFF2C2C2E);
   static const Color darkTextPrimary = Color(0xFFE0E0E0);

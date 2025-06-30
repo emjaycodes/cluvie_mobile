@@ -45,50 +45,54 @@ class SuggestMovieScreen extends StatelessWidget {
           child: const Icon(Icons.cancel_outlined, color: Colors.white),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            BuildSearchBar(),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network('https://image.tmdb.org/t/p/w500/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg', width: 60, height: 80, fit: BoxFit.cover),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Everything everywhere at once", style: AppTextStyles.heading2.copyWith(color: Colors.white), overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 4),
-                    Text("2016 · 1 hr 56m · Sci-Fi", style: AppTextStyles.caption.copyWith(color: AppColors.darkTextPrimary)),
-                  ],
-                )
-              ],
-            ),
-            const SizedBox(height: 24),
-            Text("Where would you like to suggest this movie?", style: AppTextStyles.body.copyWith(color: Colors.white)),
-            const SizedBox(height: 12),
-            ...clubs.map((club) => ClubCard(club: club)),
-            const SizedBox(height: 16),
-            Text("Set default club for suggestions", style: AppTextStyles.caption.copyWith(color: AppColors.accent)),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: Text("Submit Suggestion", style: AppTextStyles.button.copyWith(color: Colors.white)),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              BuildSearchBar(),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network('https://image.tmdb.org/t/p/w500/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg', width: 60, height: 80, fit: BoxFit.cover),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Everything everywhere at once", style: AppTextStyles.heading2.copyWith(color: Colors.white), overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 4),
+                        Text("2016 · 1 hr 56m · Sci-Fi", style: AppTextStyles.caption.copyWith(color: AppColors.darkTextPrimary)),
+                      ],
+                    ),
+                  )
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              Text("Where would you like to suggest this movie?", style: AppTextStyles.body.copyWith(color: Colors.white)),
+              const SizedBox(height: 12),
+              ...clubs.map((club) => ClubCard(club: club)),
+              const SizedBox(height: 16),
+              Text("Set default club for suggestions", style: AppTextStyles.caption.copyWith(color: AppColors.accent)),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Text("Submit Suggestion", style: AppTextStyles.button.copyWith(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

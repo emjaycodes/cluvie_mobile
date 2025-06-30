@@ -14,11 +14,20 @@ class RouteNames {
   static const allCommunities = 'allCommunities';
   static const communityChat = 'CommunityChat';
   static const communityInfo = 'communityInfo';
+  static const profile = 'profile';
+  static const watchParty = 'watchParty';
+  static const discussionThread = 'discussionThread';
+
+
+
+  
+  
+
+
 
   
 
   static const discussions = 'discussions';
-  static const profile = 'profile';
 
   static const movieDetails = 'movieDetails';
   static const createCommunity = 'createCommunity';

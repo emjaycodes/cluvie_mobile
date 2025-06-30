@@ -175,34 +175,61 @@ import 'package:shimmer/shimmer.dart';
 
 
 class MovieDetailScreen extends StatelessWidget {
-   final Movie movie;
-  const MovieDetailScreen({super.key, required this.movie});
+  //  final Movie? movie;
+  const MovieDetailScreen({super.key, });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                PosterAndTitle(),
-                SizedBox(height: 16),
-                RatingRow(),
-                SizedBox(height: 16),
-                DescriptionText(),
-                SizedBox(height: 12),
-                TagSection(),
-                SizedBox(height: 28),
-                CastAndCrewSection(),
-                SizedBox(height: 28),
-                DiscussionSection(),
-                SizedBox(height: 32),
-              ],
-            ),
+      body: NestedScrollView(
+        headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) => [
+          SliverAppBar(
+                  expandedHeight: 400,
+                  pinned: true,
+                  flexibleSpace: FlexibleSpaceBar(
+                    centerTitle: true,
+                    background: CachedNetworkImage(
+                            imageUrl: "https://image.tmdb.org/t/p/w500/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg",
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Shimmer.fromColors(
+                                  baseColor: Colors.grey.shade300,
+                                  highlightColor: Colors.grey.shade100,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                            errorWidget: (context, url, error) => Icon(Icons.error),
+                         ),
+                    title: Text("Everything Everywhere All At Once", style: AppTextStyles.heading1.copyWith(color: Colors.white, /*fontSize: 36,*/ overflow: TextOverflow.ellipsis, height: 1.2))
+                  ),
           ),
         ],
+        body: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              // PosterAndTitle(),
+              SizedBox(height: 16),
+              RatingRow(),
+              SizedBox(height: 16),
+              DescriptionText(),
+              SizedBox(height: 12),
+              TagSection(),
+              SizedBox(height: 28),
+              CastAndCrewSection(),
+              SizedBox(height: 28),
+              DiscussionSection(),
+              SizedBox(height: 32),
+                
+   
+                
+            ],
+          ),
+        ),
+
       ),
     );
   }
@@ -213,29 +240,25 @@ class PosterAndTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
+    return Column(
       children: [
-        Image.network(
-          'https://image.tmdb.org/t/p/w500/8RI0jXvo2ZIVeR5Vj3bHKk3RRmJ.jpg',
-          height: 420,
-          fit: BoxFit.cover,
-          width: double.infinity,
-        ),
-        Positioned(
-          top: 60,
-          left: 16,
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          ),
-        ),
-        Positioned(
-          bottom: 24,
-          left: 16,
-          child: Text(
-            'MOONLIGHT',
-            style: AppTextStyles.heading1.copyWith(color: Colors.white, fontSize: 36, height: 1),
-          ),
+        // Image.network(
+        //   'https://image.tmdb.org/t/p/w500/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg',
+        //   height: 420,
+        //   fit: BoxFit.cover,
+        //   width: double.infinity,
+        // ),
+        // Positioned(
+        //   top: 60,
+        //   left: 16,
+        //   child: GestureDetector(
+        //     onTap: () => Navigator.pop(context),
+        //     child: const Icon(Icons.arrow_back_ios, color: Colors.white),
+        //   ),
+        // ),
+        Text(
+          'Everything everywhere all at once',
+          style: AppTextStyles.heading1.copyWith(color: Colors.white, fontSize: 36, height: 1),
         ),
       ],
     );
@@ -295,7 +318,7 @@ class DescriptionText extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Text(
-        'A young African-American man grapples with his identity and sexuality while experiencing the everyday struggles of childhood, adolescence, and burgeoning adulthood.',
+        'A Chinese immigrant gets unwillingly embroiled in an epic adventure where she must connect different versions of herself in the parallel universe to stop someone who intends to harm the multiverse.',
         style: AppTextStyles.body.copyWith(color: AppColors.darkTextSecondary),
       ),
     );
@@ -312,9 +335,11 @@ class TagSection extends StatelessWidget {
       child: Wrap(
         spacing: 8,
         children: const [
-          TagChip(label: "#Drama"),
+          TagChip(label: "#commedy"),
           TagChip(label: "#LGBTQ+"),
-          TagChip(label: "#ComingOfAge"),
+          TagChip(label: "#indieFilm"),
+          TagChip(label: "#ScienceFiction"),
+
         ],
       ),
     );
@@ -328,9 +353,10 @@ class TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Chip(
-      backgroundColor: AppColors.darkSurface,
+      backgroundColor: AppColors.cinematicPurple,
       label: Text(label),
-      labelStyle: AppTextStyles.caption.copyWith(color: Colors.white),
+      elevation: 16,
+      // labelStyle: AppTextStyles.caption.copyWith(color: Colors.white),
       padding: const EdgeInsets.symmetric(horizontal: 10),
     );
   }

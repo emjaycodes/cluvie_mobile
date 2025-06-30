@@ -15,11 +15,13 @@ import 'package:cluvie_mobile/features/communities/presentation/joined_community
 import 'package:cluvie_mobile/features/discover/presentation/discover_screen.dart';
 import 'package:cluvie_mobile/features/home/presentation/home_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/discussion_list_screen.dart';
+import 'package:cluvie_mobile/features/movies/presentation/disscusion_thread.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_details_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_list_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_search_screen.dart';
 import 'package:cluvie_mobile/features/suggest/presentation/suggestion_screen.dart';
 import 'package:cluvie_mobile/features/user_profile/presentation/profile_screen.dart';
+import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,7 +30,7 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final router = GoRouter(
   navigatorKey: _rootNavigatorKey,
-  initialLocation: '/suggest',
+  initialLocation: '/discussionThread',
   routes: [
     GoRoute(
       path: '/',
@@ -72,13 +74,24 @@ final router = GoRouter(
       builder: (context, state) => const SuggestMovieScreen(),
     ),
 
-
+    // GoRoute(
+    //   path: '/Profile',
+    //   name: RouteNames.profile,
+    //   builder: (context, state) => const ProfileScreen(username: "Justice", email: "jay@gmail.com", joinedCommunities: 5, totalPosts: 15,),
+    // ),
+    
+     GoRoute(
+      path: '/watchParty',
+      name: RouteNames.watchParty,
+      builder: (context, state) => const WatchPartyScreen(),
+    ),
+      
     GoRoute(
       name: RouteNames.movieDetails,
       path: '/MovieDetails',
       builder: (context, state) {
-        final movie = state.extra as Movie;
-        return MovieDetailScreen(movie: movie);
+        // final movie = state.extra as Movie;
+        return MovieDetailScreen();
       },
     ),
 
@@ -101,6 +114,12 @@ final router = GoRouter(
     ),
 
     GoRoute(
+      name: RouteNames.discussionThread,
+      path: '/discussionThread',
+      builder: (context, state) => DiscussionThreadScreen(),
+    ),
+
+    GoRoute(
       name: RouteNames.communityChat,
       path: '/communityChat',
       builder: (context, state) {
@@ -115,8 +134,10 @@ final router = GoRouter(
       builder: (context, state) {
         final community = state.extra as Community;
         return CommunityInfoScreen(community: community);
-      },
+      }
     ),
+
+    
 
     // ShellRoute for Bottom Navigation Tabs
     ShellRoute(
@@ -147,11 +168,8 @@ final router = GoRouter(
           path: '/profile',
           parentNavigatorKey: _shellNavigatorKey,
           builder:
-              (context, state) => const ProfileScreen(
-                username: 'jay',
-                email: 'justicethedev@gmail.com',
-                joinedCommunities: 4,
-                totalPosts: 18,
+              (context, state) => const UserProfileScreen(
+                
               ),
         ),
       ],
