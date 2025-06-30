@@ -6,9 +6,9 @@ class DiscussionThreadScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0F),
+      // backgroundColor: const Color(0xFF0D0D0F),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D0D0F),
+        // backgroundColor: const Color(0xFF0D0D0F),
         elevation: 0,
         leading: const BackButton(color: Colors.white),
         title: Row(
@@ -93,7 +93,7 @@ class _CommentList extends StatelessWidget {
           name: 'Eleanor Pena',
           avatar: 'https://randomuser.me/api/portraits/women/3.jpg',
           timeAgo: '3 h',
-          comment: 'Loved the theme of ’In Yun’! Gave the film such a deep, soulful meaning.',
+          comment: "Loved the theme of 'In Yun'! Gave the film such a deep, soulful meaning.",
           reactions: [
             {'emoji': '❤️', 'count': 4},
             {'emoji': '🔥', 'count': 3},
@@ -143,33 +143,40 @@ class _CommentBubble extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
               padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(name,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(comment, style: const TextStyle(color: Colors.white70)),
-                  if (reactions != null && reactions!.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 6,
-                      children: reactions!
-                          .map((r) => Chip(
-                                label: Text('${r['emoji']} ${r['count']}'),
-                                backgroundColor: Colors.white10,
-                                labelStyle: const TextStyle(color: Colors.white),
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                              ))
-                          .toList(),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(comment, style: const TextStyle(color: Colors.white70)),
+                        if (reactions != null && reactions!.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 6,
+                            children: reactions!
+                                .map((r) => Chip(
+                                      label: Text('${r['emoji']} ${r['count']}'),
+                                      backgroundColor: Colors.white10,
+                                      labelStyle: const TextStyle(color: Colors.white),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    ))
+                                .toList(),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
+                  ),
+                  // Spacer(),
+                  Text(timeAgo, style: const TextStyle(color: Colors.white54, fontSize: 12)),
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 6),
-          Text(timeAgo, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          
         ],
       ),
     );
@@ -200,7 +207,7 @@ class _CommentInput extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.only(bottom: 12, left: 16, right: 12),
-      color: const Color(0xFF0D0D0F),
+      // color: const Color(0xFF0D0D0F),
       child: Row(
         children: [
           const Icon(Icons.emoji_emotions_outlined, color: Colors.white30),
