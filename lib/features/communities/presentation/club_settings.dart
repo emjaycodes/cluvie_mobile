@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:flutter/material.dart';
 
 class ClubSettingsScreen extends StatelessWidget {
@@ -6,77 +7,52 @@ class ClubSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0C1E),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0D0C1E),
-        elevation: 0,
-        leading: const BackButton(color: Colors.white),
-      ),
-      body: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: ClubSettingsBody(),
+      backgroundColor: const Color(0xFF0D0D0F), // Night Slate
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              _Header(),
+              SizedBox(height: 12),
+              _LeaveClubButton(),
+              SizedBox(height: 24),
+              _SettingItem(label: 'Edit club Name'),
+              _SettingItem(label: 'Change Cover Image'),
+              _SettingItem(label: 'Membership', trailing: Text('Open to everyone', style: TextStyle(color: Colors.white38))),
+              _SettingItem(label: 'Role Management'),
+              _SettingItem(label: 'Pinned Content'),
+              _SettingItem(
+                label: 'Weekly Cycle',
+                trailing: Text('Votes: Mon-Wed • Watch: Fri', style: TextStyle(color: Colors.white38)),
+              ),
+              _SettingItem(label: 'Club Rules'),
+              _SettingItem(label: 'Mute Notifications', hasArrow: true),
+              Spacer(),
+              _ReportButton(),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-
-class ClubSettingsBody extends StatelessWidget {
-  const ClubSettingsBody({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const ClubHeader(),
-        const SizedBox(height: 20),
-        const TextButton(
-          onPressed: null,
-          child: Text('Leave Club',
-              style: TextStyle(color: Color(0xFF8CA4FF), fontWeight: FontWeight.w500)),
-        ),
-        const Divider(color: Colors.white12),
-        const ClubSettingsItem(title: 'Edit Community Name'),
-        const ClubSettingsItem(title: 'Change Cover Image'),
-        const ClubSettingsItem(
-          title: 'Membership',
-          trailingText: 'Open to everyone',
-        ),
-        const ClubSettingsItem(title: 'Role Management'),
-        const ClubSettingsItem(title: 'Pinned Content'),
-        const ClubSettingsItem(
-          title: 'Weekly Cycle',
-          trailingText: 'Votes: Mon–Wed  ·  Watch: Fri',
-        ),
-        const ClubSettingsItem(title: 'Club Rules'),
-        const ClubSettingsItem(title: 'Mute Notifications'),
-        const SizedBox(height: 12),
-        const Text('Report Community',
-            style: TextStyle(
-              color: Color(0xFFFFBE66),
-              fontWeight: FontWeight.w500,
-            )),
-      ],
-    );
-  }
-}
-
-
-class ClubHeader extends StatelessWidget {
-  const ClubHeader({super.key});
+class _Header extends StatelessWidget {
+  const _Header();
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: const [
-        Icon(Icons.local_movies_rounded, color: Color(0xFFFFD27D), size: 28),
-        SizedBox(width: 8),
+        Icon(Icons.movie_filter, size: 30, color: Color(0xFFFFD27D)), // Gold Accent
+        SizedBox(width: 12),
         Text(
           'Cinephiles Unite',
           style: TextStyle(
             fontSize: 22,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
         ),
@@ -85,46 +61,69 @@ class ClubHeader extends StatelessWidget {
   }
 }
 
+class _SettingItem extends StatelessWidget {
+  final String label;
+  final Widget? trailing;
+  final bool hasArrow;
 
-class ClubSettingsItem extends StatelessWidget {
-  final String title;
-  final String? trailingText;
-
-  const ClubSettingsItem({
+  const _SettingItem({
     super.key,
-    required this.title,
-    this.trailingText,
+    required this.label,
+    this.trailing,
+    this.hasArrow = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        const Divider(color: Colors.white12, height: 1),
         ListTile(
-          dense: true,
-          contentPadding: EdgeInsets.zero,
           title: Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15.5,
-              fontWeight: FontWeight.w500,
-            ),
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
           ),
-          trailing: trailingText != null
-              ? Text(
-                  trailingText!,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                )
-              : const Icon(Icons.chevron_right, color: Colors.white24),
-          onTap: () {}, // Placeholder for functionality
+          trailing: trailing ??
+              (hasArrow
+                  ? const Icon(Icons.chevron_right, color: Colors.white38)
+                  : null),
+          contentPadding: EdgeInsets.zero,
         ),
-        const Divider(color: Colors.white12, height: 0),
       ],
+    );
+  }
+}
+class _ReportButton extends StatelessWidget {
+  const _ReportButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 20),
+      child: Text(
+        'Report club',
+        style: TextStyle(
+          color: Color(0xFFFFD27D), // Gold Accent for warning
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaveClubButton extends StatelessWidget {
+  const _LeaveClubButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Text(
+      'Leave Club',
+      style: TextStyle(
+        color: AppColors.softRed, 
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+      ),
     );
   }
 }

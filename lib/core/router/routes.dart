@@ -7,6 +7,7 @@ import 'package:cluvie_mobile/features/authentication/presentation/onboarding_sc
 import 'package:cluvie_mobile/features/authentication/presentation/sigup_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/splash_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/welcome_screen.dart';
+import 'package:cluvie_mobile/features/communities/presentation/club_settings.dart';
 import 'package:cluvie_mobile/features/communities/presentation/community_chat_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/community_info_screen.dart';
 import 'package:cluvie_mobile/features/communities/presentation/community_list_screen.dart';
@@ -30,7 +31,7 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final router = GoRouter(
   navigatorKey: _rootNavigatorKey,
-  initialLocation: '/discussionThread',
+  initialLocation: '/communitySettings',
   routes: [
     GoRoute(
       path: '/',
@@ -135,9 +136,17 @@ final router = GoRouter(
         final community = state.extra as Community;
         return CommunityInfoScreen(community: community);
       }
-    ),
 
     
+    ),
+
+      GoRoute(
+      name: RouteNames.communitySettings, 
+      path: '/communitySettings',
+      builder: (context, state) { 
+        return ClubSettingsScreen();
+      }
+      ),
 
     // ShellRoute for Bottom Navigation Tabs
     ShellRoute(
