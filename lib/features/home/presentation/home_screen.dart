@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/core/theme/widgets/cl_bottom_nav_bar.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_status_widget.dart';
 import 'package:cluvie_mobile/features/home/components/discussion_card.dart';
 import 'package:cluvie_mobile/features/home/components/reaction_footer.dart';
@@ -164,32 +165,33 @@ class HomeScreen extends StatelessWidget {
 
 
       
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 2,
-        backgroundColor: AppColors.darkBackground,
-        selectedItemColor: AppColors.accent,
-        unselectedItemColor: AppColors.darkTextSecondary,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            label: "Home",
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: "Discover"),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            label: "Suggest",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.group_outlined),
-            label: "Clubs",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: "Profile",
-          ),
-        ],
-      ),
+      bottomNavigationBar: ClBottomNavBar(),
+      // BottomNavigationBar(
+      //   currentIndex: 2,
+      //   backgroundColor: AppColors.darkBackground,
+      //   selectedItemColor: AppColors.accent,
+      //   unselectedItemColor: AppColors.darkTextSecondary,
+      //   type: BottomNavigationBarType.fixed,
+      //   items: const [
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.home_outlined),
+      //       label: "Home",
+      //     ),
+      //     BottomNavigationBarItem(icon: Icon(Icons.search), label: "Discover"),
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.add_circle_outline),
+      //       label: "Suggest",
+      //     ),
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.group_outlined),
+      //       label: "Clubs",
+      //     ),
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.person_outline),
+      //       label: "Profile",
+      //     ),
+      //   ],
+      // ),
     );
   }
 }

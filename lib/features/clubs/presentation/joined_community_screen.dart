@@ -3,7 +3,7 @@ import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
-import 'package:cluvie_mobile/features/communities/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

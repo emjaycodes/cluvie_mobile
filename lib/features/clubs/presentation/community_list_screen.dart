@@ -1,7 +1,7 @@
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
-import 'package:cluvie_mobile/features/communities/data/comunity_provider.dart';
-import 'package:cluvie_mobile/features/communities/presentation/joined_community_screen.dart';
+import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/joined_community_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,7 +25,8 @@ class CommunityListScreen extends ConsumerWidget {
           onRefresh:  () => ref.refresh(allCommunitiesProvider.future),
           child: Padding(
             padding: AppSpacing.clPadding,
-            child: allCommunityAsync.when(
+            child: 
+            allCommunityAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Column(
                 children: [

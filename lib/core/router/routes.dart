@@ -7,12 +7,12 @@ import 'package:cluvie_mobile/features/authentication/presentation/onboarding_sc
 import 'package:cluvie_mobile/features/authentication/presentation/sigup_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/splash_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/welcome_screen.dart';
-import 'package:cluvie_mobile/features/communities/presentation/club_settings.dart';
-import 'package:cluvie_mobile/features/communities/presentation/community_chat_screen.dart';
-import 'package:cluvie_mobile/features/communities/presentation/community_info_screen.dart';
-import 'package:cluvie_mobile/features/communities/presentation/community_list_screen.dart';
-import 'package:cluvie_mobile/features/communities/presentation/create_community_screen.dart';
-import 'package:cluvie_mobile/features/communities/presentation/joined_community_screen.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/club_settings.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/community_chat_screen.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/community_info_screen.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/community_list_screen.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/create_community_screen.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/joined_community_screen.dart';
 import 'package:cluvie_mobile/features/discover/presentation/discover_screen.dart';
 import 'package:cluvie_mobile/features/home/presentation/home_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/discussion_list_screen.dart';
@@ -148,40 +148,52 @@ final router = GoRouter(
       }
       ),
 
-    // ShellRoute for Bottom Navigation Tabs
-    ShellRoute(
-      parentNavigatorKey: _rootNavigatorKey,
-      navigatorKey: _shellNavigatorKey,
-      builder: (context, state, child) => ClBottomNavBar(child: child),
-      routes: [
-        GoRoute(
-          name: RouteNames.movies,
-          path: '/movies',
-          parentNavigatorKey: _shellNavigatorKey,
-          builder: (context, state) => MovieListScreen(),
-        ),
-        GoRoute(
-          name: RouteNames.joinedCommunities,
-          path: '/communities',
-          parentNavigatorKey: _shellNavigatorKey,
-          builder: (context, state) => const JoinedCommunitiesScreen(),
-        ),
-        GoRoute(
-          name: RouteNames.discussions,
-          path: '/discussions',
-          parentNavigatorKey: _shellNavigatorKey,
-          builder: (context, state) => const DiscussionListScreen(),
-        ),
-        GoRoute(
+       GoRoute(
           name: RouteNames.profile,
           path: '/profile',
-          parentNavigatorKey: _shellNavigatorKey,
+          // parentNavigatorKey: _shellNavigatorKey,
           builder:
               (context, state) => const UserProfileScreen(
                 
               ),
-        ),
-      ],
-    ),
+       ),
+       
+      
+
+    // ShellRoute for Bottom Navigation Tabs
+    // ShellRoute(
+    //   parentNavigatorKey: _rootNavigatorKey,
+    //   navigatorKey: _shellNavigatorKey,
+    //   builder: (context, state, child) => ClBottomNavBar(),
+    //   routes: [
+    //     GoRoute(
+    //       name: RouteNames.movies,
+    //       path: '/home',
+    //       parentNavigatorKey: _shellNavigatorKey,
+    //       builder: (context, state) => MovieListScreen(),
+    //     ),
+    //     GoRoute(
+    //       name: RouteNames.joinedCommunities,
+    //       path: '/communities',
+    //       parentNavigatorKey: _shellNavigatorKey,
+    //       builder: (context, state) => const JoinedCommunitiesScreen(),
+    //     ),
+    //     GoRoute(
+    //       name: RouteNames.discussions,
+    //       path: '/discussions',
+    //       parentNavigatorKey: _shellNavigatorKey,
+    //       builder: (context, state) => const DiscussionListScreen(),
+    //     ),
+    //     GoRoute(
+    //       name: RouteNames.profile,
+    //       path: '/profile',
+    //       parentNavigatorKey: _shellNavigatorKey,
+    //       builder:
+    //           (context, state) => const UserProfileScreen(
+                
+    //           ),
+    //     ),
+    //   ],
+    // ),
   ],
 );

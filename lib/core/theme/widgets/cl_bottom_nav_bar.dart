@@ -1,13 +1,13 @@
+import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class ClBottomNavBar extends StatefulWidget {
 
   const ClBottomNavBar({
-    super.key, required this.child,
+    super.key,
 
   });
-  final Widget child;
   @override
   State<ClBottomNavBar> createState() => _ClBottomNavBarState();
 }
@@ -21,15 +21,18 @@ class _ClBottomNavBarState extends State<ClBottomNavBar> {
     void changeTab(int index) {
     switch(index){
       case 0:  
-        context.go('/movies');
+        context.go('/home');
         break;
       case 1:  
-        context.go('/communities');
+        context.go('/discover');
         break;
       case 2:  
-        context.go('/Discussions');
+        context.go('/suggest');
         break;
       case 3:  
+        context.go('/allCommunities');
+        break;
+        case 4:  
         context.go('/profile');
         break;
       default:
@@ -41,36 +44,62 @@ class _ClBottomNavBarState extends State<ClBottomNavBar> {
     });
   }
 
-    return Scaffold(
-      body: widget.child,
-      bottomNavigationBar: BottomNavigationBar(
+    return BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: changeTab,
-        type: BottomNavigationBarType.fixed,
-
         elevation: 10,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+        backgroundColor: AppColors.darkBackground,
+        selectedItemColor: AppColors.accent,
+        unselectedItemColor: AppColors.darkTextSecondary,
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.movie_creation_outlined),
-            label: 'Movies',
+            icon: Icon(Icons.home_outlined),
+            label: "Home",
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.search), label: "Discover"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle_outline),
+            label: "Suggest",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.groups_outlined),
-            label: 'Communities',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Discussions',
+            icon: Icon(Icons.group_outlined),
+            label: "Clubs",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
-            label: 'Profile',
+            label: "Profile",
           ),
         ],
-      ),
     );
     
   }
 }
 
+// bottomNavigationBar: BottomNavigationBar(
+//         currentIndex: 2,
+//         backgroundColor: AppColors.darkBackground,
+//         selectedItemColor: AppColors.accent,
+//         unselectedItemColor: AppColors.darkTextSecondary,
+//         type: BottomNavigationBarType.fixed,
+//         items: const [
+//           BottomNavigationBarItem(
+//             icon: Icon(Icons.home_outlined),
+//             label: "Home",
+//           ),
+//           BottomNavigationBarItem(icon: Icon(Icons.search), label: "Discover"),
+//           BottomNavigationBarItem(
+//             icon: Icon(Icons.add_circle_outline),
+//             label: "Suggest",
+//           ),
+//           BottomNavigationBarItem(
+//             icon: Icon(Icons.group_outlined),
+//             label: "Clubs",
+//           ),
+//           BottomNavigationBarItem(
+//             icon: Icon(Icons.person_outline),
+//             label: "Profile",
+//           ),
+//         ],
+//       ),
