@@ -60,20 +60,20 @@ final router = GoRouter(
       builder: (context, state) => const SignupScreen(),
     ),
 
-    GoRoute(
-    path: '/home', 
-    builder: (context, state) => const HomeScreen()),
+    // GoRoute(
+    // path: '/home', 
+    // builder: (context, state) => const HomeScreen()),
 
-    GoRoute(
-      path: '/discover',
-      builder: (context, state) => const DiscoverScreen(),
-    ),
+    // GoRoute(
+    //   path: '/discover',
+    //   builder: (context, state) => const DiscoverScreen(),
+    // ),
 
-    GoRoute(
-      path: '/suggest',
-      name: RouteNames.suggest,
-      builder: (context, state) => const SuggestMovieScreen(),
-    ),
+    // GoRoute(
+    //   path: '/suggest',
+    //   name: RouteNames.suggest,
+    //   builder: (context, state) => const SuggestMovieScreen(),
+    // ),
 
     // GoRoute(
     //   path: '/Profile',
@@ -108,11 +108,11 @@ final router = GoRouter(
       builder: (context, state) => CreateCommunityScreen(),
     ),
 
-    GoRoute(
-      name: RouteNames.allCommunities,
-      path: '/allCommunities',
-      builder: (context, state) => CommunityListScreen(),
-    ),
+    // GoRoute(
+    //   name: RouteNames.allCommunities,
+    //   path: '/allCommunities',
+    //   builder: (context, state) => CommunityListScreen(),
+    // ),
 
     GoRoute(
       name: RouteNames.discussionThread,
@@ -148,52 +148,58 @@ final router = GoRouter(
       }
       ),
 
-       GoRoute(
-          name: RouteNames.profile,
-          path: '/profile',
-          // parentNavigatorKey: _shellNavigatorKey,
-          builder:
-              (context, state) => const UserProfileScreen(
+      //  GoRoute(
+      //     name: RouteNames.profile,
+      //     path: '/profile',
+      //     // parentNavigatorKey: _shellNavigatorKey,
+      //     builder:
+      //         (context, state) => const UserProfileScreen(
                 
-              ),
-       ),
+      //         ),
+      //  ),
        
       
 
     // ShellRoute for Bottom Navigation Tabs
-    // ShellRoute(
-    //   parentNavigatorKey: _rootNavigatorKey,
-    //   navigatorKey: _shellNavigatorKey,
-    //   builder: (context, state, child) => ClBottomNavBar(),
-    //   routes: [
-    //     GoRoute(
-    //       name: RouteNames.movies,
-    //       path: '/home',
-    //       parentNavigatorKey: _shellNavigatorKey,
-    //       builder: (context, state) => MovieListScreen(),
-    //     ),
-    //     GoRoute(
-    //       name: RouteNames.joinedCommunities,
-    //       path: '/communities',
-    //       parentNavigatorKey: _shellNavigatorKey,
-    //       builder: (context, state) => const JoinedCommunitiesScreen(),
-    //     ),
-    //     GoRoute(
-    //       name: RouteNames.discussions,
-    //       path: '/discussions',
-    //       parentNavigatorKey: _shellNavigatorKey,
-    //       builder: (context, state) => const DiscussionListScreen(),
-    //     ),
-    //     GoRoute(
-    //       name: RouteNames.profile,
-    //       path: '/profile',
-    //       parentNavigatorKey: _shellNavigatorKey,
-    //       builder:
-    //           (context, state) => const UserProfileScreen(
+    ShellRoute(
+      parentNavigatorKey: _rootNavigatorKey,
+      navigatorKey: _shellNavigatorKey,
+      builder: (context, state, child) => ClBottomNavBar(child: child),
+      routes: [
+        GoRoute(
+          name: RouteNames.home,
+          path: '/home',
+          parentNavigatorKey: _shellNavigatorKey,
+          builder: (context, state) => HomeScreen(),
+        ),
+        GoRoute(
+          name: RouteNames.discover,
+          path: '/Discover',
+          parentNavigatorKey: _shellNavigatorKey,
+          builder: (context, state) => const DiscoverScreen(),
+        ),
+        GoRoute(
+          name: RouteNames.suggest,
+          path: '/Suggest',
+          parentNavigatorKey: _shellNavigatorKey,
+          builder: (context, state) => const SuggestMovieScreen(),
+        ),
+        GoRoute(
+          name: RouteNames.allCommunities,
+          path: '/allCommunities',
+          parentNavigatorKey: _shellNavigatorKey,
+          builder: (context, state) => const CommunityListScreen(),
+        ),
+        GoRoute(
+          name: RouteNames.profile,
+          path: '/profile',
+          parentNavigatorKey: _shellNavigatorKey,
+          builder:
+              (context, state) => const UserProfileScreen(
                 
-    //           ),
-    //     ),
-    //   ],
-    // ),
+              ),
+        ),
+      ],
+    ),
   ],
 );

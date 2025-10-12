@@ -7,10 +7,8 @@ class UserProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.darkBackground,
-        elevation: 0,
+        // elevation: 0,
         leading: const BackButton(color: Colors.white),
         title: const Text('CLUVIE', style: TextStyle(color: Colors.white)),
         centerTitle: true,
@@ -25,14 +23,28 @@ class UserProfileScreen extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         child: ListView(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 44,
-              backgroundImage: NetworkImage('https://randomuser.me/api/portraits/women/79.jpg',),
+              backgroundColor: Colors.grey[200],
+              child: ClipOval(
+                child: Image.network(
+                  'https://randomuser.me/api/portraits/women/79.jpg',
+                  fit: BoxFit.contain,
+                  width: 88,
+                  height: 88,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             const Center(
-              child: Text('Charlottie Cooper',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+              child: Text(
+                'Charlottie Cooper',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ),
             const Center(
               child: Text(
@@ -41,6 +53,7 @@ class UserProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
+            Divider(color: Colors.white12, thickness: 1),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: const [
@@ -49,17 +62,53 @@ class UserProfileScreen extends StatelessWidget {
                 _ProfileStat(label: 'Avg vote rating', value: '4.5★'),
               ],
             ),
+            Divider(color: Colors.white12, thickness: 1),
+
             const SizedBox(height: 32),
-            const Text('Recent Votes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18)),
+            const Text(
+              'Recent Votes',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 18,
+              ),
+            ),
             const SizedBox(height: 16),
-            _buildVoteCard('Everything everywhere at once', 5, 'https://image.tmdb.org/t/p/w500/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg'),
-            _buildVoteCard('Stale Summer 2099', 4, 'https://image.tmdb.org/t/p/w500//yF1eOkaYvwiORauRCPWznV9xVvi.jpg'),
+            _buildVoteCard(
+              'Everything everywhere at once',
+              5,
+              'https://image.tmdb.org/t/p/w500/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg',
+            ),
+            _buildVoteCard(
+              'Stale Summer 2099',
+              4,
+              'https://image.tmdb.org/t/p/w500//yF1eOkaYvwiORauRCPWznV9xVvi.jpg',
+            ),
             const SizedBox(height: 24),
-            const Text('Discussion Threads', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18)),
+            const Text(
+              'Discussion Threads',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 18,
+              ),
+            ),
             const SizedBox(height: 12),
-            _buildDiscussionThread('Past Lives', 'My heart ached 🥲', 5),
-            _buildDiscussionThread('Manhattan', 'I loved the unspoken feelings', 12),
-            _buildDiscussionThread('Jackie', 'The cinematograp by incredible!', 3),
+            BuildDiscussionThread(
+              title: 'Past Lives',
+              message: 'My heart ached 🥲',
+              replies: 5,
+            ),
+            BuildDiscussionThread(
+              title: 'Manhattan',
+              message: 'I loved the unspoken feelings',
+              replies: 12,
+            ),
+            BuildDiscussionThread(
+              title: 'Jackie',
+              message: 'The cinematograp by incredible!',
+              replies: 3,
+            ),
           ],
         ),
       ),
@@ -78,14 +127,26 @@ class UserProfileScreen extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.network(imageUrl, width: 50, height: 50, fit: BoxFit.cover),
+            child: Image.network(
+              imageUrl,
+              width: 50,
+              height: 50,
+              fit: BoxFit.cover,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Row(
                   children: List.generate(5, (index) {
@@ -95,7 +156,7 @@ class UserProfileScreen extends StatelessWidget {
                       size: 18,
                     );
                   }),
-                )
+                ),
               ],
             ),
           ),
@@ -105,12 +166,41 @@ class UserProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDiscussionThread(String title, String message, int replies) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-      subtitle: Text(message, style: const TextStyle(color: Colors.white60)),
-      trailing: Text('$replies', style: const TextStyle(color: Colors.white70)),
+  // Widget _BuildDiscussionThread(String title, String message, int replies) {
+  //   return
+  // }
+}
+
+class BuildDiscussionThread extends StatelessWidget {
+  final String title;
+  final String message;
+  final int replies;
+
+  const BuildDiscussionThread({
+    super.key,
+    required this.title,
+    required this.message,
+    required this.replies,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0,),
+      child: ListTile(
+        tileColor: Colors.white12,
+        // contentPadding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(message, style: const TextStyle(color: Colors.white60)),
+        trailing: Text('$replies', style: const TextStyle(color: Colors.white70)),
+      ),
     );
   }
 }
@@ -125,9 +215,19 @@ class _ProfileStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white54, fontSize: 12),
+        ),
       ],
     );
   }

@@ -41,21 +41,15 @@ class SearchBarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-       color: AppColors.darkSurface,
-        borderRadius: BorderRadius.circular(12),
+    return const TextField(
+      decoration: InputDecoration(
+        hintText: 'Search movies, clubs...',
+        hintStyle: TextStyle(color: Colors.white54),
+        // border: InputBorder.,
+        // focusColor: Colors.white54,
+        prefixIcon: Icon(Icons.search, color: Colors.white54),
       ),
-      child: const TextField(
-        decoration: InputDecoration(
-          hintText: 'Search movies, clubs...',
-          hintStyle: TextStyle(color: Colors.white54),
-          // border: InputBorder.none,
-          icon: Icon(Icons.search, color: Colors.white54),
-        ),
-        // style: TextStyle(color: Colors.white),
-      ),
+      // style: TextStyle(color: Colors.white),
     );
   }
 }

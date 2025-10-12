@@ -1,52 +1,43 @@
-import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cluvie_mobile/core/theme/app_color.dart';
 
-class ClBottomNavBar extends StatefulWidget {
+class ClBottomNavBar extends StatelessWidget {
+  final Widget child;
 
   const ClBottomNavBar({
     super.key,
-
+    required this.child,
   });
-  @override
-  State<ClBottomNavBar> createState() => _ClBottomNavBarState();
-}
 
-class _ClBottomNavBarState extends State<ClBottomNavBar> {
- int currentIndex = 0; 
+  static const List<String> routes = [
+    '/home',
+    '/discover',
+    '/suggest',
+    '/allCommunities',
+    '/profile',
+  ];
+
+  int _getCurrentIndex(BuildContext context) {
+    final location = GoRouterState.of(context).uri.toString().toLowerCase();
+    if (location.startsWith('/discover')) return 1;
+    if (location.startsWith('/suggest')) return 2;
+    if (location.startsWith('/allcommunities')) return 3;
+    if (location.startsWith('/profile')) return 4;
+    return 0; // default to home
+  }
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = _getCurrentIndex(context);
 
-    void changeTab(int index) {
-    switch(index){
-      case 0:  
-        context.go('/home');
-        break;
-      case 1:  
-        context.go('/discover');
-        break;
-      case 2:  
-        context.go('/suggest');
-        break;
-      case 3:  
-        context.go('/allCommunities');
-        break;
-        case 4:  
-        context.go('/profile');
-        break;
-      default:
-        context.go('/');
-        break;
-    }
-    setState(() {
-      currentIndex = index;
-    });
-  }
-
-    return BottomNavigationBar(
+    return Scaffold(
+      body: child,
+      bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
-        onTap: changeTab,
+        onTap: (index) {
+          context.go(routes[index]);
+        },
         elevation: 10,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
         backgroundColor: AppColors.darkBackground,
@@ -58,7 +49,10 @@ class _ClBottomNavBarState extends State<ClBottomNavBar> {
             icon: Icon(Icons.home_outlined),
             label: "Home",
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: "Discover"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: "Discover",
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.add_circle_outline),
             label: "Suggest",
@@ -72,34 +66,7 @@ class _ClBottomNavBarState extends State<ClBottomNavBar> {
             label: "Profile",
           ),
         ],
+      ),
     );
-    
   }
 }
-
-// bottomNavigationBar: BottomNavigationBar(
-//         currentIndex: 2,
-//         backgroundColor: AppColors.darkBackground,
-//         selectedItemColor: AppColors.accent,
-//         unselectedItemColor: AppColors.darkTextSecondary,
-//         type: BottomNavigationBarType.fixed,
-//         items: const [
-//           BottomNavigationBarItem(
-//             icon: Icon(Icons.home_outlined),
-//             label: "Home",
-//           ),
-//           BottomNavigationBarItem(icon: Icon(Icons.search), label: "Discover"),
-//           BottomNavigationBarItem(
-//             icon: Icon(Icons.add_circle_outline),
-//             label: "Suggest",
-//           ),
-//           BottomNavigationBarItem(
-//             icon: Icon(Icons.group_outlined),
-//             label: "Clubs",
-//           ),
-//           BottomNavigationBarItem(
-//             icon: Icon(Icons.person_outline),
-//             label: "Profile",
-//           ),
-//         ],
-//       ),

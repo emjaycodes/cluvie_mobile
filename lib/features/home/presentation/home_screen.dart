@@ -165,7 +165,7 @@ class HomeScreen extends StatelessWidget {
 
 
       
-      bottomNavigationBar: ClBottomNavBar(),
+      // bottomNavigationBar: ClBottomNavBar(),
       // BottomNavigationBar(
       //   currentIndex: 2,
       //   backgroundColor: AppColors.darkBackground,
