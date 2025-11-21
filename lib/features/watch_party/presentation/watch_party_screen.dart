@@ -153,7 +153,7 @@ class EmojiReactionBar extends StatelessWidget {
 
 
 class _ControlPanel extends StatelessWidget {
-  const _ControlPanel({super.key});
+  const _ControlPanel();
 
   @override
   Widget build(BuildContext context) {

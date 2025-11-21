@@ -67,7 +67,6 @@ class _SettingItem extends StatelessWidget {
   final bool hasArrow;
 
   const _SettingItem({
-    super.key,
     required this.label,
     this.trailing,
     this.hasArrow = false,

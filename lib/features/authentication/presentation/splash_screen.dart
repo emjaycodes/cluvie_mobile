@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:cluvie_mobile/core/router/routes_name.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,12 +22,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(seconds: 2)); // Simulate loading
+    await Future.delayed(const Duration(seconds: 2));
 
-    final isLoggedIn = ref.read(authProvider); // Replace with real auth check
+    final isLoggedIn = ref.read(authProvider);
 
     if (isLoggedIn == true) {
-      context.goNamed(RouteNames.movies); // or your home route
+      context.goNamed(RouteNames.home); 
     } else {
       context.goNamed(RouteNames.login);
     }
@@ -40,4 +42,3 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     );
   }
 }
-// This is a simple splash screen that checks if the user is logged in and navigates accordingly.

@@ -1,5 +1,6 @@
 import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/models/community.dart';
+import 'package:cluvie_mobile/core/utils/build_config.dart';
 
 class CommunityRepository {
   // final Dio _dio;
@@ -19,7 +20,7 @@ class CommunityRepository {
       final communities = communityList.map((json) => Community.fromJson(json)).toList();
       return communities;
     } catch (e) {
-      print('Error fetching communities: $e');
+      log('Error fetching communities: $e');
       rethrow;
     }
   }
@@ -32,7 +33,7 @@ class CommunityRepository {
       final communities = communityList.map((json) => Community.fromJson(json)).toList();
       return communities;
     } catch (e) {
-      print('Error fetching communities: $e');
+      log('Error fetching communities: $e');
       rethrow;
     }
   }
@@ -44,7 +45,7 @@ class CommunityRepository {
       final response = await _apiClient.get('/communities/$id');
       return Community.fromJson(response.data);
     } catch (e) {
-      print('Error fetching community: $e');
+      log('Error fetching community: $e');
       rethrow;
     }
   }
@@ -61,11 +62,11 @@ class CommunityRepository {
       );
       final data = response.data;
       final community= data['community'];
-      print('✅ Success: ${response.data}');
+      log('✅ Success: ${response.data}');
       return Community.fromJson(community);
       
     } catch (e) {
-      print('Error creating community: $e');
+      log('Error creating community: $e');
       rethrow;
     }
   }
@@ -79,7 +80,7 @@ class CommunityRepository {
       );
       return Community.fromJson(response.data);
     } catch (e) {
-      print('Error updating a community: $e');
+      log('Error updating a community: $e');
       rethrow;
     }
   }
@@ -89,7 +90,7 @@ class CommunityRepository {
     try {
       await _apiClient.delete('/communities/$id');
     } catch (e) {
-      print('Error deleting a community: $e');
+      log('Error deleting a community: $e');
       rethrow;
     }
   }

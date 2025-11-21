@@ -3,5 +3,5 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 
 final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient(); // Singleton instance of ApiClient
+  return ApiClient(); 
 });

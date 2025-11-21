@@ -20,7 +20,7 @@ class ClButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = ElevatedButton.styleFrom(
       backgroundColor: isSecondary ? Colors.white : AppColors.goldenPopcorn,
-      foregroundColor: isSecondary ? AppColors.cinematicPurple : Colors.white,
+      foregroundColor:  AppColors.cinematicPurple ,
       side:
           isSecondary
               ? BorderSide(color: AppColors.cinematicPurple, width: 1.5)

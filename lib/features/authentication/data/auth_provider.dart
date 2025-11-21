@@ -1,7 +1,8 @@
 
+import 'package:cluvie_mobile/core/utils/build_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/models/User.dart';
+import '../../../core/models/user.dart';
 import '../../../core/repository/auth_repository.dart';
 
 // Define a provider for AuthNotifier
@@ -47,7 +48,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true); // Update state to loading
     try {
       final user = await _repository.login(email, password);
-      print("usreeeeeeeee $user");
+      log("usreeeeeeeee $user");
       state = AuthState.success(user); // Update state to success
       return true;
     } catch (e) {

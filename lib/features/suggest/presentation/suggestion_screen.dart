@@ -1,3 +1,5 @@
+import 'package:cluvie_mobile/core/theme/widgets/cl_dialog.dart';
+import 'package:cluvie_mobile/core/utils/build_config.dart';
 import 'package:flutter/material.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
@@ -40,10 +42,10 @@ class SuggestMovieScreen extends StatelessWidget {
           //   onPressed: () {},
           // )
         ],
-        leading: TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Icon(Icons.cancel_outlined, color: Colors.white),
-        ),
+        // leading: TextButton(
+        //   onPressed: () => Navigator.pop(context),
+        //   child: const Icon(Icons.cancel_outlined, color: Colors.white),
+        // ),
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -82,7 +84,15 @@ class SuggestMovieScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    log('jfjjff');
+                    showClDialog(
+                      
+                      title: "Suggestion Submitted!",
+                      message: "Your movie suggestion has been sent to the club.", context: context, onConfirm: () {  },
+                      
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
                     padding: const EdgeInsets.symmetric(vertical: 18),
@@ -164,3 +174,5 @@ class ClubCard extends StatelessWidget {
     );
   }
 }
+
+ 

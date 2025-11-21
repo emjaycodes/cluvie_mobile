@@ -1,4 +1,5 @@
-// 📁 community_info_screen.dart
+
+// ignore_for_file: unused_element
 
 import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +7,6 @@ import 'package:intl/intl.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 
 
-// 🧩 MAIN SCREEN
 class CommunityInfoScreen extends StatelessWidget {
   final Community community;
 
@@ -19,7 +19,6 @@ class CommunityInfoScreen extends StatelessWidget {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // 🟩 Hero Image + App Bar
           SliverAppBar(
             expandedHeight: 240,
             pinned: true,
@@ -47,15 +46,13 @@ class CommunityInfoScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          // 🟦 Info Section
+          
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 🔹 Category
                   Text(
                     // community.category.toUpperCase(),
                     "horror".toUpperCase(),
@@ -65,8 +62,6 @@ class CommunityInfoScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-
-                  // 🔹 Description
                   Text(
                     community.description,
                     style: theme.textTheme.bodyMedium,
@@ -74,8 +69,6 @@ class CommunityInfoScreen extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   Divider(),
-
-                  // 🔹 Stats Row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -100,8 +93,7 @@ class CommunityInfoScreen extends StatelessWidget {
                    Divider(),
 
                   const SizedBox(height: 24),
-                  //   final bool isMember = community.members.contains(); // Replace with actual user ID check
-                  // // 🟧 Conditional Section: Join Button or Admin Tools
+                  //   final bool isMember = community.members.contains(); 
                   // community.
                       _MemberFeatures(),
                       // : _JoinPrompt(community: community),
@@ -132,7 +124,6 @@ class CommunityInfoScreen extends StatelessWidget {
   }
 }
 
-// 🧱 INFO TILE WIDGET
 class _InfoTile extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -163,7 +154,6 @@ class _InfoTile extends StatelessWidget {
   }
 }
 
-// 🟪 MEMBER-ONLY SECTION
 class _MemberFeatures extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -186,7 +176,6 @@ class _MemberFeatures extends StatelessWidget {
   }
 }
 
-// 🟥 JOIN PROMPT FOR NON-MEMBERS
 class _JoinPrompt extends StatelessWidget {
   final Community community;
 
@@ -217,7 +206,6 @@ class _JoinPrompt extends StatelessWidget {
   }
 }
 
-// 🧱 ACTION CHIP
 class _ActionChip extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -238,7 +226,6 @@ class _ActionChip extends StatelessWidget {
   }
 }
 
-// 🟨 TRENDING DISCUSSION PREVIEW
 class _DiscussionPreview extends StatelessWidget {
   final String title;
   final int replies;
@@ -258,7 +245,6 @@ class _DiscussionPreview extends StatelessWidget {
       subtitle: Text("$replies replies • Active $lastActive"),
       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
       onTap: () {
-        // Navigate to thread
       },
     );
   }

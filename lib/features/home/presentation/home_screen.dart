@@ -1,5 +1,4 @@
-import 'package:cluvie_mobile/core/theme/widgets/cl_bottom_nav_bar.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_status_widget.dart';
+
 import 'package:cluvie_mobile/features/home/components/discussion_card.dart';
 import 'package:cluvie_mobile/features/home/components/reaction_footer.dart';
 import 'package:cluvie_mobile/features/home/components/upcoming_watchcard.dart';
@@ -9,6 +8,7 @@ import 'package:cluvie_mobile/features/movies/presentation/movie_list_screen.dar
 import 'package:flutter/material.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -20,7 +20,14 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: Row(
           children: [
-            const Icon(Icons.movie_creation_outlined, color: Colors.white),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SvgPicture.asset(
+                'assets/images/cluvie_logo.svg',
+                width: 32,
+                height: 32,
+              ),
+            ),
             const SizedBox(width: 8),
             Text(
               'CLUVIE',
@@ -28,12 +35,12 @@ class HomeScreen extends StatelessWidget {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: () {},
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.add_circle_outline),
+        //     onPressed: () {},
+        //   ),
+        // ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

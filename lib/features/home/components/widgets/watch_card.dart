@@ -1,4 +1,7 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class WeeklyWatchlist extends StatefulWidget {
   final List<MovieCard> movies;
@@ -40,7 +43,7 @@ class _WeeklyWatchlistState extends State<WeeklyWatchlist> {
                   setState(() {
                     _selectedIndex = index;
                   });
-                  // Optional: callback or navigation
+                  context.push('/movieDetails', extra: movie);
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),

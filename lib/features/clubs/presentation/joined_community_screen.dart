@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
@@ -110,7 +112,7 @@ class JoinedCommunitiesScreen extends ConsumerWidget {
 /* --- helper widgets ----------------------------------------------------- */
 
 class _PlaceholderCard extends StatelessWidget {
-  const _PlaceholderCard({super.key});
+  const _PlaceholderCard();
 
   @override
   Widget build(BuildContext context) => AspectRatio(

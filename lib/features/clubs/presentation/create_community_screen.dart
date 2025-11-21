@@ -1,4 +1,5 @@
-import 'package:cluvie_mobile/core/models/community.dart';
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
@@ -43,7 +44,7 @@ class _CreateCommunityScreenConsumerState
         name,
         description,
       );
-      context.pop(); // Go back after successful creation
+      context.pop(); 
     } catch (e) {
       // Show snackbar or error dialog
       ScaffoldMessenger.of(context).showSnackBar(
@@ -67,7 +68,6 @@ class _CreateCommunityScreenConsumerState
             key: _formKey,
             child: Column(
               children: [
-                // Community Name
                 TextFormField(
                   controller: _communityNameController,
                   decoration: const InputDecoration(
@@ -82,7 +82,6 @@ class _CreateCommunityScreenConsumerState
                 ),
                 const SizedBox(height: 16),
 
-                // Community Description
                 TextFormField(
                   controller: _communityDescriptionController,
                   decoration: const InputDecoration(
@@ -99,7 +98,6 @@ class _CreateCommunityScreenConsumerState
                 ),
                 const SizedBox(height: 32),
 
-                // Submit Button
                 ClButton(
                   label: _isSubmitting ? "Creating..." : "Create Community",
                   onPressed: _isSubmitting ? (){} : _createCommunity,

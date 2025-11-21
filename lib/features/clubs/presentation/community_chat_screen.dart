@@ -1,6 +1,7 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/models/message.dart';
-import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cluvie_mobile/core/router/routes_name.dart';
@@ -210,7 +211,6 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
   }
 }
 
-// 🧩 Sliver App Bar Custom Widget
 class SliverAppBarSection extends StatelessWidget {
   final Community community;
 
@@ -219,7 +219,6 @@ class SliverAppBarSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      // TODO change to custom widget later
       height: 90,
       child: AppBar(
         elevation: 1,
@@ -280,7 +279,6 @@ class SliverAppBarSection extends StatelessWidget {
                   title: const Text('Manage Members'),
                   onTap: () {
                     Navigator.pop(context);
-                    // Navigate to members list
                   },
                 ),
               if (isAdmin)
@@ -289,7 +287,6 @@ class SliverAppBarSection extends StatelessWidget {
                   title: const Text('Edit Community Settings'),
                   onTap: () {
                     Navigator.pop(context);
-                    // Open community edit screen
                   },
                 ),
               ListTile(
@@ -297,7 +294,6 @@ class SliverAppBarSection extends StatelessWidget {
                 title: const Text('Leave Community'),
                 onTap: () {
                   Navigator.pop(context);
-                  // Show confirm dialog
                 },
               ),
             ],
@@ -442,7 +438,7 @@ class ThreadBottomSheet extends StatefulWidget {
 
 class _ThreadBottomSheetState extends State<ThreadBottomSheet> {
   final TextEditingController _replyController = TextEditingController();
-  bool _isTyping = false;
+  bool isTyping = false;
 
   void _handleSend() {
     final text = _replyController.text.trim();
@@ -450,7 +446,7 @@ class _ThreadBottomSheetState extends State<ThreadBottomSheet> {
 
     widget.onSendReply(text);
     _replyController.clear();
-    setState(() => _isTyping = false);
+    setState(() => isTyping = false);
   }
 
   @override
@@ -481,12 +477,10 @@ class _ThreadBottomSheetState extends State<ThreadBottomSheet> {
                 ),
               ),
 
-              // 🧩 Parent Message
               _ParentMessageCard(message: widget.parentMessage),
 
               const Divider(height: 24),
 
-              // 🟡 Threaded Replies
               Expanded(
                 child: ListView.builder(
                   controller: controller,
@@ -500,7 +494,6 @@ class _ThreadBottomSheetState extends State<ThreadBottomSheet> {
 
               const SizedBox(height: 12),
 
-              // 🟩 Input for reply
               SafeArea(
                 child: Row(
                   children: [
@@ -509,7 +502,7 @@ class _ThreadBottomSheetState extends State<ThreadBottomSheet> {
                         controller: _replyController,
                         onChanged:
                             (value) =>
-                                setState(() => _isTyping = value.isNotEmpty),
+                                setState(() => isTyping = value.isNotEmpty),
                         decoration: InputDecoration(
                           hintText: "Write a reply...",
                           filled: true,

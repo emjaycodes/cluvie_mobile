@@ -1,5 +1,6 @@
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/repository/movie_repository.dart';
+import 'package:cluvie_mobile/core/utils/build_config.dart';
 import 'package:cluvie_mobile/features/movies/states/movie_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,7 +22,7 @@ class MovieNotifier extends StateNotifier<MovieState> {
     try {
       final movies = await movieRepository.fetchAllMovies();
       state = MovieState.success(movies);
-      print('Fetched movies: ${movies.length}');
+      log('Fetched movies: ${movies.length}');
     } catch (e) {
       state = MovieState.error(e.toString());
     }
@@ -37,12 +38,4 @@ Future<void> fetchMovieDetails(String movieId) async {
   }
 }
 
-  // void addMovie(Movie movie) {
-  //   state = state.copyWith(movies: [...state.movies, movie]);
-  // }
-
-  // void removeMovie(int movieId) {
-  //   final updated = state.movies.where((m) => m.id != movieId).toList();
-  //   state = state.copyWith(movies: updated);
-  // }
 }

@@ -2,7 +2,6 @@ import 'package:cluvie_mobile/core/router/routes_name.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,7 +24,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           padding: AppSpacing.clPadding,
           child: Column(
             children: [
-              Text("CLUVIE🍿", style: AppTextStyles.heading1),
+               SvgPicture.asset(
+                          'assets/images/cluvie_logo.svg',
+                          width: 50,
+                          height: 100,
+                        ),
               const SizedBox(height: AppSpacing.xs * 5),
               Text("Join the club", style: AppTextStyles.heading1),
               const SizedBox(height: AppSpacing.xs),

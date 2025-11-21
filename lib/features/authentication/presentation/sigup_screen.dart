@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:cluvie_mobile/core/router/routes_name.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
@@ -86,6 +88,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           ),
                           const SizedBox(height: AppSpacing.xl),
                           AuthGlassmorphicContainer(
+                            height: 450,
                             child: Column(
                               children: [
                                 // Name
@@ -148,7 +151,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                   onPressed:
                                       () => context.pushNamed(RouteNames.login),
                                   child: const Text(
-                                    "Already have an account? Login",
+                                    " have an account? Login",
                                   ),
                                 ),
                                 Spacer()

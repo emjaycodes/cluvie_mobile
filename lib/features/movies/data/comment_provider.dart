@@ -1,6 +1,5 @@
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/models/movie_comment.dart';
-import 'package:cluvie_mobile/features/movies/data/movie_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 
@@ -26,13 +25,11 @@ class MovieCommentNotifier extends FamilyAsyncNotifier<List<MovieComment>, Strin
     return await _repository.fetchMovieComments(movieId);
   }
 
-  /// 🔁 Refresh the list of comments
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() => _repository.fetchMovieComments(movieId));
   }
 
-  /// Create a new comment for the movie
   Future<MovieComment> createComment(String text) async {
     final newComment = await _repository.createMovieComment(movieId, text);
     final current = state.value ?? [];
@@ -40,7 +37,6 @@ class MovieCommentNotifier extends FamilyAsyncNotifier<List<MovieComment>, Strin
     return newComment;
   }
 
-  /// Delete a comment by its ID
   Future<void> deleteComment(String commentId) async {
     await _repository.deleteMovieComment(commentId);
     final current = state.value ?? [];

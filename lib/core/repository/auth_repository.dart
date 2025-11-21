@@ -1,7 +1,8 @@
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
+import 'package:cluvie_mobile/core/utils/build_config.dart';
 
 import '../../../core/api/api_client.dart';
-import '../models/User.dart';
+import '../models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 
@@ -38,10 +39,10 @@ class AuthRepository {
     final userJson = response.data['user'];
     
     await _saveToken(token);
-     print('✅ Success: ${response.data}');
+     log(' Success: ${response.data}');
     return UserModel.fromJson(userJson);
     } catch (e) {
-      print('❌ Error during login: $e');
+      log('Error during login: $e');
       throw ApiException.fromDio(e);
     }
 
@@ -57,13 +58,13 @@ class AuthRepository {
     });
 
     final token = response.data['token'];
-    print('✅ Success: ${response.data}');
+    log('✅ Success: ${response.data}');
     final userJson = response.data['user'];
 
     await _saveToken(token);
     return UserModel.fromJson(userJson);
     } catch (e) {
-      print('❌ Error during registration: $e');
+      log('❌ Error during registration: $e');
       throw ApiException.fromDio(e);
     }
    

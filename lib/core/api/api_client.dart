@@ -1,4 +1,5 @@
 
+import 'package:cluvie_mobile/core/utils/build_config.dart';
 import 'package:dio/dio.dart';
 
 import '../errors/api_exceptions.dart';
@@ -22,20 +23,20 @@ class ApiClient {
   void setupDioLogging() {
   _dio.interceptors.add(InterceptorsWrapper(
     onRequest: (options, handler) {
-      print('➡️ REQUEST[${options.method}] => PATH: ${options.uri}');
-      print('Headers: ${options.headers}');
-      print('Data: ${options.data}');
+      log(' REQUEST[${options.method}] => PATH: ${options.uri}');
+      log('Headers: ${options.headers}');
+      log('Data: ${options.data}');
       return handler.next(options);
     },
     onResponse: (response, handler) {
-      print('✅ RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.uri}');
-      print('Data: ${response.data}');
+      log(' RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.uri}');
+      log('Data: ${response.data}');
       return handler.next(response);
     },
     onError: (DioException e, handler) {
-      print('❌ ERROR[${e.response?.statusCode}] => PATH: ${e.requestOptions.uri}');
-      print('Message: ${e.message}');
-      print('Error Data: ${e.response?.data}');
+      log(' ERROR[${e.response?.statusCode}] => PATH: ${e.requestOptions.uri}');
+      log('Message: ${e.message}');
+      log('Error Data: ${e.response?.data}');
       return handler.next(e);
     },
   ));

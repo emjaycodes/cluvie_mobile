@@ -1,7 +1,7 @@
 import 'package:cluvie_mobile/core/models/community.dart';
-import 'package:cluvie_mobile/core/models/movie.dart';
 import 'package:cluvie_mobile/core/router/routes_name.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_bottom_nav_bar.dart';
+import 'package:cluvie_mobile/features/authentication/presentation/forgot_password_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/login_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/onboarding_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/sigup_screen.dart';
@@ -12,13 +12,10 @@ import 'package:cluvie_mobile/features/clubs/presentation/community_chat_screen.
 import 'package:cluvie_mobile/features/clubs/presentation/community_info_screen.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/community_list_screen.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/create_community_screen.dart';
-import 'package:cluvie_mobile/features/clubs/presentation/joined_community_screen.dart';
 import 'package:cluvie_mobile/features/discover/presentation/discover_screen.dart';
 import 'package:cluvie_mobile/features/home/presentation/home_screen.dart';
-import 'package:cluvie_mobile/features/movies/presentation/discussion_list_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/disscusion_thread.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_details_screen.dart';
-import 'package:cluvie_mobile/features/movies/presentation/movie_list_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_search_screen.dart';
 import 'package:cluvie_mobile/features/suggest/presentation/suggestion_screen.dart';
 import 'package:cluvie_mobile/features/user_profile/presentation/profile_screen.dart';
@@ -31,13 +28,14 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final router = GoRouter(
   navigatorKey: _rootNavigatorKey,
-  initialLocation: '/home',
+  initialLocation: '/welcome',
   routes: [
     GoRoute(
-      path: '/',
       name: 'onboarding',
+      path: '/',
       builder: (context, state) => OnboardingScreen(),
     ),
+    
     GoRoute(
       name: RouteNames.splash,
       path: '/splash',
@@ -60,6 +58,11 @@ final router = GoRouter(
       builder: (context, state) => const SignupScreen(),
     ),
 
+    GoRoute(
+      name: RouteNames.forgotPassword,
+      path: '/forgotPassword',
+      builder: (context, state) => const ForgotPasswordScreen(),
+    ),
     // GoRoute(
     // path: '/home', 
     // builder: (context, state) => const HomeScreen()),

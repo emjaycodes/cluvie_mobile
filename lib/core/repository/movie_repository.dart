@@ -1,5 +1,6 @@
 import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/models/movie.dart';
+import 'package:cluvie_mobile/core/utils/build_config.dart';
 
 // class MovieRepository {
 //  final _dio = Dio(
@@ -77,7 +78,7 @@ class MovieRepository {
     final response = await apiClient.get('/movies/refresh');
         return response.data['count'] as int;
     } catch (e){
-        print('Error fetching communities: $e');
+        log('Error fetching communities: $e');
         rethrow;
     }
    
@@ -89,7 +90,7 @@ class MovieRepository {
         final response = await apiClient.get('/movies/list');
     return (response.data as List).map((json) => Movie.fromJson(json)).toList();
     }catch (e) {
-      print('Error fetching all movies: ${e.toString()}');
+      log('Error fetching all movies: ${e.toString()}');
       rethrow;
     }
   }
@@ -100,7 +101,7 @@ class MovieRepository {
       final response = await apiClient.get('/movies/trending-engagement');
     return (response.data as List).map((json) => Movie.fromJson(json)).toList();
     }catch (e) {
-      print('Error fetching trending movies by engagement: $e');
+      log('Error fetching trending movies by engagement: $e');
       rethrow;
     }
     
@@ -112,7 +113,7 @@ class MovieRepository {
       final response = await apiClient.get('/movies/$id');
     return Movie.fromJson(response.data);
     }catch (e) {
-      print('Error fetching movie details: $e');
+      log('Error fetching movie details: $e');
       rethrow;
     }
     
@@ -123,7 +124,7 @@ class MovieRepository {
     try{
       await apiClient.delete('/movies/$id');
     }catch (e) {
-      print('Error deleting movie: $e');
+      log('Error deleting movie: $e');
       rethrow;
     }
     
@@ -135,7 +136,7 @@ class MovieRepository {
       final response = await apiClient.post('/movies/$id/vote');
     return response.data['votes'] as int;}
     catch (e) {
-      print('Error voting for movie: $e');
+      log('Error voting for movie: $e');
       rethrow;
     }
     
@@ -146,7 +147,7 @@ class MovieRepository {
     try{
       final response = await apiClient.post('/movies/$id/downvote');
     return response.data['votes'] as int;}catch (e) {
-      print('Error downvoting movie: $e');
+      log('Error downvoting movie: $e');
       rethrow;
     }
   }

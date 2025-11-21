@@ -1,6 +1,7 @@
+
 class UserModel {
   final String id;
-  final String name; // maps to `username` in MongoDB
+  final String name;
   final String email;
   final String role;
   final int xp;
@@ -31,7 +32,7 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['_id'], // handle MongoDB `_id`
+      id: json['_id'],
       name: json['username'],
       email: json['email'],
       role: json['role'] ?? 'user',

@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/core/utils/build_config.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -7,10 +8,10 @@ class MovieSearchScreen extends StatefulWidget {
   const MovieSearchScreen({super.key});
 
   @override
-  _MovieSearchScreenState createState() => _MovieSearchScreenState();
+  MovieSearchScreenState createState() => MovieSearchScreenState();
 }
 
-class _MovieSearchScreenState extends State<MovieSearchScreen> {
+class MovieSearchScreenState extends State<MovieSearchScreen> {
   final TextEditingController _controller = TextEditingController();
   List _movies = [];
   bool _isLoading = false;
@@ -35,7 +36,7 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
         throw Exception('Failed to load movies');
       }
     } catch (e) {
-      print(e);
+      log(e);
     } finally {
       setState(() {
         _isLoading = false;

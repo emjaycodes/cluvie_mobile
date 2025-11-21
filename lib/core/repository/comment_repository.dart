@@ -1,6 +1,7 @@
 import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/core/models/movie_comment.dart';
+import 'package:cluvie_mobile/core/utils/build_config.dart';
 
 class CommentRepository {
   final ApiClient _apiClient;
@@ -20,7 +21,7 @@ class CommentRepository {
         );
       }
     } catch (e) {
-      print('Error fetching comments: $e');
+      log('Error fetching comments: $e');
       rethrow;
     }
   }
@@ -41,7 +42,7 @@ class CommentRepository {
         );
       }
     } catch (e) {
-      print('Error creating comment: $e');
+      log('Error creating comment: $e');
       rethrow;
     }
   }
@@ -58,7 +59,7 @@ class CommentRepository {
         );
       }
     } catch (e) {
-      print('Error deleting comment: $e');
+      log('Error deleting comment: $e');
       rethrow;
     }
   }

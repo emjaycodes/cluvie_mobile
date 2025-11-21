@@ -7,7 +7,9 @@ Future<void> showClDialog({
   required String message,
   required VoidCallback onConfirm,
   String confirmText = 'Confirm',
-  String cancelText = 'Cancel',
+  String closeText = 'Close',
+  bool showCancel = true,
+  bool showConfirm = false
 }) {
   return showDialog(
     context: context,
@@ -17,9 +19,9 @@ Future<void> showClDialog({
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(cancelText),
+          child: Text(closeText),
         ),
-        ElevatedButton(
+        showConfirm? ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.cinematicPurple,
           ),
@@ -28,7 +30,7 @@ Future<void> showClDialog({
             onConfirm();
           },
           child: Text(confirmText),
-        ),
+        ) : Container()
       ],
     ),
   );
