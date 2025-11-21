@@ -91,7 +91,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             height: 450,
                             child: Column(
                               children: [
-                                // Name
                                 TextFormField(
                                   decoration: const InputDecoration(
                                     hintText: 'Joe Doe',
@@ -106,7 +105,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 ),
                                 const SizedBox(height: AppSpacing.md),
 
-                                // Email
                                 TextFormField(
                                   decoration: const InputDecoration(
                                     hintText: 'johndoe@example.com',
@@ -121,7 +119,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 ),
                                 const SizedBox(height: AppSpacing.md),
 
-                                // Password
                                 TextFormField(
                                   decoration: const InputDecoration(
                                     labelText: 'Password',

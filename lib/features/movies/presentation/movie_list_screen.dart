@@ -118,30 +118,26 @@ class _MovieListScreenState extends ConsumerState<MovieListScreen> {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: ListView(
             children: [
-              //   Featured Movie Banner
               FeaturedMovieWidget(
                 movie: numberOneMovie,
-                showShimmer: false, // Since loading is false
+                showShimmer: false,
                 error: movieState.error,
               ),
 
               const SizedBox(height: AppSpacing.lg),
 
-              // 🟩 Trending Discussions
               SectionTitle(title: "Trending in Discussions"),
               const SizedBox(height: AppSpacing.sm),
               const TrendingDiscussionsList(),
 
               const SizedBox(height: AppSpacing.lg),
 
-              // 🟦 Explore Communities
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   SectionTitle(title: "Join a Community"),
                   TextButton(
                     onPressed: () {
-                      // Navigate to community screen or perform action
                       context.pushNamed('allCommunities');
                     },
                     child: const Text(
@@ -159,7 +155,6 @@ class _MovieListScreenState extends ConsumerState<MovieListScreen> {
 
               const SizedBox(height: AppSpacing.lg),
 
-              // 🟪 Popular Movies
               SectionTitle(title: "Popular Movies"),
               const SizedBox(height: AppSpacing.sm),
               PopularMoviesGrid(
@@ -174,8 +169,6 @@ class _MovieListScreenState extends ConsumerState<MovieListScreen> {
     );
   }
 }
-
-// --- Reusable Widgets ---
 
 class SectionTitle extends StatelessWidget {
   final String title;
@@ -213,7 +206,7 @@ class FeaturedMovieWidget extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: CachedNetworkImage(
-        imageUrl: movie.poster,
+        imageUrl: movie.poster!,
         placeholder: (context, url) => Shimmer.fromColors(
         baseColor: Colors.grey.shade300,
         highlightColor: Colors.grey.shade100,
@@ -257,7 +250,7 @@ class TrendingDiscussionsList extends StatelessWidget {
       height: 120,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: 5, // Later you replace this with real discussions
+        itemCount: 5,
         separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, index) {
           return  Column(
@@ -306,7 +299,7 @@ class CommunityList extends StatelessWidget {
       height: 100,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: 5, // Real communities later
+        itemCount: 5,
         separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, index) {
           return CircleAvatar(radius: 40, foregroundImage: const AssetImage('assets/images/group.jpg'));
@@ -384,7 +377,7 @@ class PopularMoviesGrid extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: CachedNetworkImage(
-        imageUrl: movie.poster,
+        imageUrl: movie.poster!,
         placeholder: (context, url) => Shimmer.fromColors(
               baseColor: Colors.grey.shade300,
               highlightColor: Colors.grey.shade100,
@@ -431,7 +424,7 @@ class BigMovieItemWidget extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Image.asset(
-          'assets/images/you.png', // Placeholder image
+          'assets/images/you.png',
           // width: 345,
           // height: 250,
           fit: BoxFit.fill,

@@ -1,11 +1,11 @@
 class Community {
-  final String id;
-  final String name;
-  final String description;
-  final List<String> members;
-  final List<String> admins;
-  final List<String> votes;
-  final List<String> movieSuggestions;
+  final String? id;
+  final String? name;
+  final String? description;
+  final List<String?> members;
+  final List<String?> admins;
+  final List<String?> votes;
+  final List<String?> movieSuggestions;
   final DateTime createdAt;
 
   Community({
@@ -22,11 +22,11 @@ class Community {
   factory Community.fromJson(Map<String, dynamic> json) {
       final membersJson = json['members'] as List<dynamic>? ?? [];
 
-  final memberIds = <String>[];
-  final adminIds  = <String>[];
+  final memberIds = <String?>[];
+  final adminIds  = <String?>[];
 
   for (final m in membersJson) {
-    final uid  = m['user'] as String;
+    final uid  = m['user'] as String?;
     final role = m['role'] as String? ?? 'member';
     memberIds.add(uid);
     if (role == 'admin') adminIds.add(uid);
@@ -38,8 +38,8 @@ class Community {
       description: json['description'],
          members: memberIds,
     admins: adminIds,
-      votes: List<String>.from(json['votes'] ?? []),
-      movieSuggestions: List<String>.from(json['movie_suggestions'] ?? []),
+      votes: List<String?>.from(json['votes'] ?? []),
+      movieSuggestions: List<String?>.from(json['movie_suggestions'] ?? []),
       createdAt: DateTime.parse(json['createdAt']),
     );
   }

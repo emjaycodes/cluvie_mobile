@@ -1,8 +1,8 @@
 class DiscussionComment {
-  final String id;
-  final String discussionId;
-  final String userId;
-  final String text;
+  final String? id;
+  final String? discussionId;
+  final String? userId;
+  final String? text;
   final DateTime createdAt;
 
   DiscussionComment({
@@ -21,7 +21,7 @@ class DiscussionComment {
         createdAt: DateTime.parse(json['createdAt']),
       );
 
-  Map<String, dynamic> toJson() => {
+  Map<String?, dynamic> toJson() => {
         'discussionId': discussionId,
         'userId': userId,
         'text': text,

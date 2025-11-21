@@ -25,7 +25,7 @@ class CommunityInfoScreen extends StatelessWidget {
             flexibleSpace: FlexibleSpaceBar(
               centerTitle:false,
               collapseMode: CollapseMode.pin,
-              title: Text(community.name),
+              title: Text(community.name!),
               background: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -63,7 +63,7 @@ class CommunityInfoScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    community.description,
+                    community.description!,
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 12),
@@ -192,7 +192,6 @@ class _JoinPrompt extends StatelessWidget {
         const SizedBox(height: 12),
         ElevatedButton.icon(
           onPressed: () {
-            // Handle join action
           },
           icon: const Icon(Icons.group_add),
           label: const Text("Join Community"),

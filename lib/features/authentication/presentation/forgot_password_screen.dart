@@ -63,8 +63,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 const SizedBox(height: 8),
                 const Text("Enter your email to reset your password."),
                 const SizedBox(height: 32),
-
-                // Email input
                 TextFormField(
                   decoration: const InputDecoration(labelText: 'Email'),
                   keyboardType: TextInputType.emailAddress,
@@ -76,8 +74,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                               : 'Enter valid email',
                 ),
                 const SizedBox(height: 32),
-
-                // Reset Button
                 ClButton(
                   label: _loading ? 'Sending Reset Link...' : 'Send Reset Link',
                   onPressed: _handlePasswordReset,

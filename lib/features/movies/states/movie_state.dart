@@ -15,26 +15,22 @@ class MovieState {
     this.error,
   });
 
-  // Loading state
   MovieState.loading()
       : movies = const [],
        selectedMovie = null,
         isLoading = true,
         error = null;
 
-  // Error state
   MovieState.error(this.error)
       : movies = const [],
        selectedMovie = null,
         isLoading = false;
 
-  // Success state
   MovieState.success(this.movies)
       : isLoading = false,
        selectedMovie = null,
         error = null;
 
-  // Update state with new values
   MovieState copyWith({
     List<Movie>? movies,
     Movie? selectedMovie,
@@ -49,7 +45,6 @@ class MovieState {
     );
   }
 
-    // Success state (movie detail only)
   MovieState.detail(Movie movie)
       : movies = const [],
         selectedMovie = movie,

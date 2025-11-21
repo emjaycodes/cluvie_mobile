@@ -1,8 +1,8 @@
 class MovieComment {
-  final String id;
-  final String movieId;
-  final String userId;
-  final String comment;
+  final String? id;
+  final String? movieId;
+  final String? userId;
+  final String? comment;
   final DateTime createdAt;
 
   MovieComment({
@@ -13,7 +13,7 @@ class MovieComment {
     required this.createdAt,
   });
 
-  Map<String, dynamic> toJson() {
+  Map<String?, dynamic> toJson() {
     return {
       'id': id,
       'movieId': movieId,
@@ -35,7 +35,7 @@ class MovieComment {
 }
 
   // @override
-  // String toString() {
+  // String? toString?() {
   //   return 'MovieComment{id: $id, movieId: $movieId, userId: $userId, comment: $comment, createdAt: $createdAt}';
   // }
 // }  

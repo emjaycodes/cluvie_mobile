@@ -13,26 +13,22 @@ class CommunityState {
     this.error,
   });
 
-  // Loading state
   CommunityState.loading()
       : communities = const [],
         selectedCommunity = null,
         isLoading = true,
         error = null;
 
-  // Error state
   CommunityState.error(this.error)
       : communities = const [],
         selectedCommunity = null,
         isLoading = false;
 
-  // Success (list)
   CommunityState.success(this.communities)
       : selectedCommunity = null,
         isLoading = false,
         error = null;
 
-  // Success (single detail)
   CommunityState.detail(this.selectedCommunity)
       : communities = const [],
         isLoading = false,

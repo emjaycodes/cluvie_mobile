@@ -68,7 +68,6 @@ class JoinedCommunitiesScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 🔹 Continue Participating (placeholder content)
                    Text("Continue Participating",
                       style: AppTextStyles.heading2),
                   const SizedBox(height: AppSpacing.sm),
@@ -76,7 +75,7 @@ class JoinedCommunitiesScreen extends ConsumerWidget {
                     height: 180,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      itemCount: 5, // demo cards
+                      itemCount: 5, 
                       separatorBuilder: (_, __) =>
                           const SizedBox(width: AppSpacing.sm),
                       itemBuilder: (_, __) => const _PlaceholderCard(),
@@ -85,7 +84,6 @@ class JoinedCommunitiesScreen extends ConsumerWidget {
 
                   const SizedBox(height: AppSpacing.lg),
 
-                  // 🟦 All Joined Communities
                    Text("All Joined Communities",
                       style: AppTextStyles.heading2),
                   const SizedBox(height: AppSpacing.sm),
@@ -170,7 +168,7 @@ class CommunityCard extends StatelessWidget {
               fit: BoxFit.cover,
             ),
           ),
-          title: Text(community.name, style: const TextStyle(color: Colors.white)),
+          title: Text(community.name!, style: const TextStyle(color: Colors.white)),
           subtitle: Text(
             '${community.members.length} · 🔥 Trending discussion',
             style: const TextStyle(color: Colors.grey),

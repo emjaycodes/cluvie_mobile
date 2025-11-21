@@ -11,8 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glassmorphism/glassmorphism.dart';
 import 'package:go_router/go_router.dart';
 
-// for access to authProvider
-
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -127,15 +125,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ),
                                           
                                   const SizedBox(height: AppSpacing.sm),
-                                  // Login Button
                                   ClButton(
                                     label: 'Log in',
                                     onPressed: _handleLogin,
                                   ),
                                           
                                   const SizedBox(height: AppSpacing.md),
-                                          
-                                  // Links
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [

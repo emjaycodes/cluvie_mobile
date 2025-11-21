@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 class AppColors {
   // === Brand Core ===
   static const Color cinematicPurple = Color(0xFF2E1F4A); // Main brand tone
-  static const Color goldenPopcorn = Color(0xFFFFD27D); // Accent color (CTAs)
-  static const Color popTeal = Color(0xFF4DC8B5); // Success / Active states
-  static const Color softRed = Color(0xFFFF6B6B); // Error / Destructive
+  static const Color goldenPopcorn = Color(0xFFFFD27D); // Accent color
+  static const Color popTeal = Color(0xFF4DC8B5); // Success 
+  static const Color softRed = Color(0xFFFF6B6B); // Error
   static const Color amberWarning = Color(0xFFFFC107); // Warnings
 
   // === Semantic Tokens ===

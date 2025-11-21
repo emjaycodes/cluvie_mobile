@@ -24,7 +24,6 @@ class AllCommunitiesNotifier extends AsyncNotifier<List<Community>> {
     return await _repository.fetchAllCommunities();
   }
 
-  /// 🔁 Refresh the list
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() => _repository.fetchAllCommunities());
@@ -39,10 +38,9 @@ class JoinedCommunityNotifier extends AsyncNotifier<List<Community>> {
     final apiClient = ref.read(apiClientProvider);
     _repo = CommunityRepository(apiClient: apiClient);
 
-    return _repo.fetchJoinedCommunities(); // initial load
+    return _repo.fetchJoinedCommunities();
   }
-
-  /// 🔁 Refresh the list
+  
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() => _repo.fetchJoinedCommunities());

@@ -1,17 +1,19 @@
 
+import 'dart:core';
+
 class UserModel {
-  final String id;
-  final String name;
-  final String email;
-  final String role;
+  final String? id;
+  final String? name;
+  final String? email;
+  final String? role;
   final int xp;
   final String? fcmToken;
-  final List<String> suggestedMovies;
-  final List<String> votedMovies;
-  final List<String> comments;
-  final List<String> followers;
-  final List<String> following;
-  final List<String> watchlist;
+  final List<String?> suggestedMovies;
+  final List<String?> votedMovies;
+  final List<String?> comments;
+  final List<String?> followers;
+  final List<String?> following;
+  final List<String?> watchlist;
   final DateTime createdAt;
 
   UserModel({
@@ -61,6 +63,6 @@ class UserModel {
         'followers': followers,
         'following': following,
         'watchlist': watchlist,
-        'createdAt': createdAt.toIso8601String(),
+        'createdAt': createdAt.toIso8601String()
       };
 }

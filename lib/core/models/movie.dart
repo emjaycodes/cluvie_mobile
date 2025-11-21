@@ -1,21 +1,21 @@
 class Movie {
-  final String id;
-  final int tmdbId;
-  final String title;
-  final String description;
-  final String poster;
-  final String backdrop;
-  final String releaseDate;
-  final List<int> genreIds;
+  final String? id;
+  final int? tmdbId;
+  final String? title;
+  final String? description;
+  final String? poster;
+  final String? backdrop;
+  final String? releaseDate;
+  final List<int?> genreIds;
   List<String>? genreNames;
   final double rating;
-  // final String addedBy;
-  final int commentCount;
-  final int discussionCount;
-  final int engagementScore;
+  // final String? addedBy;
+  final int? commentCount;
+  final int? discussionCount;
+  final int? engagementScore;
   final DateTime createdAt;
-  final int votes;
-  final List<String> voters;
+  final int? votes;
+  final List<String?> voters;
 
   Movie({
     required this.id,
@@ -52,7 +52,7 @@ class Movie {
       releaseDate: json['releaseDate'] ?? 'Unknown Date',
      genreIds:
           json['genre_ids'] != null
-              ? List<int>.from(json['genre_ids'])
+              ? List<int?>.from(json['genre_ids'])
               : [], 
       // genreNames: (json['genres'] as List?)?.map((e) => e.toString()).toList(),
       rating: (json['popularity'] as num?)?.toDouble() ?? 0.0,
@@ -73,8 +73,8 @@ class Movie {
       'tmdbId': tmdbId,
       'title': title,
       'overview': description,
-      'posterPath': poster.replaceAll('https://image.tmdb.org/t/p/w500', ''),
-      'backdropPath': backdrop.replaceAll('https://image.tmdb.org/t/p/original', ''),
+      'posterPath': poster?.replaceAll('https://image.tmdb.org/t/p/w500', ''),
+      'backdropPath': backdrop?.replaceAll('https://image.tmdb.org/t/p/original', ''),
       'releaseDate': releaseDate,
       'genre_ids': genreIds,
       'genres': genreNames,

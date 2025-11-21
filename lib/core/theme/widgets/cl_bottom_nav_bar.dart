@@ -24,7 +24,7 @@ class ClBottomNavBar extends StatelessWidget {
     if (location.startsWith('/suggest')) return 2;
     if (location.startsWith('/allcommunities')) return 3;
     if (location.startsWith('/profile')) return 4;
-    return 0; // default to home
+    return 0;
   }
 
   @override

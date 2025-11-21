@@ -74,8 +74,7 @@ class ClStatusBanner extends StatelessWidget {
               icon: const Icon(Icons.close, size: 20),
               color: _getColor(),
               onPressed: () {
-                // Trigger state update from parent to hide the banner
-                // Consider using ValueNotifier, callback or a state management solution
+               
               },
             ),
         ],

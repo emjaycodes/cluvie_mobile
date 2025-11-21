@@ -33,7 +33,6 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
   @override
   void initState() {
     super.initState();
-    // Load messages from your backend/provider here
     messages.addAll([
       Message(
         id: '1',
@@ -77,11 +76,9 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
       isTyping = false;
     });
 
-    // Send message to backend
   }
 
   void showAttachmentOptions() {
-    // Show modal bottom sheet for file, image, audio
   }
 
   void addReactionToMessage(String messageId, String emoji) {
@@ -96,7 +93,6 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
   void openThread(Message parentMessage) {
     final parentId = parentMessage.id;
 
-    // Extract thread replies related to the parent message
     final threadMessages =
         messages.where((m) => m.parentId == parentId).toList();
 
@@ -111,16 +107,16 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
             onSendReply: (replyText) {
               final newReply = Message(
                 id: DateTime.now().toIso8601String(),
-                senderId: '123', // current user ID
+                senderId: '123',
                 senderName: 'You',
                 content: replyText,
                 timestamp: DateTime.now(),
                 isMe: true,
-                parentId: parentId, // 👈 Required to associate with thread
+                parentId: parentId,
               );
 
               setState(() {
-                messages.add(newReply); // Or push to your backend
+                messages.add(newReply);
               });
             },
           ),
@@ -134,10 +130,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
     return Scaffold(
       body: Column(
         children: [
-          // 🟩 App Bar Section
           SliverAppBarSection(community: widget.community),
-
-          // 🟦 Typing Indicator or pinned message
           if (isTyping)
             const Padding(
               padding: EdgeInsets.all(8.0),
@@ -150,7 +143,6 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
               ),
             ),
 
-          // 🟨 Chat Messages Section
           Expanded(
             child: ListView.builder(
               reverse: true,
@@ -160,14 +152,13 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
                 final msg = messages[index];
                 return ChatBubble(
                   message: msg,
-                  onReact: (emoji) => addReactionToMessage(msg.id, emoji),
+                  onReact: (emoji) => addReactionToMessage(msg.id!, emoji),
                   onTap: () => openThread(msg),
                 );
               },
             ),
           ),
 
-          // 🟥 Input Section
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
@@ -228,7 +219,7 @@ class SliverAppBarSection extends StatelessWidget {
             // CircleAvatar(backgroundImage: AssetImage(community.)),
             const SizedBox(width: 10),
             Text(
-              community.name,
+              community.name!,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
@@ -260,7 +251,6 @@ class SliverAppBarSection extends StatelessWidget {
                 title: const Text('View Community Info'),
                 onTap: () {
                   // Navigator.pop(context);
-                  // Navigate to Community Details
 
                   context.pushNamed(RouteNames.communityInfo, extra: community);
                 },
@@ -270,7 +260,6 @@ class SliverAppBarSection extends StatelessWidget {
                 title: const Text('Search Messages'),
                 onTap: () {
                   Navigator.pop(context);
-                  // Open search input
                 },
               ),
               if (isAdmin)
@@ -302,7 +291,6 @@ class SliverAppBarSection extends StatelessWidget {
   }
 }
 
-// 🧱 Chat Bubble Widget
 class ChatBubble extends StatelessWidget {
   final Message message;
   final Function(String emoji)? onReact;
@@ -355,7 +343,7 @@ class ChatBubble extends StatelessWidget {
             crossAxisAlignment:
                 isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
-              Text(message.content, style: TextStyle(color: textColor)),
+              Text(message.content!, style: TextStyle(color: textColor)),
               const SizedBox(height: 4),
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -375,7 +363,7 @@ class ChatBubble extends StatelessWidget {
                           message.reactions
                               .map(
                                 (r) => Text(
-                                  r,
+                                  r!,
                                   style: const TextStyle(fontSize: 12),
                                 ),
                               )
@@ -422,7 +410,7 @@ class ReactionPicker extends StatelessWidget {
 
 class ThreadBottomSheet extends StatefulWidget {
   final Message parentMessage;
-  final List<Message> replies; // You may manage this with a provider or bloc
+  final List<Message> replies;
   final Function(String reply) onSendReply;
 
   const ThreadBottomSheet({
@@ -560,7 +548,7 @@ class _ReplyBubble extends StatelessWidget {
               isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Text(
-              message.content,
+              message.content!,
               style: TextStyle(color: isMe ? Colors.white : Colors.black87),
             ),
             const SizedBox(height: 4),
@@ -602,11 +590,11 @@ class _ParentMessageCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  message.senderName,
+                  message.senderName!,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  message.content,
+                  message.content!,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),

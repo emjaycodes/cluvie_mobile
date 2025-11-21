@@ -1,12 +1,12 @@
 class Message {
-  final String id;
-  final String senderId;
-  final String senderName;
-  final String content;
+  final String? id;
+  final String? senderId;
+  final String? senderName;
+  final String? content;
   final DateTime timestamp;
   final bool isMe;
   final String? parentId; // For threading
-  List<String> reactions; // List of emoji or reaction strings
+  List<String?> reactions; // List of emoji or reaction string?s
 
   Message({
     required this.id,
