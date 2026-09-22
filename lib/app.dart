@@ -7,13 +7,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Flutter Demo',
+      title: 'Cluvie',
       theme: AppTheme.darkTheme,
-  // MovieListScreen
-      // home: const OnboardingScreen() ,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.dark,
       routerConfig: router,
+      debugShowCheckedModeBanner: false,
     );
   }
-
 }
-

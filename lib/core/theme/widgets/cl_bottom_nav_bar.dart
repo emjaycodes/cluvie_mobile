@@ -10,11 +10,12 @@ class ClBottomNavBar extends StatelessWidget {
     required this.child,
   });
 
+  // M1+M2 spec: Home (/home alias for /), Discover (/discover), Suggest (/suggest), Communities (/communities), Profile (/profile)
   static const List<String> routes = [
     '/home',
     '/discover',
     '/suggest',
-    '/allCommunities',
+    '/communities',
     '/profile',
   ];
 
@@ -22,8 +23,8 @@ class ClBottomNavBar extends StatelessWidget {
     final location = GoRouterState.of(context).uri.toString().toLowerCase();
     if (location.startsWith('/discover')) return 1;
     if (location.startsWith('/suggest')) return 2;
-    if (location.startsWith('/allcommunities')) return 3;
-    if (location.startsWith('/profile')) return 4;
+    if (location.startsWith('/communities') || location.startsWith('/allcommunities')) return 3;
+    if (location.startsWith('/profile') || location.startsWith('/users/')) return 4;
     return 0;
   }
 
@@ -47,6 +48,7 @@ class ClBottomNavBar extends StatelessWidget {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home_rounded),
             label: "Home",
           ),
           BottomNavigationBarItem(
@@ -55,14 +57,17 @@ class ClBottomNavBar extends StatelessWidget {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.add_circle_outline),
+            activeIcon: Icon(Icons.add_circle),
             label: "Suggest",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.group_outlined),
+            activeIcon: Icon(Icons.group),
             label: "Clubs",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
             label: "Profile",
           ),
         ],
