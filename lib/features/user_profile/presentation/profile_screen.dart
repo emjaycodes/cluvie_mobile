@@ -3,7 +3,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_avatar.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_empty_state.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_snackbar.dart';

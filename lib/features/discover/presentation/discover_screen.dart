@@ -5,7 +5,6 @@ import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_empty_state.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
