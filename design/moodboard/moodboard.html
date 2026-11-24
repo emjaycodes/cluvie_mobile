@@ -1,0 +1,549 @@
+<title>Cluvie Mood Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: single editorial column; a live phone mock is the centrepiece, everything else documents it. Dark-only by design (the app is dark-only). */
+:root{
+  color-scheme: dark;
+  --bg:#0A0812; --surface:#14101F; --raised:#1D1730;
+  --glass:rgba(255,255,255,.06); --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.14);
+  --text:#F5F3FA; --text2:#A8A3B8; --muted:#8F899F; --on-gold:#14101F;
+  --gold:#FFD27D; --gold-deep:#F2B544; --purple:#7C5CFF; --purple-text:#A48BFF; --purple-deep:#2E1F4A;
+  --success:#4DC8B5; --error:#FF6B6B; --warning:#FFC107;
+  --purple-container:#2E1F4A; --purple-badge:#6545E0; --on-semantic:#14101F; --border-input:#6A6380;
+  --display:"Sora", "Plus Jakarta Sans", system-ui, sans-serif;
+  --body:"Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --alt-display:"Space Grotesk", system-ui, sans-serif; --alt-body:"Inter", system-ui, sans-serif;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:24px;
+  --ease:cubic-bezier(.215,.61,.355,1); --emph:cubic-bezier(.2,0,0,1);
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+.wrap{max-width:1080px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+p{margin:0}
+a{color:var(--purple-text)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.over{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
+section{padding-block:56px 0}
+.sec-head{display:flex;flex-direction:column;gap:6px;margin-bottom:24px;max-width:62ch}
+.sec-head h2{font-size:26px;letter-spacing:-.4px}
+.sec-head p{color:var(--text2)}
+
+/* Hero */
+.hero{position:relative;margin-top:calc(-1 * env(safe-area-inset-top,0px));padding-top:calc(env(safe-area-inset-top,0px) + 56px);padding-bottom:8px}
+.hero::before{content:"";position:absolute;inset:-40px -200px auto;height:420px;z-index:-1;
+  background:radial-gradient(60% 60% at 30% 30%,rgba(124,92,255,.35),transparent 70%),radial-gradient(40% 50% at 80% 20%,rgba(255,210,125,.12),transparent 70%)}
+.hero h1{font-size:clamp(40px,8vw,76px);font-weight:800;letter-spacing:-2px;line-height:.98}
+.hero h1 em{font-style:normal;color:var(--gold)}
+.hero .lede{margin-top:18px;color:var(--text2);font-size:17px;max-width:58ch}
+.status{display:inline-flex;gap:8px;align-items:center;margin-top:20px;padding:6px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--border);font-size:13px;color:var(--text2)}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--warning)}
+
+/* Palette */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.sw{border-radius:var(--r-lg);border:1px solid var(--border);overflow:hidden;background:var(--surface)}
+.sw .chip{height:76px;display:flex;align-items:flex-end;padding:10px;font-family:var(--display);font-weight:700;font-size:20px}
+.sw .meta{padding:10px 12px;display:flex;flex-direction:column;gap:2px;font-size:12px}
+.sw .meta b{font-size:13px}
+.sw .meta code{color:var(--muted);font-variant-numeric:tabular-nums}
+.ratio{display:inline-flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.ratio span{font-size:11px;padding:2px 6px;border-radius:6px;background:var(--raised);font-variant-numeric:tabular-nums}
+.ratio .ok{color:var(--success)} .ratio .no{color:var(--error)}
+.note{margin-top:14px;font-size:13px;color:var(--text2);max-width:70ch}
+
+/* Type */
+.type-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.type-card{position:relative;border-radius:var(--r-xl);padding:24px;background:var(--surface);border:1px solid var(--border);display:flex;flex-direction:column;gap:14px;min-width:0}
+.type-card.rec{border-color:rgba(255,210,125,.45)}
+.badge{align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:var(--gold);color:var(--on-gold)}
+.badge.alt{background:var(--raised);color:var(--text2)}
+.type-card .d{font-size:44px;font-weight:800;letter-spacing:-1.2px;line-height:1}
+.type-card .h{font-size:22px;font-weight:700;letter-spacing:-.3px}
+.type-card .b{color:var(--text2)}
+.type-card .pair{font-size:12px;color:var(--muted)}
+.alt-fonts .d,.alt-fonts .h{font-family:var(--alt-display)}
+.alt-fonts .b,.alt-fonts .pair{font-family:var(--alt-body)}
+.scale{margin-top:16px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--border);overflow-x:auto}
+.scale table{width:100%;border-collapse:collapse;font-size:13px;min-width:520px}
+.scale td{padding:10px 14px;border-top:1px solid var(--border);vertical-align:baseline}
+.scale tr:first-child td{border-top:0}
+.scale td:first-child{color:var(--muted);width:90px;font-variant-numeric:tabular-nums}
+.scale td:last-child{color:var(--muted);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* Phone mock */
+.stage{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:40px;align-items:start}
+@media (max-width:820px){.stage{grid-template-columns:1fr}.phone{margin-inline:auto}}
+.phone{width:100%;max-width:360px;aspect-ratio:9/19.5;border-radius:44px;background:var(--bg);border:10px solid #1a1626;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px var(--border-strong);position:relative;overflow:hidden}
+.screen{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;padding-bottom:110px}
+.screen::-webkit-scrollbar{display:none}
+.feat{position:relative;height:370px;padding:56px 18px 18px;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;
+  background:radial-gradient(70% 60% at 60% 25%,#3b6f8f 0%,transparent 60%),radial-gradient(60% 60% at 30% 40%,#5a3aa8 0%,transparent 70%),linear-gradient(180deg,#1b2440,#0A0812)}
+.feat::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,8,18,.7) 0,rgba(10,8,18,0) 120px,rgba(10,8,18,0) 28%,rgba(10,8,18,.85) 46%,rgba(10,8,18,.96) 100%)}
+.feat > *{position:relative;z-index:1}
+.topbar{position:absolute;top:18px;left:18px;right:18px;display:flex;justify-content:space-between;align-items:center;z-index:2}
+.logo{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;letter-spacing:.5px;font-size:16px}
+.logo svg{width:26px;height:26px}
+.iconbtn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);position:relative}
+.iconbtn .dot{position:absolute;top:10px;right:11px;width:8px;height:8px;border-radius:50%;background:var(--purple-badge);box-shadow:0 0 0 2px var(--bg)}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:var(--glass);border:1px solid var(--border-strong);color:var(--text)}
+.tag.purple{background:var(--purple-container);border-color:transparent;color:var(--purple-text)}
+.feat h3{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1}
+.feat p{font-size:13px;color:var(--text2)}
+.ctas{display:flex;gap:8px;margin-top:4px}
+.btn{font-family:var(--body);font-weight:700;font-size:14px;border:0;border-radius:999px;padding:11px 18px;min-height:48px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;transition:transform 120ms var(--ease),box-shadow 220ms var(--ease)}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:var(--on-gold);box-shadow:0 8px 24px rgba(255,210,125,.28)}
+.btn-glass{background:var(--glass);color:var(--text);border:1px solid var(--border-strong);backdrop-filter:blur(16px)}
+.btn svg{width:18px;height:18px}
+.blk{padding:22px 18px 0;display:flex;flex-direction:column;gap:12px}
+.blk-head{display:flex;justify-content:space-between;align-items:flex-end}
+.blk-head h4{font-family:var(--display);font-size:17px;font-weight:700;margin:0;letter-spacing:-.2px}
+.blk-head span{font-size:12px;color:var(--muted)}
+.blk-head a{font-size:12px;font-weight:600;color:var(--text2);text-decoration:none;padding:16px 0 16px 16px;margin:-16px 0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px}
+.poll-row{position:relative;display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--r-md);overflow:hidden;cursor:pointer}
+.poll-row + .poll-row{margin-top:6px}
+.poll-row .bar{position:absolute;inset:0 auto 0 0;background:rgba(255,255,255,.05);border-radius:var(--r-md);width:0;transition:width 600ms var(--emph)}
+.poll-row.lead .bar{background:var(--purple-container)}
+.poll-row > :not(.bar){position:relative}
+.mini-poster{width:36px;height:52px;border-radius:6px;flex:none;position:relative}
+.rank{position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:800;display:grid;place-items:center;background:var(--raised);border:1px solid var(--border-strong)}
+.lead .rank{background:var(--purple-badge);color:#fff;border:0}
+.poll-row .t{flex:1;min-width:0}
+.poll-row .t b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.poll-row .t small{font-size:11px;color:var(--text2)}
+.poll-row{min-height:56px}
+.poll-row .pct{font-family:var(--display);font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.lead .pct{color:var(--purple-text)}
+.poll-row.voted .t b::after{content:" ✓";color:var(--success)}
+.party{display:flex;flex-direction:column;gap:0;padding:0;overflow:hidden}
+.party .art{height:110px;position:relative;background:radial-gradient(80% 90% at 70% 30%,#c0563f,transparent 60%),radial-gradient(70% 80% at 20% 70%,#3a2a6b,transparent 70%),#221a30;padding:12px;display:flex;align-items:flex-start}
+.tonight{font-size:10px;font-weight:800;letter-spacing:1.2px;padding:4px 9px;border-radius:999px;background:var(--purple-badge);color:#fff}
+.stub{position:relative;border-top:1px dashed var(--border-strong);padding:12px 14px;display:flex;align-items:center;gap:10px}
+.stub::before,.stub::after{content:"";position:absolute;top:-8px;width:16px;height:16px;border-radius:50%;background:var(--bg)}
+.stub::before{left:-8px}.stub::after{right:-8px}
+.party .ti{padding:12px 14px 12px}
+.party .ti b{font-family:var(--display);font-size:16px}
+.party .ti small{display:block;color:var(--muted);font-size:12px}
+.avs{display:flex}
+.avs i{width:24px;height:24px;border-radius:50%;border:2px solid var(--surface);margin-left:-8px}
+.avs i:first-child{margin-left:0}
+.going{flex:1;font-size:12px;color:var(--text2);min-width:0}
+.going b{color:var(--text)}
+.rsvp{font-size:13px;padding:8px 18px;background:var(--text);color:var(--on-gold)}
+.disc{display:flex;gap:12px;align-items:center}
+.disc .mini-poster{width:44px;height:62px}
+.disc .t{flex:1;min-width:0}
+.disc b{font-size:14px;display:block}
+.disc p{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.disc small{font-size:11px;color:var(--muted);display:flex;gap:10px;margin-top:4px}
+.pin{color:var(--purple-text);background:var(--purple-container);padding:0 6px;border-radius:6px}
+
+/* Floating nav */
+.nav{position:absolute;left:12px;right:12px;bottom:16px;height:68px;border-radius:var(--r-xl);background:rgba(20,16,31,.88);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--border-strong);box-shadow:0 12px 30px rgba(0,0,0,.5);display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding:0 6px}
+.nav .pill{position:absolute;top:10px;height:48px;border-radius:16px;background:rgba(255,210,125,.12);transition:left 220ms var(--emph),width 220ms var(--emph)}
+.nav button{position:relative;z-index:1;background:none;border:0;color:var(--text2);display:flex;flex-direction:column;align-items:center;gap:3px;font:600 10px var(--body);cursor:pointer;height:48px;justify-content:center}
+.nav button svg{width:22px;height:22px}
+.nav button.on{color:var(--gold)}
+.nav button .lbl{height:12px}
+.nav .plus{width:50px;height:50px;border-radius:50%;margin:-26px auto 0;background:var(--purple-badge);color:#fff;display:grid;place-items:center;box-shadow:0 8px 24px rgba(124,92,255,.45),0 0 0 6px var(--bg);transition:transform 220ms cubic-bezier(.34,1.56,.64,1)}
+.nav .plus:active{transform:scale(.9) rotate(45deg)}
+
+.anno{display:flex;flex-direction:column;gap:16px}
+.anno .item{display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:start}
+.anno .k{width:28px;height:28px;border-radius:8px;background:var(--raised);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
+.anno b{display:block;font-family:var(--display);font-size:15px;margin-bottom:2px}
+.anno p{color:var(--text2);font-size:14px}
+.anno .ref{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* Icons */
+.icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.ic{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 10px;display:flex;flex-direction:column;align-items:center;gap:10px;font-size:12px;color:var(--text2)}
+.ic .pair{display:flex;gap:14px;color:var(--text)}
+.ic .pair svg{width:26px;height:26px}
+.ic .pair svg.fill{color:var(--gold)}
+.ic.custom{border-color:rgba(164,139,255,.35)}
+.ic.custom small{color:var(--purple-text);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.empty-demo{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.empty{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:28px 20px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+.empty .art{width:120px;height:120px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,rgba(124,92,255,.28),transparent 70%)}
+.empty .art svg{width:76px;height:76px}
+.empty b{font-family:var(--display);font-size:16px}
+.empty p{font-size:13px;color:var(--text2);max-width:30ch}
+
+/* Motion */
+.motion-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.mo{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.mo-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mo-head b{font-family:var(--display);font-size:15px}
+.mo-head code{font-size:11px;color:var(--muted)}
+.mo p{font-size:13px;color:var(--text2)}
+.replay{align-self:flex-start;background:var(--raised);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:6px 12px;font:600 12px var(--body);cursor:pointer}
+.stagger{display:flex;flex-direction:column;gap:6px}
+.stagger div{height:30px;border-radius:8px;background:var(--raised);animation:rise 360ms var(--emph) both}
+.stagger div:nth-child(1){width:90%}.stagger div:nth-child(2){width:75%;animation-delay:40ms}.stagger div:nth-child(3){width:82%;animation-delay:80ms}.stagger div:nth-child(4){width:60%;animation-delay:120ms}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.heart{width:48px;height:48px;border-radius:50%;border:1px solid var(--border-strong);background:var(--glass);display:grid;place-items:center;cursor:pointer;color:var(--text2)}
+.heart svg{width:24px;height:24px}
+.heart.on{color:var(--error);animation:pop 360ms cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
+.ring{width:96px;height:96px}
+.ring circle{fill:none;stroke-width:7}
+.ring .trk{stroke:var(--raised)}
+.ring .val{stroke:var(--gold);stroke-linecap:round;stroke-dasharray:264;stroke-dashoffset:264;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset 600ms var(--emph)}
+.ring text{fill:var(--text);font:700 18px var(--display);text-anchor:middle;dominant-baseline:central}
+.principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px}
+.principles div{padding:16px;border-radius:var(--r-lg);border:1px solid var(--border)}
+.principles b{display:block;font-family:var(--display);font-size:14px;margin-bottom:4px}
+.principles p{font-size:13px;color:var(--text2)}
+
+/* References */
+.ref-groups{display:flex;flex-direction:column;gap:28px}
+.rg h3{font-size:18px;margin-bottom:4px}
+.rg > p{color:var(--text2);font-size:14px;margin-bottom:12px;max-width:70ch}
+.refs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+figure{margin:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;display:flex;flex-direction:column}
+figure img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--raised)}
+figcaption{padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+figcaption b{font-size:13px}
+figcaption ul{margin:0;padding-left:16px;color:var(--text2)}
+figcaption .cr{font-size:11px;color:var(--muted)}
+figure.dated{opacity:.7}
+figure.dated figcaption b::after{content:" · counter-example";color:var(--error);font-weight:600}
+.foot{margin-top:56px;padding-top:20px;border-top:1px solid var(--border);color:var(--muted);font-size:12px}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0ms!important;animation-delay:0ms!important;transition-duration:0ms!important}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-home-f" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 10.1 11.4 3.6a1 1 0 0 1 1.2 0l8 6.5a1 1 0 0 1 .4.8V19a2 2 0 0 1-2 2h-4.5a1 1 0 0 1-1-1v-4.5h-3V20a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2v-8.1a1 1 0 0 1 .4-.8z"/></symbol>
+    <symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></symbol>
+    <symbol id="i-compass-f" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm3.9 6.4-2 5a1 1 0 0 1-.6.6l-5 2a.6.6 0 0 1-.8-.8l2-5a1 1 0 0 1 .6-.6l5-2a.6.6 0 0 1 .8.8z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.5"/><path d="M3 19c.8-3 3.2-4.5 6-4.5s5.2 1.5 6 4.5"/><path d="M15.5 5.8a3.3 3.3 0 0 1 0 6.4M17.5 14.8c1.6.6 2.9 2 3.5 4.2"/></symbol>
+    <symbol id="i-users-f" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="9" r="4"/><path d="M2.3 19.3C3.2 15.9 5.9 14 9 14s5.8 1.9 6.7 5.3a1 1 0 0 1-1 1.2H3.3a1 1 0 0 1-1-1.2z"/><path d="M15.7 5a4 4 0 0 1 0 7.9 6 6 0 0 0 0-7.9zM17.6 14.2c2 .8 3.5 2.6 4.1 5.1a1 1 0 0 1-1 1.2h-3.3a8 8 0 0 0 .2-6.3z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20c1-3.6 4-5.5 7.5-5.5s6.5 1.9 7.5 5.5"/></symbol>
+    <symbol id="i-user-f" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8.5" r="4.5"/><path d="M3.6 19.7C4.8 15.8 8 13.5 12 13.5s7.2 2.3 8.4 6.2a1 1 0 0 1-1 1.3H4.6a1 1 0 0 1-1-1.3z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 1 12 0c0 4.5 1.5 6 2 6.5H4c.5-.5 2-2 2-6.5z"/><path d="M10 19.5a2.2 2.2 0 0 0 4 0"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.6v12.8a1 1 0 0 0 1.5.9l10-6.4a1 1 0 0 0 0-1.7l-10-6.4A1 1 0 0 0 8 5.6z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z"/></symbol>
+    <symbol id="i-chat-f" viewBox="0 0 24 24" fill="currentColor"><path d="M6.5 3h11A3.5 3.5 0 0 1 21 6.5v8a3.5 3.5 0 0 1-3.5 3.5h-7.2l-4.7 3.6A.8.8 0 0 1 4.3 21v-3.1A3.5 3.5 0 0 1 3 15V6.5A3.5 3.5 0 0 1 6.5 3z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.5-4.4-7.5-10A4.2 4.2 0 0 1 12 7.4 4.2 4.2 0 0 1 19.5 10c0 5.6-7.5 10-7.5 10z"/></symbol>
+    <symbol id="i-heart-f" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.2a1 1 0 0 1-.5-.1C11.2 20.9 3.5 16.4 3.5 10A5.2 5.2 0 0 1 12 6a5.2 5.2 0 0 1 8.5 4c0 6.4-7.7 10.9-8 11.1a1 1 0 0 1-.5.1z"/></symbol>
+    <symbol id="i-vote" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="13" width="3.5" height="7" rx="1"/><rect x="10.25" y="8" width="3.5" height="12" rx="1"/><rect x="16.5" y="4" width="3.5" height="16" rx="1"/></symbol>
+    <symbol id="i-vote-f" viewBox="0 0 24 24" fill="currentColor"><rect x="3.5" y="12.5" width="4.5" height="8" rx="1.2"/><rect x="9.75" y="7.5" width="4.5" height="13" rx="1.2"/><rect x="16" y="3.5" width="4.5" height="17" rx="1.2"/></symbol>
+    <!-- custom brand glyphs -->
+    <symbol id="g-popcorn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 10.5 7.5 21h9l2-10.5"/><path d="M10 10.5 10.7 21M14 10.5 13.3 21"/><path d="M5.5 10.5a2.3 2.3 0 0 1 .4-4.5 2.6 2.6 0 0 1 4.6-2 2.6 2.6 0 0 1 3 0 2.6 2.6 0 0 1 4.6 2 2.3 2.3 0 0 1 .4 4.5z"/></symbol>
+    <symbol id="g-ticket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h14a1.5 1.5 0 0 1 1.5 1.5V10a2 2 0 0 0 0 4v2.5A1.5 1.5 0 0 1 19 18H5a1.5 1.5 0 0 1-1.5-1.5V14a2 2 0 0 0 0-4z"/><path d="M14.5 6v2M14.5 11v2M14.5 16v2"/></symbol>
+    <symbol id="g-clapper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z"/><path d="m4 10-.6-2.8a1.5 1.5 0 0 1 1.1-1.8L17 2.7a1.5 1.5 0 0 1 1.8 1.1L19.3 6 4 10"/><path d="m8.6 5 2.1 3.4M13.3 4l2.1 3.4"/></symbol>
+    <symbol id="g-reel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="7.3" r="1.8"/><circle cx="12" cy="16.7" r="1.8"/><circle cx="7.3" cy="12" r="1.8"/><circle cx="16.7" cy="12" r="1.8"/><path d="M20.5 12H23"/></symbol>
+    <!-- brand mark: speech bubble + film reel dots (cleaned from cluvie_logo.svg) -->
+    <symbol id="logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#FFD27D"/><path d="M8 9.5A2.5 2.5 0 0 1 10.5 7h11A2.5 2.5 0 0 1 24 9.5v9a2.5 2.5 0 0 1-2.5 2.5h-6l-4.3 3.3a.7.7 0 0 1-1.1-.6V21h-.6A2.5 2.5 0 0 1 8 18.5z" fill="#14101F"/><circle cx="12" cy="14" r="1.6" fill="#FFD27D"/><circle cx="16" cy="14" r="1.6" fill="#FFD27D"/><circle cx="20" cy="14" r="1.6" fill="#FFD27D"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="over">Cluvie · Design overhaul · Phase 0</p>
+  <h1>Refined<br><em>cinematic.</em></h1>
+  <p class="lede">The movie-club app keeps its purple and popcorn-gold, and moves to near-black screens, poster-first cards, glass chrome and calm, purposeful motion. One gold focal point per screen. Your friends are always visible.</p>
+  <span class="status"><i></i>Awaiting your approval before any Dart code changes</span>
+</header>
+
+<!-- 1. Live mock -->
+<section>
+  <div class="sec-head">
+    <p class="over">01 · The direction, applied</p>
+    <h2>Home, redesigned</h2>
+    <p>A working mock built only from the tokens below. Tap the poll rows to vote and the nav to switch tabs. The phone scrolls.</p>
+  </div>
+  <div class="stage">
+    <div class="phone" role="img" aria-label="Interactive mock of the redesigned Cluvie home screen">
+      <div class="screen">
+        <div class="topbar">
+          <div class="logo"><svg><use href="#logo"/></svg>CLUVIE</div>
+          <div class="iconbtn" aria-hidden="true"><svg width="20" height="20"><use href="#i-bell"/></svg><span class="dot"></span></div>
+        </div>
+        <div class="feat">
+          <div class="tags"><span class="tag purple">This week's pick</span><span class="tag">Drama · 2023</span></div>
+          <h3>Past Lives</h3>
+          <p>Cinema Sundays · Watch party Sun 8 PM</p>
+          <div class="ctas">
+            <button class="btn btn-primary"><svg><use href="#g-ticket"/></svg>RSVP</button>
+            <button class="btn btn-glass"><svg><use href="#i-chat"/></svg>Discuss</button>
+          </div>
+        </div>
+
+        <div class="blk">
+          <div class="blk-head"><div><h4>Active poll</h4><span>A24 Lovers · closes in 2 days</span></div><a href="#motion">See all</a></div>
+          <div class="card" id="poll">
+            <div class="poll-row lead" data-v="46"><div class="bar"></div><div class="mini-poster" style="background:linear-gradient(160deg,#4b6a8a,#1d2333)"><span class="rank">1</span></div><div class="t"><b>The Zone of Interest</b><small>11 votes</small></div><span class="pct">46%</span></div>
+            <div class="poll-row" data-v="33"><div class="bar"></div><div class="mini-poster" style="background:linear-gradient(160deg,#a5533b,#2a1620)"><span class="rank">2</span></div><div class="t"><b>Anatomy of a Fall</b><small>8 votes</small></div><span class="pct">33%</span></div>
+            <div class="poll-row" data-v="21"><div class="bar"></div><div class="mini-poster" style="background:linear-gradient(160deg,#5d8f6e,#16261d)"><span class="rank">3</span></div><div class="t"><b>Perfect Days</b><small>5 votes</small></div><span class="pct">21%</span></div>
+          </div>
+        </div>
+
+        <div class="blk">
+          <div class="blk-head"><div><h4>Watch parties</h4><span>RSVP so hosts can plan</span></div><a href="#refs-party">See all</a></div>
+          <div class="card party">
+            <div class="art"><span class="tonight">TONIGHT</span></div>
+            <div class="ti"><b>Oppenheimer</b><small>Nolan Nerds · 8:00 PM · Ada's place</small></div>
+            <div class="stub">
+              <div class="avs"><i style="background:#c98b6b"></i><i style="background:#6b8bc9"></i><i style="background:#9b6bc9"></i></div>
+              <span class="going"><b>Ada, Tunde</b> +7 going</span>
+              <button class="btn rsvp">RSVP</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="blk">
+          <div class="blk-head"><div><h4>Discussions</h4><span>Join the conversation</span></div><a href="#refs-social">See all</a></div>
+          <div class="card disc"><div class="mini-poster" style="background:linear-gradient(160deg,#c47a3a,#2a1a10)"></div><div class="t"><b>Dune: Part Two</b><p>Is the Harkonnen arena scene the best sequence of the year?</p><small><span class="pin">Pinned</span><span>24 replies</span><span>2h</span></small></div></div>
+        </div>
+      </div>
+      <nav class="nav" aria-label="Mock bottom navigation">
+        <span class="pill"></span>
+        <button class="on" data-i="home"><svg><use href="#i-home-f"/></svg><span class="lbl">Home</span></button>
+        <button data-i="compass"><svg><use href="#i-compass"/></svg><span class="lbl">Discover</span></button>
+        <button aria-label="Suggest a film"><span class="plus"><svg width="24" height="24"><use href="#i-plus"/></svg></span></button>
+        <button data-i="users"><svg><use href="#i-users"/></svg><span class="lbl">Clubs</span></button>
+        <button data-i="user"><svg><use href="#i-user"/></svg><span class="lbl">Profile</span></button>
+      </nav>
+    </div>
+
+    <div class="anno">
+      <div class="item"><span class="k">1</span><div><b>Poster-first hero</b><p>Full-bleed artwork under a scrim, overline tags, an oversized Sora title, and a gold primary CTA paired with a glass secondary.</p><p class="ref">From: Dark Cinematic (Ashar Waseem)</p></div></div>
+      <div class="item"><span class="k">2</span><div><b>Ranked poll rows</b><p>Rank badge on the poster, a progress bar behind the row, and brand purple for the leader. Tapping a row votes: the bar animates and your pick gets a check.</p><p class="ref">From: Filmly (Artspire) for ranks, Nickelfox for result bars</p></div></div>
+      <div class="item"><span class="k">3</span><div><b>Ticket-stub party card</b><p>Notched dashed divider, a purple "TONIGHT" badge, an avatar stack with names, and one white RSVP action. Card CTAs are white, not gold, as in the reference.</p><p class="ref">From: Kiosk (Andrew McKay)</p></div></div>
+      <div class="item"><span class="k">4</span><div><b>Floating glass nav</b><p>A tinted frosted bar. The active tab gets a filled icon and a gold pill; inactive tabs keep their labels. Suggest is the raised brand-purple "+".</p><p class="ref">From: Community UI (Tanvir Shough), VIBE (Erik Adam)</p></div></div>
+      <div class="item"><span class="k">5</span><div><b>Gold budget</b><p>One gold owner per screen (here the hero RSVP), plus the active tab, the logo and the focus ring. Purple carries identity: tags, the poll leader, badges and the "+". Cards are one surface step up with a hairline border, with no drop shadows.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Palette -->
+<section>
+  <div class="sec-head">
+    <p class="over">02 · Color</p>
+    <h2>Layered night, popcorn gold</h2>
+    <p>Three surface steps give depth without shadows. The ratios on each swatch are WCAG contrast measured against bg / surface / raised.</p>
+  </div>
+  <div class="swatches" id="swatches"></div>
+  <p class="note">Brand purple <code>#2E1F4A</code> returns as <code>purpleContainer</code> for tags, selected chips, the poll leader and your own chat bubbles. <code>#6545E0</code> is used for solid badges and the "+" button. <code>#7C5CFF</code> fails AA in every text pairing, so it is used only for glows. Purple text uses <code>#A48BFF</code>. Muted text was lightened from <code>#6E6880</code> (3.7:1, failed) to <code>#8F899F</code> (5.1:1 or better everywhere). Text on gold is always <code>#14101F</code> (13:1).</p>
+</section>
+
+<!-- 3. Type -->
+<section>
+  <div class="sec-head">
+    <p class="over">03 · Typography · your pick</p>
+    <h2>Two pairings to choose from</h2>
+    <p>Both are free (OFL) and get bundled into the app, so they no longer download at runtime. Quicksand is retired: its rounded, soft letterforms read as friendly-casual, not cinematic.</p>
+  </div>
+  <div class="type-grid">
+    <div class="type-card rec">
+      <span class="badge">Recommended</span>
+      <div class="d">Past Lives</div>
+      <div class="h">Vote for this week's pick</div>
+      <p class="b">Ada, Tunde and 7 others are going to the watch party on Sunday at 8 PM. Bring snacks.</p>
+      <p class="pair">Sora 800 / 700 · Plus Jakarta Sans 400–700</p>
+    </div>
+    <div class="type-card alt-fonts">
+      <span class="badge alt">Alternative</span>
+      <div class="d">Past Lives</div>
+      <div class="h">Vote for this week's pick</div>
+      <p class="b">Ada, Tunde and 7 others are going to the watch party on Sunday at 8 PM. Bring snacks.</p>
+      <p class="pair">Space Grotesk 700 · Inter 400–600</p>
+    </div>
+  </div>
+  <div class="scale"><table>
+    <tr><td>display</td><td style="font:800 40px/44px var(--display);letter-spacing:-1.2px">Oppenheimer</td><td>Sora 40/44 · 800</td></tr>
+    <tr><td>h1</td><td style="font:700 28px/34px var(--display);letter-spacing:-.6px">Cinema Sundays</td><td>Sora 28/34 · 700</td></tr>
+    <tr><td>h2</td><td style="font:700 22px/28px var(--display);letter-spacing:-.3px">Active polls</td><td>Sora 22/28 · 700</td></tr>
+    <tr><td>title</td><td style="font:700 16px/22px var(--body)">The Zone of Interest</td><td>Jakarta 16/22 · 700</td></tr>
+    <tr><td>body</td><td style="font:400 15px/22px var(--body);color:var(--text)">Christopher Nolan's magnum opus. Thoughts?</td><td>Jakarta 15/22 · 400</td></tr>
+    <tr><td>caption</td><td style="font:500 12px/16px var(--body);color:var(--text2)">2h ago · 24 replies</td><td>Jakarta 12/16 · 500</td></tr>
+    <tr><td>overline</td><td style="font:700 11px/14px var(--body);letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)">Featured selection</td><td>Jakarta 11/14 · 700</td></tr>
+  </table></div>
+</section>
+
+<!-- 4. Icons -->
+<section>
+  <div class="sec-head">
+    <p class="over">04 · Icons & SVG</p>
+    <h2>Outline at rest, filled when active</h2>
+    <p>Phosphor icons in the app (the <code>phosphor_icons</code> fork, which works on Flutter 3.44). A few custom glyphs cover the movie-specific objects, drawn on the same 24px grid with a 1.6px rounded stroke. These samples are hand-drawn in that style.</p>
+  </div>
+  <div class="icon-grid">
+    <div class="ic"><div class="pair"><svg><use href="#i-home"/></svg><svg class="fill"><use href="#i-home-f"/></svg></div>Home</div>
+    <div class="ic"><div class="pair"><svg><use href="#i-compass"/></svg><svg class="fill"><use href="#i-compass-f"/></svg></div>Discover</div>
+    <div class="ic"><div class="pair"><svg><use href="#i-users"/></svg><svg class="fill"><use href="#i-users-f"/></svg></div>Clubs</div>
+    <div class="ic"><div class="pair"><svg><use href="#i-user"/></svg><svg class="fill"><use href="#i-user-f"/></svg></div>Profile</div>
+    <div class="ic"><div class="pair"><svg><use href="#i-chat"/></svg><svg class="fill"><use href="#i-chat-f"/></svg></div>Discuss</div>
+    <div class="ic"><div class="pair"><svg><use href="#i-vote"/></svg><svg class="fill"><use href="#i-vote-f"/></svg></div>Poll</div>
+    <div class="ic custom"><div class="pair"><svg><use href="#g-popcorn"/></svg></div>Popcorn<small>custom</small></div>
+    <div class="ic custom"><div class="pair"><svg><use href="#g-ticket"/></svg></div>Ticket / RSVP<small>custom</small></div>
+    <div class="ic custom"><div class="pair"><svg><use href="#g-clapper"/></svg></div>Clapper<small>custom</small></div>
+    <div class="ic custom"><div class="pair"><svg><use href="#g-reel"/></svg></div>Reel / loader<small>custom</small></div>
+  </div>
+  <div class="empty-demo">
+    <div class="empty">
+      <div class="art"><svg viewBox="0 0 80 80" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="26" width="52" height="38" rx="6" stroke="#A8A3B8" stroke-width="2"/><path d="m14 26-1.5-7a3 3 0 0 1 2.3-3.6l40-8.5a3 3 0 0 1 3.6 2.3l1.3 6.3L14 26" stroke="#A8A3B8" stroke-width="2"/><path d="m26 14 5 7.5M38 11.5l5 7.5" stroke="#A8A3B8" stroke-width="2"/><rect x="28" y="38" width="24" height="14" rx="3" fill="#FFD27D"/><path d="M37 42v6l5-3z" fill="#14101F"/></svg></div>
+      <b>No active polls</b><p>Suggest a film and your club can start voting on it.</p>
+      <button class="btn btn-primary" style="margin-top:6px">Suggest a film</button>
+    </div>
+    <div class="empty">
+      <div class="art"><svg viewBox="0 0 80 80" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 22a5 5 0 0 1 5-5h34a5 5 0 0 1 5 5v24a5 5 0 0 1-5 5H38l-12 9v-9h-3a5 5 0 0 1-5-5z" stroke="#A8A3B8" stroke-width="2"/><circle cx="31" cy="34" r="3" fill="#FFD27D"/><circle cx="40" cy="34" r="3" stroke="#A8A3B8" stroke-width="2"/><circle cx="49" cy="34" r="3" stroke="#A8A3B8" stroke-width="2"/></svg></div>
+      <b>No discussions yet</b><p>Start a thread about what your club watched last.</p>
+      <button class="btn btn-glass" style="margin-top:6px">Start a thread</button>
+    </div>
+  </div>
+  <p class="note">Empty-state style: a line-art drawing in the secondary text color with a single gold accent, on a soft purple glow, followed by one clear action.</p>
+</section>
+
+<!-- 5. Motion -->
+<section id="motion">
+  <div class="sec-head">
+    <p class="over">05 · Motion</p>
+    <h2>Calm, purposeful movement</h2>
+    <p>Every demo uses the real motion tokens. Each screen gets one hero motion, and all of it switches off when the OS asks for reduced motion.</p>
+  </div>
+  <div class="motion-grid">
+    <div class="mo">
+      <div class="mo-head"><b>List stagger</b><code>360ms · 40ms step</code></div>
+      <div class="stagger" id="stag"><div></div><div></div><div></div><div></div></div>
+      <p>Feeds and lists rise in as they load. The stagger is capped at 8 items so long lists don't lag.</p>
+      <button class="replay" id="restag">Replay</button>
+    </div>
+    <div class="mo">
+      <div class="mo-head"><b>Press & haptic</b><code>120ms · scale .97</code></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary"><svg><use href="#i-play"/></svg>Join live</button><button class="btn btn-glass">Maybe</button></div>
+      <p>Every tappable control scales down slightly and fires a light haptic. Press and hold to feel it.</p>
+    </div>
+    <div class="mo">
+      <div class="mo-head"><b>Reaction pop</b><code>360ms · spring</code></div>
+      <button class="heart" id="heart" aria-pressed="false" aria-label="Like"><svg><use href="#i-heart"/></svg></button>
+      <p>Likes and reactions overshoot, then settle, and the icon swaps from outline to fill.</p>
+    </div>
+    <div class="mo">
+      <div class="mo-head"><b>Countdown ring</b><code>600ms · emphasized</code></div>
+      <svg class="ring" viewBox="0 0 96 96"><circle class="trk" cx="48" cy="48" r="42"/><circle class="val" id="ringv" cx="48" cy="48" r="42"/><text x="48" y="48">23:05</text></svg>
+      <p>Live watch parties and poll deadlines fill smoothly. A confetti burst plays on the winner reveal.</p>
+      <button class="replay" id="rering">Replay</button>
+    </div>
+  </div>
+  <div class="principles">
+    <div><b>Motion explains</b><p>Things move only because they came from somewhere or are going somewhere. Example: a poster grows into the details page.</p></div>
+    <div><b>One hero per screen</b><p>Everything else is a quiet fade or rise.</p></div>
+    <div><b>Fast to respond, slow to reveal</b><p>Feedback takes 120ms, reveals take 600ms, and nothing blocks input.</p></div>
+    <div><b>Reduced motion</b><p>When the OS asks for it, durations drop to 0, nothing staggers, and haptics still fire.</p></div>
+  </div>
+</section>
+
+<!-- 6. References -->
+<section id="refs">
+  <div class="sec-head">
+    <p class="over">06 · References</p>
+    <h2>What we borrowed, screen by screen</h2>
+    <p>Fourteen references scraped from Dribbble, each mapped to the Cluvie screen it informs. They are kept locally for internal reference only and never ship. Credits are in <code>design/references/sources.md</code>.</p>
+  </div>
+  <div class="ref-groups">
+    <div class="rg">
+      <h3>Feed, hero & details</h3>
+      <p>Oversized display type over posters, overline labels, and glass chrome.</p>
+      <div class="refs">
+        <figure><img src="refs/dark-cinematic-05.jpg" alt="Dark cinematic movie app with large title over poster" loading="lazy"><figcaption><b>Home hero, Movie details</b><ul><li>Display title over full-bleed poster</li><li>Overline tags with a rating</li><li>Primary pill CTA next to a glass secondary</li></ul><span class="cr">Ashar Waseem · Dribbble</span></figcaption></figure>
+        <figure><img src="refs/community-02.jpg" alt="Teal streaming app with floating glass nav and chips" loading="lazy"><figcaption><b>Nav, Discover filters</b><ul><li>Floating glass nav pill</li><li>Outline chips that turn solid when selected</li><li>Carousel with neighbouring posters peeking in</li></ul><span class="cr">Tanvir Shough · Dribbble</span></figcaption></figure>
+        <figure><img src="refs/social-tracking-01.jpg" alt="Movie tracking home with greeting and poster rows" loading="lazy"><figcaption><b>Home feed, Profile</b><ul><li>Personal greeting header</li><li>Horizontal poster rows</li><li>Friends' reviews with a poster on the right</li></ul><span class="cr">Master Creationz · Dribbble</span></figcaption></figure>
+      </div>
+    </div>
+    <div class="rg" id="refs-social">
+      <h3>Social, voting & profile</h3>
+      <p>Friends' presence, rankings and reactions.</p>
+      <div class="refs">
+        <figure><img src="refs/social-filmly-03.jpg" alt="Filmly leaderboard and reviews screens" loading="lazy"><figcaption><b>Vote summary, Discussion</b><ul><li>Rank badges and score rings</li><li>Mood tags, "9 friends recommend"</li><li>All / Friends filter</li></ul><span class="cr">Artspire · Dribbble</span></figcaption></figure>
+        <figure><img src="refs/social-vibe-06.jpg" alt="VIBE social app feed and profile" loading="lazy"><figcaption><b>Profile, Nav</b><ul><li>Avatar, bio and a 3-stat row</li><li>Primary and secondary buttons</li><li>Raised centre "+" in the nav</li></ul><span class="cr">Erik Adam · Dribbble</span></figcaption></figure>
+        <figure><img src="refs/poll-nickelfox-13.jpg" alt="Polling app results" loading="lazy"><figcaption><b>Vote flow</b><ul><li>Result bars with percentages</li></ul><span class="cr">Nickelfox · Dribbble</span></figcaption></figure>
+        <figure><img src="refs/poll-voting-12.jpg" alt="Poll creation and voting app" loading="lazy"><figcaption><b>Create poll</b><ul><li>Step-by-step poll creation</li></ul><span class="cr">Diksha Mahajan · Dribbble</span></figcaption></figure>
+        <figure class="dated"><img src="refs/poll-dark-14.jpg" alt="Older multi-gradient polls UI" loading="lazy"><figcaption><b>Manage polls</b><ul><li>Loud multi-gradient cards: avoid</li></ul><span class="cr">Alexey Supp · Dribbble (2019)</span></figcaption></figure>
+      </div>
+    </div>
+    <div class="rg" id="refs-party">
+      <h3>Clubs, chat & watch parties</h3>
+      <p>The parts unique to Cluvie.</p>
+      <div class="refs">
+        <figure><img src="refs/rsvp-events-09.jpg" alt="Kiosk events app with RSVP and ticket" loading="lazy"><figcaption><b>Watch party list, RSVP</b><ul><li>Going / Maybe / Can't with live counts</li><li>"Theo, Marco +9 going"</li><li>Ticket-stub card, sticky CTA bar</li><li>Its card CTAs are white, so ours are too; gold stays for one CTA per screen</li></ul><span class="cr">Andrew McKay · Dribbble</span></figcaption></figure>
+        <figure><img src="refs/chat-irl-11.jpg" alt="IRL group chat with tabs and reactions" loading="lazy"><figcaption><b>Club chat, Club detail</b><ul><li>Chat / Threads / Events / Polls tabs</li><li>Reaction pills, date separators</li><li>"+" sheet: Add poll, Create event</li></ul><span class="cr">Christopher Koziol · Dribbble</span></figcaption></figure>
+        <figure><img src="refs/chat-community-10.jpg" alt="Community and chat app" loading="lazy"><figcaption><b>Club list</b><ul><li>Community cards with member counts</li></ul><span class="cr">Sk Raju Hossin · Dribbble</span></figcaption></figure>
+      </div>
+    </div>
+    <div class="rg">
+      <h3>Onboarding & tone</h3>
+      <p>Moody first impressions that personalise straight away.</p>
+      <div class="refs">
+        <figure><img src="refs/onboarding-cineflow-07.jpg" alt="CineFlow onboarding with genre picker" loading="lazy"><figcaption><b>Onboarding, Welcome</b><ul><li>Accent color on the heading's second line</li><li>Genre grid with a checked state</li><li>Skip always visible</li></ul><span class="cr">Hafil Vc · Dribbble</span></figcaption></figure>
+        <figure><img src="refs/discovery-duovue-04.jpg" alt="DuoVue movie night case study" loading="lazy"><figcaption><b>Suggest flow</b><ul><li>Group decision for movie night: the closest product analogue</li></ul><span class="cr">Austyn McFadden · Dribbble</span></figcaption></figure>
+        <figure><img src="refs/streaming-reel-08.jpg" alt="Reel cinematic streaming app" loading="lazy"><figcaption><b>Overall tone</b><ul><li>Dark cinematic atmosphere</li></ul><span class="cr">Violet Arther · Dribbble</span></figcaption></figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<p class="foot">Cluvie design overhaul · mood board v1 · Tokens: design/tokens.md · Next: review round 1, then your approval.</p>
+</div>
+
+<script>
+(function(){
+  // Swatches with computed contrast
+  const bgs={bg:'#0A0812',surface:'#14101F',raised:'#1D1730'};
+  const sw=[
+    ['bg','#0A0812','Scaffold',null],['surface','#14101F','Cards, sheets',null],['raised','#1D1730','Inputs, chips',null],
+    ['textPrimary','#F5F3FA','Titles, body','t'],['textSecondary','#A8A3B8','Supporting','t'],['textMuted','#8F899F','Captions','t'],
+    ['gold','#FFD27D','Primary accent','t'],['goldDeep','#F2B544','CTA gradient end','t'],
+    ['purple','#7C5CFF','Glows only, no text','t'],['purpleText','#A48BFF','Links, tags','t'],['purpleContainer','#2E1F4A','Brand purple: tags, leader, bubbles',null],['purpleBadge','#6545E0','"+" button, badges (white text 6.0)',null],
+    ['success','#4DC8B5','Going, done','t'],['error','#FF6B6B','Errors, live','t'],['warning','#FFC107','Warnings','t']];
+  const lum=h=>{const c=[1,3,5].map(i=>parseInt(h.substr(i,2),16)/255).map(v=>v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4));return .2126*c[0]+.7152*c[1]+.0722*c[2]};
+  const cr=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+  const host=document.getElementById('swatches');
+  sw.forEach(([n,h,u,t])=>{
+    const d=document.createElement('div');d.className='sw';
+    const light=lum(h)>.4;
+    let r='';
+    if(t){r='<span class="ratio">'+Object.entries(bgs).map(([k,v])=>{const c=cr(h,v);return `<span class="${c>=4.5?'ok':'no'}">${k} ${c.toFixed(1)}</span>`}).join('')+'</span>';}
+    d.innerHTML=`<div class="chip" style="background:${h};color:${light?'#14101F':'#F5F3FA'};${t?'':'border-bottom:1px solid rgba(255,255,255,.08)'}">Aa</div><div class="meta"><b>${n}</b><code>${h}</code><span style="color:var(--text2)">${u}</span>${r}</div>`;
+    host.appendChild(d);
+  });
+
+  // Poll bars + voting
+  const rows=[...document.querySelectorAll('#poll .poll-row')];
+  requestAnimationFrame(()=>rows.forEach(r=>r.querySelector('.bar').style.width=r.dataset.v+'%'));
+  rows.forEach(r=>r.addEventListener('click',()=>{rows.forEach(x=>x.classList.remove('voted'));r.classList.add('voted')}));
+
+  // Nav pill
+  const nav=document.querySelector('.nav'),pill=nav.querySelector('.pill');
+  const tabs=[...nav.querySelectorAll('button[data-i]')];
+  const place=b=>{pill.style.left=b.offsetLeft+6+'px';pill.style.width=b.offsetWidth-12+'px'};
+  const set=b=>{tabs.forEach(t=>{t.classList.toggle('on',t===b);t.querySelector('use').setAttribute('href','#i-'+t.dataset.i+(t===b?'-f':''))});place(b)};
+  tabs.forEach(b=>b.addEventListener('click',()=>set(b)));
+  const init=()=>place(nav.querySelector('button.on'));
+  window.addEventListener('resize',init); setTimeout(init,50); init();
+
+  // Stagger replay
+  document.getElementById('restag').addEventListener('click',()=>{const s=document.getElementById('stag');s.querySelectorAll('div').forEach(d=>{d.style.animation='none';void d.offsetWidth;d.style.animation=''})});
+  // Heart
+  const heart=document.getElementById('heart');
+  heart.addEventListener('click',()=>{const on=!heart.classList.contains('on');heart.classList.toggle('on',on);heart.setAttribute('aria-pressed',on);heart.querySelector('use').setAttribute('href',on?'#i-heart-f':'#i-heart')});
+  // Ring
+  const ring=document.getElementById('ringv');
+  const fill=()=>{ring.style.transition='none';ring.style.strokeDashoffset=264;void ring.getBoundingClientRect();ring.style.transition='';ring.style.strokeDashoffset=264*.25};
+  requestAnimationFrame(fill);
+  document.getElementById('rering').addEventListener('click',fill);
+})();
+</script>
