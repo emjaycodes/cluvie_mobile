@@ -64,9 +64,9 @@ abstract final class AppTheme {
       dividerColor: AppColors.border,
 
       pageTransitionsTheme: const PageTransitionsTheme(builders: {
-        TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.android: ReducedMotionPageTransitionsBuilder(FadeForwardsPageTransitionsBuilder()),
+        TargetPlatform.iOS: ReducedMotionPageTransitionsBuilder(CupertinoPageTransitionsBuilder()),
+        TargetPlatform.macOS: ReducedMotionPageTransitionsBuilder(CupertinoPageTransitionsBuilder()),
       }),
 
       appBarTheme: const AppBarTheme(
@@ -336,4 +336,33 @@ abstract final class AppTheme {
   static ThemeData get darkTheme => theme;
   @Deprecated('App is dark-only. Use AppTheme.theme')
   static ThemeData get lightTheme => theme;
+}
+
+/// Delegates to [inner] unless the OS asks for reduced motion, in which case
+/// pages appear without a transition (tokens.md → Motion → Reduced motion).
+class ReducedMotionPageTransitionsBuilder extends PageTransitionsBuilder {
+  const ReducedMotionPageTransitionsBuilder(this.inner);
+
+  final PageTransitionsBuilder inner;
+
+  @override
+  Duration get transitionDuration => inner.transitionDuration;
+
+  @override
+  Duration get reverseTransitionDuration => inner.reverseTransitionDuration;
+
+  @override
+  DelegatedTransitionBuilder? get delegatedTransition => inner.delegatedTransition;
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return child;
+    return inner.buildTransitions(route, context, animation, secondaryAnimation, child);
+  }
 }

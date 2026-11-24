@@ -117,7 +117,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         color: AppColors.accent,
         onRefresh: _loadWatchlist,
         child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + MediaQuery.paddingOf(context).bottom),
           children: [
             // Avatar + name + bio — editable fields
             Center(

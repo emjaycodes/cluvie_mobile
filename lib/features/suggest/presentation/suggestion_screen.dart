@@ -117,7 +117,7 @@ class _SuggestMovieScreenState extends State<SuggestMovieScreen> {
         title: Text('Suggest a Movie', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.paddingOf(context).bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

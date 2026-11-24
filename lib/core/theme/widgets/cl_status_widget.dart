@@ -1,83 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
+import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 
 enum ClStatusType { success, error, warning, loading }
 
+/// Inline status banner. Text stays textPrimary (status colour is on the icon
+/// and border only) so it passes AA on the tinted background.
 class ClStatusBanner extends StatelessWidget {
-  final ClStatusType type;
-  final String message;
-  final bool show;
-  final bool dismissible;
-
   const ClStatusBanner({
     super.key,
     required this.type,
     required this.message,
     this.show = true,
     this.dismissible = false,
+    this.onDismiss,
   });
 
-  Color _getColor() {
-    switch (type) {
-      case ClStatusType.success:
-        return AppColors.success;
-      case ClStatusType.error:
-        return AppColors.error;
-      case ClStatusType.warning:
-        return AppColors.warning;
-      case ClStatusType.loading:
-        return Colors.grey.shade400;
-    }
-  }
-
-  IconData _getIcon() {
-    switch (type) {
-      case ClStatusType.success:
-        return Icons.check_circle_rounded;
-      case ClStatusType.error:
-        return Icons.error_rounded;
-      case ClStatusType.warning:
-        return Icons.warning_amber_rounded;
-      case ClStatusType.loading:
-        return Icons.hourglass_top_rounded;
-    }
-  }
+  final ClStatusType type;
+  final String message;
+  final bool show;
+  final bool dismissible;
+  final VoidCallback? onDismiss;
 
   @override
   Widget build(BuildContext context) {
     if (!show) return const SizedBox.shrink();
+    final (IconData icon, Color color) = switch (type) {
+      ClStatusType.success => (AppIcons.success, AppColors.success),
+      ClStatusType.error => (AppIcons.error, AppColors.error),
+      ClStatusType.warning => (AppIcons.warning, AppColors.warning),
+      ClStatusType.loading => (AppIcons.loading, AppColors.textSecondary),
+    };
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: _getColor().withValues(alpha: 0.15),
-        border: Border.all(color: _getColor().withValues(alpha: 0.5)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(_getIcon(), color: _getColor()),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: AppTextStyles.body.copyWith(
-                color: _getColor(),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          if (dismissible)
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.sm, AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceRaised,
+          borderRadius: AppRadius.mdAll,
+          border: Border.all(color: color.withValues(alpha: 0.5)),
+        ),
+        child: Row(children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(child: Text(message, style: AppTextStyles.label)),
+          if (dismissible && onDismiss != null)
             IconButton(
-              icon: const Icon(Icons.close, size: 20),
-              color: _getColor(),
-              onPressed: () {
-               
-              },
+              tooltip: 'Dismiss',
+              icon: const Icon(AppIcons.close, size: 18),
+              color: AppColors.textSecondary,
+              onPressed: onDismiss,
             ),
-        ],
+        ]),
       ),
     );
   }

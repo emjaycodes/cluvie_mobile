@@ -230,6 +230,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     SliverToBoxAdapter(child: const SuggestedClubsWidget()),
                     const SliverToBoxAdapter(child: SizedBox(height: 32)),
                   ],
+                  // Clear the floating nav bar.
+                  SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom)),
                 ],
               ),
       ),
@@ -238,7 +240,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   Widget _shimmerGrid() {
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.paddingOf(context).bottom),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.68),
       itemCount: 6,
       itemBuilder: (_, __) => Shimmer.fromColors(baseColor: Colors.grey.shade800, highlightColor: Colors.grey.shade700, child: Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)))),
