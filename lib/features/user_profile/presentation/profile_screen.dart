@@ -6,6 +6,7 @@ import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_empty_state.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_snackbar.dart';
+import 'package:cluvie_mobile/core/repository/auth_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
@@ -291,7 +292,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             // Sign out
             if (isOwnProfile) ...[
               OutlinedButton(
-                onPressed: () => context.go('/welcome'),
+                onPressed: () async {
+                  // Clear the saved session so the next launch doesn't skip auth (audit P0-3).
+                  await AuthRepository().logout();
+                  if (context.mounted) context.go('/welcome');
+                },
                 style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)),
                 child: const Text('Log out', style: TextStyle(fontWeight: FontWeight.w700)),
               ),

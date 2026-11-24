@@ -1,130 +1,157 @@
 import 'package:cluvie_mobile/core/router/routes_name.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
-import 'package:cluvie_mobile/features/authentication/presentation/login_screen.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/features/authentication/components/auth_backdrop.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
-class WelcomeScreen extends ConsumerStatefulWidget {
+/// Apple / Google sign-in have no backend yet. They stay hidden until they
+/// work (UX audit P0-4: no controls that do nothing).
+const bool kSocialAuthEnabled = false;
+
+class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
   @override
-  ConsumerState<ConsumerStatefulWidget> createState() => _WelcomeScreenState();
-}
-
-class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: AppSpacing.clPadding,
-          child: Column(
-            children: [
-               SvgPicture.asset(
-                          'assets/images/cluvie_logo.svg',
-                          width: 50,
-                          height: 100,
+      body: AuthBackdrop(
+        child: Stack(
+          children: [
+            const Positioned.fill(child: _PosterWall()),
+            SafeArea(
+              child: LayoutBuilder(
+                builder:
+                    (context, c) => SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: c.maxHeight),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const SizedBox(height: AppSpacing.xl),
+                              const Align(alignment: Alignment.centerLeft, child: ClLogo(size: 32)),
+                              const Spacer(),
+                              const ClEntrance(
+                                child: AuthHeading(
+                                  line1: 'Join the club.',
+                                  line2: 'Pick the film together.',
+                                  body: 'Suggest what to watch, vote with friends and plan watch parties in one place.',
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.xxl),
+                              ClEntrance(
+                                index: 2,
+                                child: ClButton(
+                                  label: 'Continue with email',
+                                  icon: AppIcons.email,
+                                  onPressed: () => context.pushNamed(RouteNames.signup),
+                                ),
+                              ),
+                              if (kSocialAuthEnabled) ...[
+                                const SizedBox(height: AppSpacing.md),
+                                _SocialButton(
+                                  label: 'Continue with Google',
+                                  asset: 'assets/icons/google.svg',
+                                  onPressed: () {},
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                _SocialButton(
+                                  label: 'Continue with Apple',
+                                  asset: 'assets/icons/apple.svg',
+                                  onPressed: () {},
+                                ),
+                              ],
+                              const SizedBox(height: AppSpacing.lg),
+                              ClEntrance(
+                                index: 3,
+                                child: AuthSwitchLink(
+                                  prompt: 'Already have an account?',
+                                  action: 'Log in',
+                                  onTap: () => context.pushNamed(RouteNames.login),
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.lg),
+                            ],
+                          ),
                         ),
-              const SizedBox(height: AppSpacing.xs * 5),
-              Text("Join the club", style: AppTextStyles.heading1),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                "Sign up to start suggesting, voting and discussing your favorite films.",
-                style: AppTextStyles.heading2.copyWith(
-                  fontSize: 17,
-                ),
-                textAlign: TextAlign.center,
+                      ),
+                    ),
               ),
-              const SizedBox(height: AppSpacing.xl * 2),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-              Center(
-                child: AuthGlassmorphicContainer(
-                  width: double.infinity,
-                  height: 380,
-                  child: Column(
-                    children: [
-                      const SizedBox(height: AppSpacing.xl ),
-                      AuthButton(
-                        label: 'Continue with Apple',
-                        onPressed: () {},
-                        icon: SvgPicture.asset(
-                          'assets/icons/apple.svg',
-                          width: 24,
-                          height: 24,
-                        ),
-                        color: AppColors.black,
-                      ),
+const _wallPosters = [
+  'https://image.tmdb.org/t/p/w342/kAellTx1ukNtc42BP1kcnHPCG5e.jpg',
+  'https://image.tmdb.org/t/p/w342/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
+  'https://image.tmdb.org/t/p/w342/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg',
+  'https://image.tmdb.org/t/p/w342/74xTEgt7R36Fpooo50r9T25onhq.jpg',
+  'https://image.tmdb.org/t/p/w342/d5NXSklXo0qyIYkgV94XAgMIckC.jpg',
+  'https://image.tmdb.org/t/p/w342/8QVDXDiOGHRcAD4oM6MXjE0osSj.jpg',
+  'https://image.tmdb.org/t/p/w342/hUu9zyZmDd8VZegKi1iK1Vk0RYS.jpg',
+  'https://image.tmdb.org/t/p/w342/r46leE6PSzLR3pnVzaxx5Q30yUF.jpg',
+  'https://image.tmdb.org/t/p/w342/kCGlIMHnOm8JPXq3rXM84hre9Mh.jpg',
+];
 
-                      SizedBox(height: 16),
+/// Tilted, dimmed poster wall in the top half that dissolves into the
+/// background so the heading below stays on a flat, high-contrast surface.
+class _PosterWall extends StatelessWidget {
+  const _PosterWall();
 
-                      AuthButton(
-                        label: 'Continue with Google',
-                        onPressed: () {},
-                        icon: SvgPicture.asset(
-                          'assets/icons/google.svg',
-                          width: 24,
-                          height: 24,
-                        ),
-                        color: AppColors.darkSurface,
-                      ),
-
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Divider(
-                                color: AppColors.darkBorder,
-                                thickness: 1,
-                                endIndent: 8,
-                                indent: 32,
-                              ),
-                            ),
-                            const Text(
-                              'or',
-                              style: TextStyle(
-                                color: AppColors.white,
-
-                              ),
-                            ),
-                            Expanded(
-                              child: Divider(
-                                color: AppColors.darkBorder,
-                                thickness: 1,
-                                indent: 8,
-                                endIndent: 32,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      AuthButton(
-                        label: 'Continue with Email',
-                        onPressed: () => context.pushNamed('signup'),
-                        icon: Icon(Icons.email, size: 24, color: Colors.white),
-                        color: AppColors.darkSurface,
-                      ),
-
-                      const SizedBox(height: AppSpacing.xl ),
-
-                      Text("Already have an account?"),
-                      // const SizedBox(width: AppSpacing.xs),
-                      TextButton(
-                        onPressed:
-                            () => context.pushNamed(RouteNames.login),
-                        child: const Text("Log in"),
-                      ),
-                    ],
-                  ),
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final w = size.width * 0.34;
+    final h = w * 1.5;
+    Widget column(int start, double dy) => Transform.translate(
+      offset: Offset(0, dy),
+      child: Column(
+        children: [
+          for (var i = 0; i < 3; i++)
+            Padding(
+              padding: const EdgeInsets.all(5),
+              child: ClPosterImage(url: _wallPosters[(start + i) % _wallPosters.length], width: w, height: h),
+            ),
+        ],
+      ),
+    );
+    return ExcludeSemantics(
+      child: IgnorePointer(
+        child: ShaderMask(
+          // Fade the wall out well above the heading (text sits on flat bg).
+          shaderCallback:
+              (r) => const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.white, Colors.white, Colors.transparent],
+                stops: [0, 0.32, 0.56],
+              ).createShader(r),
+          blendMode: BlendMode.dstIn,
+          child: Opacity(
+            opacity: 0.55,
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              maxWidth: size.width * 1.6,
+              maxHeight: double.infinity,
+              child: Transform.rotate(
+                angle: -0.14,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [column(0, -h * 0.35), column(3, 0), column(6, -h * 0.55), column(1, -h * 0.15)],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -132,40 +159,25 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   }
 }
 
-class AuthButton extends StatelessWidget {
+class _SocialButton extends StatelessWidget {
+  const _SocialButton({required this.label, required this.asset, required this.onPressed});
+
   final String label;
-  final VoidCallback? onPressed;
-  final Widget? icon;
-  final Color? color;
-  final ButtonStyle? style;
-  const AuthButton({
-    super.key,
-    required this.label,
-    this.onPressed,
-    this.icon,
-    this.color,
-    this.style,
-  });
+  final String asset;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      label: Text(
-        label,
-        style: AppTextStyles.button.copyWith(color: AppColors.darkTextPrimary),
+    return OutlinedButton(
+      onPressed: onPressed,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SvgPicture.asset(asset, width: 20, height: 20, excludeFromSemantics: true),
+          const SizedBox(width: AppSpacing.sm),
+          Text(label, style: AppTextStyles.button.copyWith(color: AppColors.textPrimary)),
+        ],
       ),
-      onPressed: onPressed ?? () {},
-      icon: icon,
-      style:
-          style ??
-          ElevatedButton.styleFrom(
-            backgroundColor: color ?? Colors.white,
-            foregroundColor: Colors.black,
-            minimumSize: const Size(300.0, 50.0),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
     );
   }
 }

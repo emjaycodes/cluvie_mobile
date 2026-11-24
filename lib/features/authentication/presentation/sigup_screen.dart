@@ -1,12 +1,13 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:cluvie_mobile/core/router/routes_name.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
-import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/features/authentication/components/auth_backdrop.dart';
+import 'package:cluvie_mobile/features/authentication/components/auth_form_scaffold.dart';
 import 'package:cluvie_mobile/features/authentication/data/auth_provider.dart';
-import 'package:cluvie_mobile/features/authentication/presentation/login_screen.dart';
+import 'package:cluvie_mobile/features/authentication/data/launch_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -19,148 +20,100 @@ class SignupScreen extends ConsumerStatefulWidget {
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _username = '';
-  String _email = '';
-  String _password = '';
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
 
-  void _handleSignup() async {
-    if (!_formKey.currentState!.validate()) return;
-    _formKey.currentState!.save();
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(authNotifierProvider.notifier).clearError();
+    });
+  }
 
-    final success = await ref
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final ok = await ref
         .read(authNotifierProvider.notifier)
-        .register(_username, _email, _password);
-
-    if (success && context.mounted) {
-      context.goNamed(RouteNames.movies);
-    }
+        .register(_name.text.trim(), _email.text.trim(), _password.text);
+    if (!ok || !mounted) return;
+    TextInput.finishAutofillContext();
+    await LaunchState.markOnboardingSeen();
+    // Previously navigated to a non-existent `movies` route (crash).
+    if (mounted) context.goNamed(RouteNames.home);
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authNotifierProvider);
-
-    // if (authState.isLoading) {
-    //   return Scaffold(
-    //     body: Center(child: ClLoading()),
-    //   );
-    // }
-    return Scaffold(
-      body: SafeArea(
-        child:
-            authState.error != null
-                ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          authState.error!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.red),
-                        ),
-                        ClButton(
-                          onPressed: () async {
-                            await ref
-                                .read(authNotifierProvider.notifier)
-                                .register(_username, _email, _password);
-                          },
-                          label: "Retry",
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-                : Padding(
-                  padding: AppSpacing.clPadding,
-                  child: Expanded(
-                    child: Form(
-                      key: _formKey,
-                      child: ListView(
-                        children: [
-                          const SizedBox(height: 40),
-                          Text("Create Account", style: AppTextStyles.heading1),
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            "Sign up to join the club",
-                            style: AppTextStyles.heading2,
-                          ),
-                          const SizedBox(height: AppSpacing.xl),
-                          AuthGlassmorphicContainer(
-                            height: 450,
-                            child: Column(
-                              children: [
-                                TextFormField(
-                                  decoration: const InputDecoration(
-                                    hintText: 'Joe Doe',
-                                  ),
-                                  keyboardType: TextInputType.name,
-                                  onSaved: (value) => _username = value ?? '',
-                                  validator:
-                                      (value) =>
-                                          value == null || value.isEmpty
-                                              ? 'Enter your name'
-                                              : null,
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-
-                                TextFormField(
-                                  decoration: const InputDecoration(
-                                    hintText: 'johndoe@example.com',
-                                  ),
-                                  keyboardType: TextInputType.emailAddress,
-                                  onSaved: (value) => _email = value ?? '',
-                                  validator:
-                                      (value) =>
-                                          value != null && value.contains('@')
-                                              ? null
-                                              : 'Enter valid email',
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-
-                                TextFormField(
-                                  decoration: const InputDecoration(
-                                    labelText: 'Password',
-                                  ),
-                                  obscureText: true,
-                                  onSaved: (value) => _password = value ?? '',
-                                  validator:
-                                      (value) =>
-                                          value != null && value.length >= 6
-                                              ? null
-                                              : 'Min 6 characters',
-                                ),
-                                const SizedBox(height: AppSpacing.xl * 2),
-
-                                ClButton(
-                                  label:
-                                      authState.isLoading
-                                          ? 'Creating Account...'
-                                          : 'Create Account',
-                                  onPressed:
-                                      authState.isLoading
-                                          ? () {}
-                                          : _handleSignup,
-                                ),
-
-                                TextButton(
-                                  onPressed:
-                                      () => context.pushNamed(RouteNames.login),
-                                  child: const Text(
-                                    " have an account? Login",
-                                  ),
-                                ),
-                                Spacer()
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+    final auth = ref.watch(authNotifierProvider);
+    return AuthFormScaffold(children: [
+      const ClEntrance(
+        child: AuthHeading(line1: 'Create your account.', line2: 'Then find your club.'),
       ),
-    );
+      const SizedBox(height: AppSpacing.xl),
+      if (auth.error != null && !auth.isLoading) ...[
+        ClStatusBanner(type: ClStatusType.error, message: auth.error!),
+        const SizedBox(height: AppSpacing.lg),
+      ],
+      Form(
+        key: _formKey,
+        child: AutofillGroup(
+          child: Column(children: [
+            ClTextField(
+              label: 'Name',
+              controller: _name,
+              hintText: 'Ada Obi',
+              prefixIcon: AppIcons.user,
+              keyboardType: TextInputType.name,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.name],
+              validator: (v) => (v ?? '').trim().isEmpty ? 'Enter your name.' : null,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ClTextField(
+              label: 'Email',
+              controller: _email,
+              hintText: 'ada@example.com',
+              prefixIcon: AppIcons.email,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              validator: validateEmail,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ClTextField(
+              label: 'Password',
+              controller: _password,
+              hintText: 'Create a password',
+              helperText: 'At least 6 characters.',
+              prefixIcon: AppIcons.lock,
+              isPassword: true,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.newPassword],
+              validator: validatePassword,
+              onSubmitted: (_) => _submit(),
+            ),
+          ]),
+        ),
+      ),
+      const SizedBox(height: AppSpacing.xl),
+      ClButton(label: 'Create account', isLoading: auth.isLoading, onPressed: _submit),
+      const SizedBox(height: AppSpacing.lg),
+      AuthSwitchLink(
+        prompt: 'Already have an account?',
+        action: 'Log in',
+        onTap: () => context.pushReplacementNamed(RouteNames.login),
+      ),
+    ]);
   }
 }

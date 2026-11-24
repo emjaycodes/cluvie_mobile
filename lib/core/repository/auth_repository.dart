@@ -28,6 +28,14 @@ class AuthRepository {
     _apiClient.clearAuthToken();
   }
 
+  /// Restores a saved session (sets the auth header). True when a token exists.
+  Future<bool> restoreSession() async {
+    final token = await _getToken();
+    if (token == null || token.isEmpty) return false;
+    _apiClient.setAuthToken(token);
+    return true;
+  }
+
   Future<UserModel> login(String email, String password) async {
     try {
       final response = await _apiClient.post('/auth/login', data: {
