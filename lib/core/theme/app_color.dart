@@ -1,42 +1,111 @@
 import 'package:flutter/material.dart';
 
+/// Cluvie colour tokens — dark only. Source of truth: `design/tokens.md` (v1.1).
+///
+/// Rules (see tokens.md):
+/// * Gold budget: one gold content owner per screen + active nav tab + logo + focus ring.
+/// * [textMuted] only on [bg], [surface], [surfaceRaised]. On tints/glass/scrims use [textSecondary].
+/// * Every fill has an "on" colour ([onGold], [onPurpleBadge], [onSemantic]). Never put text on [purple].
+abstract final class AppColors {
+  // ── Surfaces ──────────────────────────────────────────────────────────────
+  static const Color bg = Color(0xFF0A0812);
+  static const Color surface = Color(0xFF14101F);
+  static const Color surfaceRaised = Color(0xFF1D1730);
 
-class AppColors {
-  // === Brand Core ===
-  static const Color cinematicPurple = Color(0xFF2E1F4A); // Main brand tone
-  static const Color goldenPopcorn = Color(0xFFFFD27D); // Accent color
-  static const Color popTeal = Color(0xFF4DC8B5); // Success 
-  static const Color softRed = Color(0xFFFF6B6B); // Error
-  static const Color amberWarning = Color(0xFFFFC107); // Warnings
+  /// Tinted glass base for the blurred nav bar / app bar (88% surface).
+  static const Color surfaceGlass = Color(0xE014101F);
 
-  // === Semantic Tokens ===
-  static const Color accent = goldenPopcorn;
-  static const Color black = Color(0xFF000000);
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color success = popTeal;
-  static const Color error = softRed;
-  static const Color warning = amberWarning;
+  /// Flat glass for chips / secondary buttons over known dark surfaces (no blur).
+  static const Color glassFlat = Color(0x14FFFFFF);
 
-  // === Light Theme ===
-  static const Color lightBackground = Color(0xFFF5F5F7); // Clean off-white
-  static const Color lightSurface = Color(0xFFFFFFFF); // Cards/sheets
-  static const Color lightBorder = Color(0xFFE0E0E0);
-  static const Color lightTextPrimary = Color(0xFF1C1C1E);
-  static const Color lightTextSecondary = Color(0xFF6E6E73);
+  static const Color border = Color(0x14FFFFFF); // 8%
+  static const Color borderStrong = Color(0x24FFFFFF); // 14%
+  static const Color borderInput = Color(0xFF6A6380); // ≥3:1 on surfaces
+  static const Color focusRing = gold;
 
-  // === Dark Theme === 0xFF0E0C1E
-  static const Color darkBackground = Color(0xFF0E0C1E); // Night Slate
-  static const Color darkSurface = Color(0xFF1A122A); // Cards/panels
-  static const Color darkBorder = Color(0xFF2C2C2E);
-  static const Color darkTextPrimary = Color(0xFFE0E0E0);
-  static const Color darkTextSecondary = Color(0xFF9E9EA2);
+  // ── Text ──────────────────────────────────────────────────────────────────
+  static const Color textPrimary = Color(0xFFF5F3FA);
+  static const Color textSecondary = Color(0xFFA8A3B8);
+  static const Color textMuted = Color(0xFF8F899F);
 
-  // === Gradients & FX ===
+  // ── Brand ─────────────────────────────────────────────────────────────────
+  static const Color gold = Color(0xFFFFD27D);
+  static const Color goldDeep = Color(0xFFF2B544);
+
+  /// Glows and progress tracks only. **No text on or in this colour.**
+  static const Color purple = Color(0xFF7C5CFF);
+
+  /// Purple used as text (links, tags, mentions).
+  static const Color purpleText = Color(0xFFA48BFF);
+
+  /// The original brand purple, used as a container: tags, selected chips,
+  /// poll leader, own chat bubbles, badges.
+  static const Color purpleContainer = Color(0xFF2E1F4A);
+
+  /// Solid purple fill that carries white text: centre "+", count badges.
+  static const Color purpleBadge = Color(0xFF6545E0);
+
+  // ── Semantic ──────────────────────────────────────────────────────────────
+  static const Color success = Color(0xFF4DC8B5);
+  static const Color error = Color(0xFFFF6B6B);
+  static const Color warning = Color(0xFFFFC107);
+
+  // ── "On" colours ──────────────────────────────────────────────────────────
+  static const Color onGold = Color(0xFF14101F);
+  static const Color onPurpleBadge = Color(0xFFFFFFFF);
+  static const Color onSemantic = Color(0xFF14101F);
+
+  // ── Gradients ─────────────────────────────────────────────────────────────
+  static const LinearGradient goldGradient = LinearGradient(
+    colors: [gold, goldDeep],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// Bottom poster scrim. Text blocks must start at or below the 0.85 stop.
+  static const LinearGradient scrimBottom = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0x000A0812), Color(0x000A0812), Color(0xD90A0812), Color(0xF50A0812)],
+    stops: [0.0, 0.30, 0.50, 1.0],
+  );
+
+  /// Top poster scrim behind status bar / icon buttons (apply over top ~120dp).
+  static const LinearGradient scrimTop = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xB30A0812), Color(0x000A0812)],
+  );
+
+  static const RadialGradient brandGlow = RadialGradient(
+    colors: [Color(0x597C5CFF), Color(0x007C5CFF)],
+  );
+
+  // ── Legacy aliases (remapped to new tokens; removed in Phase 6) ────────────
+  @Deprecated('Use AppColors.gold') static const Color accent = gold;
+  @Deprecated('Use AppColors.gold') static const Color goldenPopcorn = gold;
+  @Deprecated('Use AppColors.purpleContainer') static const Color cinematicPurple = purpleContainer;
+  @Deprecated('Use AppColors.success') static const Color popTeal = success;
+  @Deprecated('Use AppColors.error') static const Color softRed = error;
+  @Deprecated('Use AppColors.warning') static const Color amberWarning = warning;
+  @Deprecated('Use AppColors.textPrimary') static const Color white = textPrimary;
+  @Deprecated('Use AppColors.bg') static const Color black = bg;
+  @Deprecated('Use AppColors.bg') static const Color darkBackground = bg;
+  @Deprecated('Use AppColors.bg') static const Color backgroundDark = bg;
+  @Deprecated('Use AppColors.surface') static const Color darkSurface = surface;
+  @Deprecated('Use AppColors.border') static const Color darkBorder = border;
+  @Deprecated('Use AppColors.textPrimary') static const Color darkTextPrimary = textPrimary;
+  @Deprecated('Use AppColors.textSecondary') static const Color darkTextSecondary = textSecondary;
+  // App is dark-only: light aliases map to their dark equivalents.
+  @Deprecated('Use AppColors.bg') static const Color lightBackground = surfaceRaised;
+  @Deprecated('Use AppColors.surface') static const Color lightSurface = surface;
+  @Deprecated('Use AppColors.border') static const Color lightBorder = border;
+  @Deprecated('Use AppColors.textPrimary') static const Color lightTextPrimary = textPrimary;
+  @Deprecated('Use AppColors.textSecondary') static const Color lightTextSecondary = textSecondary;
+  @Deprecated('Use AppColors.goldGradient or brandGlow')
   static const LinearGradient cinematicGradient = LinearGradient(
-    colors: [cinematicPurple, Color(0xFF6A1B9A)],
+    colors: [purpleContainer, purpleBadge],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 }
-
-
