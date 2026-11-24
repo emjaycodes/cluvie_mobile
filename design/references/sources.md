@@ -26,6 +26,5 @@ Images in `screens/` are third-party work kept **locally for internal reference 
 ## Packages / assets (to be pulled in Phase 2–3)
 - `flutter_animate` 4.5.2 — https://pub.dev/packages/flutter_animate (BSD-3)
 - `phosphor_icons` 3.0.1 — https://pub.dev/packages/phosphor_icons (MIT; fork compatible with Flutter 3.43+ final `IconData`). Original `phosphor_flutter` 2.1.0 is not compatible.
-- `lottie` 3.4.0 — https://pub.dev/packages/lottie (requires Flutter ≥3.44 ✓)
-- Lottie confetti candidates (Lottie Simple License, free commercial use): https://lottiefiles.com/free-animation/celebration-confetti-json-QIroMtQ1Or · https://lottiefiles.com/68807-confetti-celebration
+- ~~`lottie`~~ — dropped (Phase 3): LottieFiles downloads require login; celebrations/loaders are built natively with `flutter_animate` + a `ClConfetti` painter (themeable, no third-party asset licence, trivially disabled for reduced motion).
 - Fonts (OFL): Sora — https://fonts.google.com/specimen/Sora · Plus Jakarta Sans — https://fonts.google.com/specimen/Plus+Jakarta+Sans

@@ -125,7 +125,7 @@ Principles: (1) motion explains — something moves only because it came from / 
 - Springs (nav "+", like pop): replaced by instant state change.
 - Page transitions: fade 0ms (theme `PageTransitionsTheme` swaps to a no-op builder).
 - `Hero`: disabled via `HeroMode(enabled: !reduce)`.
-- Lottie: shows final frame (`animate: false`, `controller.value = 1`).
+- Confetti (`ClConfetti` painter): not shown; final state only.
 - Skeleton shimmer: static `surfaceRaised` blocks.
 - Haptics still fire.
 
