@@ -43,6 +43,11 @@ abstract final class AppTheme {
 
   static OutlinedBorder get _pill => const StadiumBorder();
 
+  /// 2px gold focus ring on every Material button (tokens.md → focusRing).
+  static WidgetStateProperty<BorderSide?> _focusSide([BorderSide? rest]) =>
+      WidgetStateProperty.resolveWith((s) =>
+          s.contains(WidgetState.focused) ? const BorderSide(color: AppColors.focusRing, width: 2) : rest);
+
   static ThemeData get theme {
     final base = ThemeData(
       useMaterial3: true,
@@ -103,7 +108,7 @@ abstract final class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
           shape: _pill,
           textStyle: AppTextStyles.button,
-        ),
+        ).copyWith(side: _focusSide()),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -115,7 +120,7 @@ abstract final class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
           shape: _pill,
           textStyle: AppTextStyles.button,
-        ),
+        ).copyWith(side: _focusSide()),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
@@ -127,7 +132,7 @@ abstract final class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
           shape: _pill,
           textStyle: AppTextStyles.button,
-        ),
+        ).copyWith(side: _focusSide(const BorderSide(color: AppColors.borderStrong))),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
@@ -136,14 +141,14 @@ abstract final class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           shape: _pill,
           textStyle: AppTextStyles.label,
-        ),
+        ).copyWith(side: _focusSide()),
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
           minimumSize: _minTouch,
           iconSize: 24,
-        ),
+        ).copyWith(side: _focusSide()),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.purpleBadge,
@@ -170,7 +175,7 @@ abstract final class AppTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 14),
         hintStyle: AppTextStyles.body.copyWith(color: AppColors.textMuted),
         labelStyle: AppTextStyles.label.copyWith(color: AppColors.textSecondary),
-        floatingLabelStyle: AppTextStyles.label.copyWith(color: AppColors.gold),
+        floatingLabelStyle: AppTextStyles.label.copyWith(color: AppColors.textPrimary),
         helperStyle: AppTextStyles.caption,
         errorStyle: AppTextStyles.caption.copyWith(color: AppColors.error),
         prefixIconColor: AppColors.textSecondary,
@@ -247,10 +252,11 @@ abstract final class AppTheme {
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.surfaceRaised,
         contentTextStyle: AppTextStyles.label,
-        actionTextColor: AppColors.gold,
+        actionTextColor: AppColors.purpleText,
         behavior: SnackBarBehavior.floating,
         elevation: 0,
-        insetPadding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.navClearance - 4),
+        // The inner Scaffold already lifts the snackbar above the nav bar.
+        insetPadding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.lgAll,
           side: const BorderSide(color: AppColors.borderStrong),
@@ -275,7 +281,7 @@ abstract final class AppTheme {
         unselectedLabelStyle: AppTextStyles.label.copyWith(fontWeight: FontWeight.w500),
         indicatorSize: TabBarIndicatorSize.label,
         indicator: const UnderlineTabIndicator(
-          borderSide: BorderSide(color: AppColors.gold, width: 2.5),
+          borderSide: BorderSide(color: AppColors.purpleText, width: 2.5),
           borderRadius: BorderRadius.all(Radius.circular(2)),
         ),
         dividerColor: AppColors.border,
@@ -292,25 +298,25 @@ abstract final class AppTheme {
       ),
       dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1, space: 1),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: AppColors.gold,
+        color: AppColors.purpleText,
         linearTrackColor: AppColors.surfaceRaised,
         circularTrackColor: AppColors.surfaceRaised,
         refreshBackgroundColor: AppColors.surfaceRaised,
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((s) =>
-            s.contains(WidgetState.selected) ? AppColors.onGold : AppColors.textSecondary),
+            s.contains(WidgetState.selected) ? AppColors.onPurpleBadge : AppColors.textSecondary),
         trackColor: WidgetStateProperty.resolveWith((s) =>
-            s.contains(WidgetState.selected) ? AppColors.gold : AppColors.surfaceRaised),
+            s.contains(WidgetState.selected) ? AppColors.purpleBadge : AppColors.surfaceRaised),
         trackOutlineColor: const WidgetStatePropertyAll(AppColors.borderInput),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((s) =>
-            s.contains(WidgetState.selected) ? AppColors.gold : Colors.transparent),
-        checkColor: const WidgetStatePropertyAll(AppColors.onGold),
+            s.contains(WidgetState.selected) ? AppColors.purpleBadge : Colors.transparent),
+        checkColor: const WidgetStatePropertyAll(AppColors.onPurpleBadge),
         side: const BorderSide(color: AppColors.borderInput, width: 1.5),
       ),
-      radioTheme: const RadioThemeData(fillColor: WidgetStatePropertyAll(AppColors.gold)),
+      radioTheme: const RadioThemeData(fillColor: WidgetStatePropertyAll(AppColors.purpleText)),
       badgeTheme: const BadgeThemeData(
         backgroundColor: AppColors.purpleBadge,
         textColor: AppColors.onPurpleBadge,

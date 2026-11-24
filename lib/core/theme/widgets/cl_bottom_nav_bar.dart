@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -8,12 +9,13 @@ import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/theme/app_motion.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
+import 'package:cluvie_mobile/core/theme/widgets/cl_pressable.dart';
 
 /// Shell with a floating frosted nav: 4 tabs + a raised purple "+" (Suggest).
 ///
-/// The body extends behind the bar; scroll views must pad their bottom by
-/// `MediaQuery.paddingOf(context).bottom` (which includes the bar) — see
-/// [ClBottomNavBar.contentPadding].
+/// Content contract: the body extends behind the bar. Scroll views pad their
+/// bottom by `MediaQuery.paddingOf(context).bottom` (includes the bar); inner
+/// Scaffold FABs and SnackBars are lifted automatically.
 class ClBottomNavBar extends StatelessWidget {
   const ClBottomNavBar({super.key, required this.child});
 
@@ -32,25 +34,36 @@ class ClBottomNavBar extends StatelessWidget {
     return 0;
   }
 
-  /// Bottom padding for scroll content inside the shell so the last item
-  /// clears the floating bar.
-  static double contentPadding(BuildContext context) =>
-      MediaQuery.paddingOf(context).bottom + AppSpacing.lg;
+  /// Bottom padding for scroll content inside the shell.
+  static double contentPadding(BuildContext context) => MediaQuery.paddingOf(context).bottom + AppSpacing.lg;
 
   @override
   Widget build(BuildContext context) {
     final index = indexForLocation(GoRouterState.of(context).uri.toString());
+    final keyboardUp = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Scaffold(
       extendBody: true,
-      body: child,
-      bottomNavigationBar: _FloatingNav(
-        index: index,
-        onTap: (i) {
-          if (i == index) return;
-          HapticFeedback.selectionClick();
-          context.go(routes[i]);
-        },
-      ),
+      // Inner Scaffolds place FABs using viewPadding; with extendBody only
+      // `padding` carries the bar height, so mirror it into viewPadding.
+      body: Builder(builder: (context) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            viewPadding: mq.viewPadding.copyWith(bottom: math.max(mq.viewPadding.bottom, mq.padding.bottom)),
+          ),
+          child: child,
+        );
+      }),
+      bottomNavigationBar: keyboardUp
+          ? null
+          : _FloatingNav(
+              index: index,
+              onTap: (i) {
+                if (i == index) return;
+                HapticFeedback.selectionClick();
+                context.go(routes[i]);
+              },
+            ),
     );
   }
 }
@@ -77,18 +90,22 @@ class _FloatingNav extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   static const double _barHeight = 68;
-  static const double _inner = 6;
+  static const double _plusOverhang = 14;
 
   @override
   Widget build(BuildContext context) {
     final motion = AppMotion.of(context);
-    final safeBottom = MediaQuery.paddingOf(context).bottom;
+    final pad = MediaQuery.paddingOf(context);
     return Padding(
-      padding: EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, (safeBottom > 0 ? safeBottom : AppSpacing.lg)),
+      padding: EdgeInsets.fromLTRB(
+        math.max(AppSpacing.lg, pad.left),
+        0,
+        math.max(AppSpacing.lg, pad.right),
+        pad.bottom > 0 ? pad.bottom : AppSpacing.lg,
+      ),
       child: SizedBox(
-        height: _barHeight + 14, // room for the raised "+"
+        height: _barHeight + _plusOverhang,
         child: Stack(clipBehavior: Clip.none, alignment: Alignment.bottomCenter, children: [
-          // Frosted bar
           Positioned(
             left: 0,
             right: 0,
@@ -98,7 +115,7 @@ class _FloatingNav extends StatelessWidget {
               decoration: const BoxDecoration(borderRadius: AppRadius.xlAll, boxShadow: AppShadows.float),
               child: ClipRRect(
                 borderRadius: AppRadius.xlAll,
-                child: BackdropFilter(
+                child: BackdropFilter.grouped(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Container(
                     decoration: BoxDecoration(
@@ -106,18 +123,18 @@ class _FloatingNav extends StatelessWidget {
                       borderRadius: AppRadius.xlAll,
                       border: Border.all(color: AppColors.borderStrong),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: _inner),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: LayoutBuilder(builder: (context, c) {
                       final slot = c.maxWidth / _items.length;
                       return Stack(children: [
-                        // Sliding gold pill under the active tab (hidden on "+")
+                        // Sliding gold pill under the active tab (hidden on "+").
                         AnimatedPositioned(
                           duration: motion.quick,
                           curve: AppMotion.emphasized,
-                          left: slot * index + 6,
-                          width: slot - 12,
-                          top: 10,
-                          height: _barHeight - 20,
+                          left: slot * index + 4,
+                          width: slot - 8,
+                          top: 8,
+                          height: _barHeight - 18,
                           child: AnimatedOpacity(
                             duration: motion.quick,
                             opacity: index == 2 ? 0 : 1,
@@ -134,7 +151,10 @@ class _FloatingNav extends StatelessWidget {
                             Expanded(
                               child: i == 2
                                   ? const SizedBox.shrink()
-                                  : _Tab(item: _items[i], active: i == index, onTap: () => onTap(i)),
+                                  : Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                                      child: _Tab(item: _items[i], active: i == index, onTap: () => onTap(i)),
+                                    ),
                             ),
                         ]),
                       ]);
@@ -144,11 +164,7 @@ class _FloatingNav extends StatelessWidget {
               ),
             ),
           ),
-          // Raised centre action
-          Positioned(
-            top: 0,
-            child: _PlusButton(active: index == 2, onTap: () => onTap(2)),
-          ),
+          Positioned(top: 0, child: _PlusButton(active: index == 2, onTap: () => onTap(2))),
         ]),
       ),
     );
@@ -166,92 +182,66 @@ class _Tab extends StatelessWidget {
   Widget build(BuildContext context) {
     final motion = AppMotion.of(context);
     final color = active ? AppColors.gold : AppColors.textSecondary;
-    return Semantics(
-      button: true,
+    return ClPressable(
+      onTap: onTap,
+      haptic: false, // the shell fires a selection click
       selected: active,
-      label: item.label,
-      excludeSemantics: true,
-      child: InkResponse(
-        onTap: onTap,
-        radius: 32,
-        highlightColor: Colors.transparent,
-        child: SizedBox.expand(
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            AnimatedSwitcher(
-              duration: motion.quick,
-              transitionBuilder: (c, a) => ScaleTransition(scale: Tween(begin: 0.8, end: 1.0).animate(a), child: c),
-              child: Icon(active ? item.activeIcon : item.icon,
-                  key: ValueKey(active), size: 24, color: color),
+      semanticLabel: item.label,
+      excludeChildSemantics: true,
+      borderRadius: AppRadius.lgAll,
+      child: SizedBox.expand(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          AnimatedSwitcher(
+            duration: motion.quick,
+            transitionBuilder: (c, a) => ScaleTransition(scale: Tween(begin: 0.8, end: 1.0).animate(a), child: c),
+            child: Icon(active ? item.activeIcon : item.icon, key: ValueKey(active), size: 24, color: color),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            item.label,
+            style: AppTextStyles.caption.copyWith(
+              fontSize: 11,
+              color: color,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
             ),
-            const SizedBox(height: 3),
-            Text(
-              item.label,
-              style: AppTextStyles.caption.copyWith(
-                fontSize: 11,
-                color: color,
-                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.fade,
-              softWrap: false,
-            ),
-          ]),
-        ),
+            maxLines: 1,
+            overflow: TextOverflow.fade,
+            softWrap: false,
+          ),
+        ]),
       ),
     );
   }
 }
 
-class _PlusButton extends StatefulWidget {
+class _PlusButton extends StatelessWidget {
   const _PlusButton({required this.active, required this.onTap});
 
   final bool active;
   final VoidCallback onTap;
 
   @override
-  State<_PlusButton> createState() => _PlusButtonState();
-}
-
-class _PlusButtonState extends State<_PlusButton> {
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    final motion = AppMotion.of(context);
-    return Semantics(
-      button: true,
-      selected: widget.active,
-      label: 'Suggest a film',
-      excludeSemantics: true,
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapCancel: () => setState(() => _pressed = false),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _pressed ? 0.9 : 1,
-          duration: motion.instant,
-          curve: AppMotion.overshoot,
-          child: AnimatedRotation(
-            turns: _pressed ? 0.125 : 0,
-            duration: motion.quick,
-            curve: AppMotion.overshoot,
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.purpleBadge,
-                boxShadow: AppShadows.glowPurple,
-                border: Border.all(
-                  color: widget.active ? AppColors.gold : AppColors.bg,
-                  width: widget.active ? 2.5 : 4,
-                ),
-              ),
-              child: const Icon(AppIcons.add, color: AppColors.onPurpleBadge, size: 26),
-            ),
+    return ClPressable(
+      onTap: onTap,
+      haptic: false,
+      selected: active,
+      semanticLabel: 'Suggest a film',
+      excludeChildSemantics: true,
+      borderRadius: BorderRadius.circular(28),
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.purpleBadge,
+          boxShadow: AppShadows.glowPurple,
+          border: Border.all(
+            color: active ? AppColors.gold : AppColors.bg,
+            width: active ? 2.5 : 4,
           ),
         ),
+        child: const Icon(AppIcons.add, color: AppColors.onPurpleBadge, size: 26),
       ),
     );
   }

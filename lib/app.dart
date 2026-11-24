@@ -12,6 +12,8 @@ class MyApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
+      // Nav bar, frosted app bars and the composer share one backdrop pass.
+      builder: (context, child) => BackdropGroup(child: child!),
     );
   }
 }

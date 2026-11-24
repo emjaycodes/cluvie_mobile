@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cluvie_mobile/core/theme/app_motion.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 
@@ -55,6 +56,9 @@ Future<T?> showClSheet<T>(
     context: context,
     isScrollControlled: isScrollControlled,
     useSafeArea: true,
+    // Above the floating nav bar (which lives in the shell navigator).
+    useRootNavigator: true,
+    sheetAnimationStyle: AppMotion.of(context).reduced ? AnimationStyle.noAnimation : null,
     constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.9),
     builder: (_) => ClBottomSheet(title: title, subtitle: subtitle, child: child),
   );

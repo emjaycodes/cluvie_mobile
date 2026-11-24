@@ -12,7 +12,7 @@ class ClProgressRing extends StatelessWidget {
     required this.value,
     this.size = 96,
     this.strokeWidth = 7,
-    this.color = AppColors.gold,
+    this.color = AppColors.purple,
     this.trackColor = AppColors.surfaceRaised,
     this.child,
     this.semanticLabel,

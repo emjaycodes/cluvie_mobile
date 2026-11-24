@@ -111,12 +111,15 @@ class ClErrorState extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) => ClEmptyState(
-        illustration: ClIllustration.offline,
-        title: title,
-        message: message,
-        actionLabel: onRetry == null ? null : 'Try again',
-        onAction: onRetry,
-        compact: compact,
+  Widget build(BuildContext context) => Semantics(
+        liveRegion: true,
+        child: ClEmptyState(
+          illustration: ClIllustration.offline,
+          title: title,
+          message: message,
+          actionLabel: onRetry == null ? null : 'Try again',
+          onAction: onRetry,
+          compact: compact,
+        ),
       );
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
@@ -81,7 +82,7 @@ class ClButton extends StatelessWidget {
                     const BorderSide(color: AppColors.borderStrong),
                     null
                   ),
-                ClButtonVariant.inverse => (AppColors.textPrimary, null, AppColors.onGold, null, null),
+                ClButtonVariant.inverse => (AppColors.textPrimary, null, AppColors.onInverse, null, null),
                 ClButtonVariant.purple =>
                   (AppColors.purpleBadge, null, AppColors.onPurpleBadge, null, AppShadows.glowPurple),
                 ClButtonVariant.ghost => (null, null, AppColors.textSecondary, null, null),
@@ -131,23 +132,45 @@ class ClButton extends StatelessWidget {
       ),
     );
 
-    // sm is 40 visual; pad to the 48dp minimum hit area.
+    // sm is 40 visual; the hit area is padded to 48dp *inside* the pressable.
     final hitPad = size == ClButtonSize.sm ? (AppSpacing.minTouch - _height) / 2 : 0.0;
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final fillWidth = expand && constraints.hasBoundedWidth;
-      return Padding(
-        padding: EdgeInsets.symmetric(vertical: hitPad),
-        child: SizedBox(
-          width: fillWidth ? double.infinity : null,
-          child: ClPressable(
-            onTap: enabled ? onPressed : null,
-            borderRadius: AppRadius.pillAll,
-            semanticLabel: isLoading ? '$label, loading' : null,
-            child: shape,
-          ),
-        ),
-      );
-    });
+    final pressable = ClPressable(
+      onTap: enabled ? onPressed : null,
+      borderRadius: AppRadius.pillAll,
+      semanticLabel: isLoading ? '$label, loading' : null,
+      hitPadding: hitPad > 0 ? EdgeInsets.symmetric(vertical: hitPad) : null,
+      child: shape,
+    );
+    // No LayoutBuilder: it breaks intrinsic sizing (AlertDialog actions).
+    return expand ? _FillIfBounded(child: pressable) : pressable;
+  }
+}
+
+/// Takes the full incoming width when it is bounded, otherwise sizes to its
+/// child. Supports intrinsics, unlike LayoutBuilder.
+class _FillIfBounded extends SingleChildRenderObjectWidget {
+  const _FillIfBounded({required Widget super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderFillIfBounded();
+}
+
+class _RenderFillIfBounded extends RenderProxyBox {
+  @override
+  void performLayout() {
+    final c = constraints;
+    if (c.hasBoundedWidth) {
+      child!.layout(c.tighten(width: c.maxWidth), parentUsesSize: true);
+    } else {
+      child!.layout(c, parentUsesSize: true);
+    }
+    size = c.constrain(child!.size);
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints c) {
+    final childSize = child!.getDryLayout(c.hasBoundedWidth ? c.tighten(width: c.maxWidth) : c);
+    return c.constrain(childSize);
   }
 }

@@ -56,41 +56,51 @@ class _ClTextFieldState extends State<ClTextField> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(widget.label, style: AppTextStyles.label.copyWith(color: AppColors.textSecondary)),
-        const SizedBox(height: AppSpacing.sm),
-        TextFormField(
-          controller: widget.controller,
-          focusNode: widget.focusNode,
-          enabled: widget.enabled,
-          keyboardType: widget.keyboardType,
-          obscureText: _obscured,
-          maxLines: widget.isPassword ? 1 : widget.maxLines,
-          onChanged: widget.onChanged,
-          onFieldSubmitted: widget.onSubmitted,
-          validator: widget.validator,
-          textInputAction: widget.textInputAction,
-          autofillHints: widget.autofillHints,
-          inputFormatters: widget.inputFormatters,
-          style: AppTextStyles.body,
-          decoration: InputDecoration(
-            hintText: widget.hintText,
-            errorText: widget.errorText,
-            helperText: widget.helperText,
-            prefixIcon: widget.prefixIcon == null ? null : Icon(widget.prefixIcon, size: 20),
-            suffixIcon: widget.isPassword
-                ? IconButton(
-                    tooltip: _obscured ? 'Show password' : 'Hide password',
-                    icon: Icon(_obscured ? AppIcons.eye : AppIcons.eyeSlash, size: 20),
-                    onPressed: () => setState(() => _obscured = !_obscured),
-                  )
-                : null,
+    final hasError = widget.errorText != null;
+    // MergeSemantics gives the field its visible label as accessible name.
+    return MergeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(widget.label, style: AppTextStyles.label.copyWith(color: AppColors.textSecondary)),
+          const SizedBox(height: AppSpacing.sm),
+          TextFormField(
+            controller: widget.controller,
+            focusNode: widget.focusNode,
+            enabled: widget.enabled,
+            keyboardType: widget.keyboardType,
+            obscureText: _obscured,
+            maxLines: widget.isPassword ? 1 : widget.maxLines,
+            onChanged: widget.onChanged,
+            onFieldSubmitted: widget.onSubmitted,
+            validator: widget.validator,
+            textInputAction: widget.textInputAction,
+            autofillHints: widget.autofillHints,
+            inputFormatters: widget.inputFormatters,
+            style: AppTextStyles.body,
+            decoration: InputDecoration(
+              hintText: widget.hintText,
+              errorText: widget.errorText,
+              helperText: widget.helperText,
+              prefixIcon:
+                  hasError
+                      ? const Icon(AppIcons.error, size: 20, color: AppColors.error)
+                      : widget.prefixIcon == null
+                      ? null
+                      : Icon(widget.prefixIcon, size: 20),
+              suffixIcon:
+                  widget.isPassword
+                      ? IconButton(
+                        tooltip: _obscured ? 'Show password' : 'Hide password',
+                        icon: Icon(_obscured ? AppIcons.eye : AppIcons.eyeSlash, size: 20),
+                        onPressed: () => setState(() => _obscured = !_obscured),
+                      )
+                      : null,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

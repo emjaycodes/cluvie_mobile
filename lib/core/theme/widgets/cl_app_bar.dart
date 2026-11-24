@@ -6,7 +6,8 @@ import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 
-/// App bar: frosted over scrolled content, or fully transparent over heroes.
+/// App bar. Opaque `bg` by default; [frosted] for screens whose content
+/// scrolls underneath (with `extendBodyBehindAppBar`); [transparent] over heroes.
 /// Shows a back button only when the route can actually pop.
 class ClAppBar extends StatelessWidget implements PreferredSizeWidget {
   const ClAppBar({
@@ -16,6 +17,7 @@ class ClAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.actions,
     this.centerTitle = false,
     this.transparent = false,
+    this.frosted = false,
     this.bottom,
   });
 
@@ -23,9 +25,8 @@ class ClAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showBackButton;
   final List<Widget>? actions;
   final bool centerTitle;
-
-  /// Fully transparent (for use over hero images). Otherwise frosted.
   final bool transparent;
+  final bool frosted;
   final PreferredSizeWidget? bottom;
 
   @override
@@ -33,20 +34,24 @@ class ClAppBar extends StatelessWidget implements PreferredSizeWidget {
     final canPop = GoRouter.maybeOf(context)?.canPop() ?? Navigator.of(context).canPop();
     return AppBar(
       automaticallyImplyLeading: false,
-      backgroundColor: transparent ? Colors.transparent : AppColors.surfaceGlass,
+      backgroundColor: transparent
+          ? Colors.transparent
+          : frosted
+              ? AppColors.surfaceGlass
+              : AppColors.bg,
       leading: showBackButton && canPop ? const ClBackButton() : null,
       title: Text(title, style: AppTextStyles.h3, overflow: TextOverflow.ellipsis),
       centerTitle: centerTitle,
       actions: actions == null ? null : [...actions!, const SizedBox(width: 8)],
       bottom: bottom,
-      flexibleSpace: transparent
-          ? null
-          : ClipRect(
-              child: BackdropFilter(
+      flexibleSpace: frosted && !transparent
+          ? ClipRect(
+              child: BackdropFilter.grouped(
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: const SizedBox.expand(),
               ),
-            ),
+            )
+          : null,
     );
   }
 
@@ -88,6 +93,7 @@ class ClIconButton extends StatelessWidget {
     required this.onPressed,
     required this.tooltip,
     this.badge = false,
+    this.badgeLabel,
   });
 
   final IconData icon;
@@ -97,10 +103,14 @@ class ClIconButton extends StatelessWidget {
   /// Shows a small purple dot (e.g. unread notifications).
   final bool badge;
 
+  /// Spoken with the tooltip when [badge] is on, e.g. "3 unread".
+  final String? badgeLabel;
+
   @override
   Widget build(BuildContext context) {
+    final label = badge && badgeLabel != null ? '$tooltip, $badgeLabel' : tooltip;
     return IconButton(
-      tooltip: tooltip,
+      tooltip: label,
       onPressed: onPressed,
       style: IconButton.styleFrom(
         backgroundColor: AppColors.glassFlat,

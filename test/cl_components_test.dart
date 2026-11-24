@@ -14,8 +14,14 @@ Widget _host(Widget child, {bool reduceMotion = false}) => MaterialApp(
       ),
     );
 
+/// The button's background shape (not ClPressable's foreground focus layer).
 DecoratedBox _buttonBox(WidgetTester tester) => tester.widget<DecoratedBox>(
-      find.descendant(of: find.byType(ClButton), matching: find.byType(DecoratedBox)).first,
+      find
+          .descendant(
+            of: find.byType(ClButton),
+            matching: find.byWidgetPredicate((w) => w is DecoratedBox && w.position == DecorationPosition.background),
+          )
+          .first,
     );
 
 void main() {

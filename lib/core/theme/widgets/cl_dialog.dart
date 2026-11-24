@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cluvie_mobile/core/theme/app_motion.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
 
@@ -16,6 +17,7 @@ Future<void> showClDialog({
 }) {
   return showDialog(
     context: context,
+    animationStyle: AppMotion.of(context).reduced ? AnimationStyle.noAnimation : null,
     builder: (context) => AlertDialog(
       title: Text(title),
       content: Text(message),

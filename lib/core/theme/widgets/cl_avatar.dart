@@ -20,7 +20,7 @@ class ClAvatar extends StatelessWidget {
   final String? name;
   final double radius;
 
-  /// Gold ring around the avatar.
+  /// Purple ring around the avatar (host, you). Gold is reserved (gold budget).
   final bool ring;
 
   /// Thin separating border, used by [ClAvatarStack].
@@ -70,7 +70,9 @@ class ClAvatar extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: borderColor ?? AppColors.bg,
-          gradient: ring ? AppColors.goldGradient : null,
+          gradient: ring
+              ? const LinearGradient(colors: [AppColors.purpleText, AppColors.purpleBadge])
+              : null,
         ),
         child: ring
             ? Container(
@@ -82,7 +84,8 @@ class ClAvatar extends StatelessWidget {
       );
     }
 
-    return Semantics(label: name, image: true, child: avatar);
+    if (name == null) return ExcludeSemantics(child: avatar);
+    return Semantics(label: name, image: true, excludeSemantics: true, child: avatar);
   }
 }
 

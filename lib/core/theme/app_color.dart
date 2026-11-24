@@ -55,6 +55,9 @@ abstract final class AppColors {
   static const Color onPurpleBadge = Color(0xFFFFFFFF);
   static const Color onSemantic = Color(0xFF14101F);
 
+  /// Text on the white `inverse` button fill (#F5F3FA) — ≈16:1.
+  static const Color onInverse = Color(0xFF14101F);
+
   // ── Gradients ─────────────────────────────────────────────────────────────
   static const LinearGradient goldGradient = LinearGradient(
     colors: [gold, goldDeep],
@@ -62,13 +65,17 @@ abstract final class AppColors {
     end: Alignment.bottomRight,
   );
 
-  /// Bottom poster scrim. Text blocks must start at or below the 0.85 stop.
+  /// Bottom poster scrim (tokens.md): 0% to 35%, 85% at 55%, 96% at 100%.
+  /// Text blocks must start at or below the 55% stop.
   static const LinearGradient scrimBottom = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [Color(0x000A0812), Color(0x000A0812), Color(0xD90A0812), Color(0xF50A0812)],
-    stops: [0.0, 0.30, 0.50, 1.0],
+    stops: [0.0, 0.35, 0.55, 1.0],
   );
+
+  /// Alias used in tokens.md "Gradients".
+  static const LinearGradient posterScrim = scrimBottom;
 
   /// Top poster scrim behind status bar / icon buttons (apply over top ~120dp).
   static const LinearGradient scrimTop = LinearGradient(

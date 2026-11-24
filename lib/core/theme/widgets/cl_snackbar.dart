@@ -45,7 +45,7 @@ class ClSnackbar {
         ]),
         action: actionLabel == null || onAction == null
             ? null
-            : SnackBarAction(label: actionLabel, textColor: AppColors.gold, onPressed: onAction),
+            : SnackBarAction(label: actionLabel, textColor: AppColors.purpleText, onPressed: onAction),
       ),
     );
   }

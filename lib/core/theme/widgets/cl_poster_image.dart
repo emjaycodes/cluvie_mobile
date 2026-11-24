@@ -44,6 +44,7 @@ class ClPosterImage extends StatelessWidget {
             height: height,
             fit: fit,
             fadeInDuration: AppMotion.of(context).quick,
+            fadeOutDuration: AppMotion.of(context).quick,
             placeholder: (_, __) => ClSkeleton(width: width, height: height, radius: 0),
             errorWidget: (_, __, ___) => _Fallback(width: width, height: height),
           )

@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_motion.dart';
 
-/// Press feedback used by every tappable surface: scale to
-/// [AppMotion.pressScale] + light haptic. Disabled when [onTap] is null.
+/// The tappable primitive behind every custom control.
+///
+/// * Press: scale to [AppMotion.pressScale], 6% white overlay, light haptic.
+/// * Focus (keyboard / switch access): 2px gold [AppColors.focusRing], painted
+///   *above* the child so opaque fills can't hide it.
+/// * [hitPadding] enlarges the tappable area beyond the visual (48dp minimum)
+///   without moving the ring or overlay off the visual.
+/// * Disabled when both [onTap] and [onLongPress] are null.
 class ClPressable extends StatefulWidget {
   const ClPressable({
     super.key,
@@ -14,6 +21,9 @@ class ClPressable extends StatefulWidget {
     this.borderRadius,
     this.semanticLabel,
     this.isButton = true,
+    this.selected,
+    this.hitPadding,
+    this.excludeChildSemantics = false,
   });
 
   final Widget child;
@@ -24,24 +34,43 @@ class ClPressable extends StatefulWidget {
   final String? semanticLabel;
   final bool isButton;
 
+  /// Exposes a selected state to assistive tech (tabs, chips).
+  final bool? selected;
+  final EdgeInsetsGeometry? hitPadding;
+
+  /// Use when [semanticLabel] fully describes the control.
+  final bool excludeChildSemantics;
+
   @override
   State<ClPressable> createState() => _ClPressableState();
 }
 
 class _ClPressableState extends State<ClPressable> {
   bool _pressed = false;
+  bool _focused = false;
 
-  void _set(bool v) {
-    if (_pressed != v && mounted) setState(() => _pressed = v);
-  }
+  bool get _enabled => widget.onTap != null || widget.onLongPress != null;
 
   @override
   Widget build(BuildContext context) {
     final motion = AppMotion.of(context);
-    final enabled = widget.onTap != null || widget.onLongPress != null;
+    final br = widget.borderRadius ?? BorderRadius.zero;
+
+    Widget visual = DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        borderRadius: br,
+        color: _pressed ? Colors.white.withValues(alpha: 0.06) : null,
+        border: _focused ? Border.all(color: AppColors.focusRing, width: 2) : null,
+      ),
+      child: widget.excludeChildSemantics ? ExcludeSemantics(child: widget.child) : widget.child,
+    );
+    if (widget.hitPadding != null) visual = Padding(padding: widget.hitPadding!, child: visual);
+
     return Semantics(
       button: widget.isButton,
-      enabled: enabled,
+      enabled: _enabled,
+      selected: widget.selected,
       label: widget.semanticLabel,
       child: AnimatedScale(
         scale: _pressed ? AppMotion.pressScale : 1,
@@ -50,7 +79,13 @@ class _ClPressableState extends State<ClPressable> {
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-            borderRadius: widget.borderRadius,
+            borderRadius: br,
+            // Feedback is drawn by the foreground decoration above.
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            focusColor: Colors.transparent,
+            hoverColor: Colors.white.withValues(alpha: 0.03),
+            canRequestFocus: _enabled,
             onTap: widget.onTap == null
                 ? null
                 : () {
@@ -58,8 +93,13 @@ class _ClPressableState extends State<ClPressable> {
                     widget.onTap!();
                   },
             onLongPress: widget.onLongPress,
-            onHighlightChanged: enabled ? _set : null,
-            child: widget.child,
+            onHighlightChanged: (v) {
+              if (_enabled && v != _pressed && mounted) setState(() => _pressed = v);
+            },
+            onFocusChange: (v) {
+              if (v != _focused && mounted) setState(() => _focused = v);
+            },
+            child: visual,
           ),
         ),
       ),

@@ -4,7 +4,7 @@ Source of truth for `lib/core/theme/*`. Any Dart token must match this file; cha
 v1.1 applies review round 1 blocking fixes B1–B8 (see `design/review/round-1.md`).
 
 ## Rules (read first)
-1. **Gold budget.** Per screen, gold may appear on: (a) **one** content owner — the screen's primary CTA *or* its key data highlight, never both; (b) the active nav tab (system chrome); (c) the logo mark; (d) the focus ring. Everything else that needs emphasis uses purple (`purpleContainer`, `purpleBadge`, `purpleText`) or white/glass. Secondary CTAs on cards are glass or white, not gold.
+1. **Gold budget.** Per screen, gold may appear on: (a) **one** content owner — the screen's primary CTA *or* its key data highlight (e.g. poll winner), never both; (b) the active bottom-nav tab (system chrome); (c) the logo mark; (d) the focus ring. Everything else that needs emphasis uses purple (`purpleContainer`, `purpleBadge`, `purpleText`) or white/glass. Secondary CTAs on cards are glass or white (`inverse`), not gold. **Controls never default to gold**: spinners, progress rings, refresh indicator, tab indicators, switches, checkboxes, radios, avatar rings and snackbar actions are purple (v1.2).
 2. **Purple carries identity.** Tags, badges, the centre "+" action, own chat bubbles, selected chips and poll leaders use the purple tokens. Purple should be visible on every screen.
 3. **Muted text only on flat surfaces.** `textMuted` is allowed only on `bg`, `surface`, `surfaceRaised`. On any tint, glass, scrim or fill use `textSecondary` or higher.
 4. **Every fill has a defined "on" colour** (table below). No text on a fill without one.
@@ -53,6 +53,7 @@ v1.1 applies review round 1 blocking fixes B1–B8 (see `design/review/round-1.m
 | `purpleContainer` | `textPrimary` / `purpleText` | 13.5 / 5.5 |
 | `success`, `error`, `warning` | `onSemantic #14101F` | 9.1 / 6.7 / 11.5 |
 | gold tint ≤16% (bars, own bubble) | `textPrimary`, `textSecondary` | ≥5.9 |
+| `inverse` (`textPrimary #F5F3FA` as a fill — card CTAs) | `onInverse #14101F` | ≈16 |
 | `purple #7C5CFF` | **none — no text allowed** | — |
 
 ### Semantic
@@ -116,7 +117,7 @@ No Material shadows on dark. Depth = surface step + border + optional glow:
 | `stagger` | 40ms | Per-item delay in lists (cap 8 items) |
 | `easeOut` | `Curves.easeOutCubic` | Default enter |
 | `emphasized` | `Cubic(0.2, 0, 0, 1)` | Hero/sheet/page |
-| `spring` | `SpringDescription(mass 1, stiffness 400, damping 28)` | Nav "+", like pop |
+| `spring` | `SpringDescription(mass 1, stiffness 400, damping 28)` | Like pop (nav "+" uses the standard press: scale .97, no rotation) |
 
 Principles: (1) motion explains — something moves only because it came from / goes somewhere; (2) one hero motion per screen; (3) press = scale 0.97 + haptic.light; (4) respect reduced motion.
 
@@ -132,7 +133,7 @@ Principles: (1) motion explains — something moves only because it came from / 
 ## States
 | State | Treatment |
 |---|---|
-| Focus | `focusRing` |
+| Focus | `focusRing` 2px, painted **above** the control (custom tappables via `ClPressable`; Material buttons via a focused `side`) |
 | Pressed | scale .97 + overlay white 6% |
 | Disabled | content `textMuted`, fill `surfaceRaised`, no glow; never reduce opacity of text below AA — disabled text is exempt from AA but must still read as disabled |
 | Error (field) | border `error` 2px, helper text `error`, leading icon; shake 220ms |

@@ -23,10 +23,6 @@ abstract final class AppSpacing {
   /// Minimum touch target (dp).
   static const double minTouch = 48;
 
-  /// Height of the floating nav bar incl. its bottom offset — screens inside
-  /// the shell pad their scroll content by this so nothing hides behind it.
-  static const double navClearance = 68 + 16 + 16;
-
   static const EdgeInsets screen = EdgeInsets.symmetric(horizontal: gutter);
 
   @Deprecated('Use AppSpacing.screen or EdgeInsets.all(AppSpacing.lg)')
@@ -54,7 +50,7 @@ abstract final class AppShadows {
     BoxShadow(color: Color(0x59FFD27D), blurRadius: 24, offset: Offset(0, 8)),
   ];
   static const List<BoxShadow> glowPurple = [
-    BoxShadow(color: Color(0x737C5CFF), blurRadius: 24, offset: Offset(0, 8)),
+    BoxShadow(color: Color(0x4D7C5CFF), blurRadius: 40),
   ];
   static const List<BoxShadow> float = [
     BoxShadow(color: Color(0x80000000), blurRadius: 30, offset: Offset(0, 12)),

@@ -16,7 +16,7 @@ class ClLoading extends StatelessWidget {
         child: SizedBox(
           width: size,
           height: size,
-          child: CircularProgressIndicator(strokeWidth: 2.4, color: color ?? AppColors.gold),
+          child: CircularProgressIndicator(strokeWidth: 2.4, color: color ?? AppColors.purpleText),
         ),
       );
 }

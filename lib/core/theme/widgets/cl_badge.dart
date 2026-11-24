@@ -51,7 +51,7 @@ class ClBadge extends StatelessWidget {
         if (icon != null) ...[Icon(icon, size: 12, color: fg), const SizedBox(width: 4)],
         Text(
           uppercase ? label.toUpperCase() : label,
-          style: AppTextStyles.overline.copyWith(color: fg, fontSize: 10, letterSpacing: uppercase ? 1.1 : 0.2),
+          style: AppTextStyles.overline.copyWith(color: fg, letterSpacing: uppercase ? 1.4 : 0.2),
         ),
       ]),
     );

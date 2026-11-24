@@ -21,7 +21,6 @@ class AppMotion {
 
   static const Curve easeOut = Curves.easeOutCubic;
   static const Curve emphasized = Cubic(0.2, 0, 0, 1);
-  static const Curve overshoot = Curves.easeOutBack;
 
   static const SpringDescription spring = SpringDescription(mass: 1, stiffness: 400, damping: 28);
 
