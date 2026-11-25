@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// A film from the backend's TMDB proxy (`/tmdb/*`).
+/// A film from the backend: its TMDB proxy (`/tmdb/*`, `/movies/trending`)
+/// or its own catalog (`/movies/list`).
 ///
 /// Every field but [title] can be missing; the UI shows nothing rather than
 /// inventing a value (no placeholder poster, no made-up year).
@@ -51,8 +52,9 @@ class TmdbMovie {
   int get hashCode => Object.hash(id, title);
 }
 
-/// Accepts a bare list or `{results: [...]}` (and the proxy's named keys).
-List<TmdbMovie> parseMovies(Object? data, [List<String> keys = const ['results']]) {
+/// Accepts a bare list or a `{data: [...]}` / `{results: [...]}` envelope.
+/// The backend wraps most lists in `{success, data}`.
+List<TmdbMovie> parseMovies(Object? data, [List<String> keys = const ['data', 'results']]) {
   Object? list = data;
   if (data is Map) {
     list = null;
@@ -74,11 +76,14 @@ class TmdbRepository {
   TmdbRepository(this._ref);
   final Ref _ref;
 
+  /// TMDB's weekly trending list (`GET /movies/trending`).
   Future<List<TmdbMovie>> trending() async =>
-      parseMovies((await _ref.read(apiClientProvider).get('/tmdb/trending')).data, const ['results', 'trending']);
+      parseMovies((await _ref.read(apiClientProvider).get('/movies/trending')).data);
 
+  /// Films clubs have suggested, most voted first (`GET /movies/list`).
+  /// The backend has no TMDB "popular" route.
   Future<List<TmdbMovie>> popular() async =>
-      parseMovies((await _ref.read(apiClientProvider).get('/tmdb/popular')).data, const ['results', 'popular']);
+      parseMovies((await _ref.read(apiClientProvider).get('/movies/list')).data);
 
   Future<List<TmdbMovie>> search(String query) async =>
       parseMovies((await _ref.read(apiClientProvider).get('/tmdb/search', params: {'query': query})).data);
@@ -90,8 +95,18 @@ final tmdbRepositoryProvider = Provider<TmdbRepository>(TmdbRepository.new);
 /// refetch; pull-to-refresh invalidates it.
 final discoverFeedProvider = FutureProvider<({List<TmdbMovie> trending, List<TmdbMovie> popular})>((ref) async {
   final repo = ref.read(tmdbRepositoryProvider);
-  final results = await Future.wait([repo.trending(), repo.popular()]);
-  return (trending: results[0], popular: results[1]);
+  // The two lists come from different sources (TMDB vs. our own catalog), so
+  // one failing shouldn't hide the other. Only fail when both do.
+  Object? firstError;
+  StackTrace? firstStack;
+  Future<List<TmdbMovie>?> attempt(Future<List<TmdbMovie>> f) => f.then<List<TmdbMovie>?>((v) => v, onError: (Object e, StackTrace s) {
+    firstError ??= e;
+    firstStack ??= s;
+    return null;
+  });
+  final results = await Future.wait([attempt(repo.trending()), attempt(repo.popular())]);
+  if (results.every((r) => r == null)) Error.throwWithStackTrace(firstError!, firstStack!);
+  return (trending: results[0] ?? const <TmdbMovie>[], popular: results[1] ?? const <TmdbMovie>[]);
 });
 
 /// Search results per query. Keyed by query, so a slow response for an old

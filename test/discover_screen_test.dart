@@ -29,10 +29,10 @@ final _popular = [for (var i = 0; i < 7; i++) _film(100 + i, 'Popular film ${i +
 
 FakeApiClient _api({FutureOr<Object?> Function(String q)? search, bool failFeed = false}) => FakeApiClient(
   onGet: (path, params) {
-    if (path == '/tmdb/search') return (search ?? (q) => {'results': []})(params!['query'] as String);
+    if (path == '/tmdb/search') return (search ?? (q) => {'success': true, 'data': []})(params!['query'] as String);
     if (failFeed) throw Exception('offline');
-    if (path == '/tmdb/trending') return {'results': _trending};
-    if (path == '/tmdb/popular') return _popular; // bare list shape
+    if (path == '/movies/trending') return {'success': true, 'data': _trending};
+    if (path == '/movies/list') return _popular; // bare list, as the backend sends it
     throw UnimplementedError(path);
   },
 );
@@ -108,17 +108,28 @@ void main() {
     testWidgets('trending and every popular film come from the API', (t) async {
       final api = _api();
       await _pump(t, _app(api));
-      expect(api.calls.map((c) => c.path), containsAll(['/tmdb/trending', '/tmdb/popular']));
+      expect(api.calls.map((c) => c.path), containsAll(['/movies/trending', '/movies/list']));
       expect(find.text('Aftersun'), findsOneWidget);
       await _scrollTo(t, find.text('Popular film 7'));
       expect(find.text('Popular film 7'), findsOneWidget, reason: 'popular grid is capped');
+    });
+
+    testWidgets('when TMDB trending is down, club films still show', (t) async {
+      final api = FakeApiClient(onGet: (path, _) {
+        if (path == '/movies/trending') throw Exception('TMDB unavailable');
+        return _popular;
+      });
+      await _pump(t, _app(api));
+      expect(find.text("Couldn't load Discover — tap to retry"), findsNothing);
+      expect(find.text('Trending now'), findsNothing);
+      expect(find.text('Popular in clubs'), findsOneWidget);
     });
 
     testWidgets('a failure shows one retry card and no demo films; tapping it reloads', (t) async {
       var fail = true;
       final api = FakeApiClient(onGet: (path, _) {
         if (fail) throw Exception('offline');
-        return path == '/tmdb/trending' ? {'results': _trending} : _popular;
+        return path == '/movies/trending' ? {'success': true, 'data': _trending} : _popular;
       });
       await _pump(t, _app(api));
       expect(find.text("Couldn't load Discover — tap to retry"), findsOneWidget);
@@ -134,7 +145,7 @@ void main() {
 
     testWidgets('the search field stays usable while browse content loads', (t) async {
       final hold = Completer<Object?>();
-      final api = FakeApiClient(onGet: (path, _) => path == '/tmdb/search' ? {'results': []} : hold.future);
+      final api = FakeApiClient(onGet: (path, _) => path == '/tmdb/search' ? {'success': true, 'data': []} : hold.future);
       t.view.physicalSize = const Size(390, 844);
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
@@ -142,12 +153,12 @@ void main() {
       await t.pump();
       expect(find.byType(ClSearchField), findsOneWidget);
       expect(find.bySemanticsLabel('Loading films'), findsOneWidget);
-      hold.complete({'results': []});
+      hold.complete({'success': true, 'data': []});
       await t.pumpAndSettle();
     });
 
     testWidgets('tapping a film opens it; a film with no id is not a button', (t) async {
-      final api = _api(search: (_) => {'results': [_film(null, 'No Id Film'), _film(77, 'Has Id Film')]});
+      final api = _api(search: (_) => {'success': true, 'data': [_film(null, 'No Id Film'), _film(77, 'Has Id Film')]});
       await _pump(t, _app(api));
       await _type(t, 'film');
       final noId = t.widget<ClPressable>(_tile('No Id Film'));
@@ -158,7 +169,7 @@ void main() {
     });
 
     testWidgets('a film with no date shows no year (none is invented)', (t) async {
-      final api = _api(search: (_) => {'results': [_film(5, 'Undated', date: null, poster: null)]});
+      final api = _api(search: (_) => {'success': true, 'data': [_film(5, 'Undated', date: null, poster: null)]});
       await _pump(t, _app(api));
       await _type(t, 'undated');
       expect(find.text('Undated'), findsOneWidget);
@@ -176,7 +187,7 @@ void main() {
       var fail = false;
       final api = FakeApiClient(onGet: (path, _) {
         if (fail) throw Exception('offline');
-        return path == '/tmdb/trending' ? {'results': _trending} : _popular;
+        return path == '/movies/trending' ? {'success': true, 'data': _trending} : _popular;
       });
       await _pump(t, _app(api));
       fail = true;
@@ -198,7 +209,7 @@ void main() {
 
   group('Search', () {
     testWidgets('debounced 300 ms, then searches the API and shows results', (t) async {
-      final api = _api(search: (q) => {'results': [_film(21, 'Arrival')]});
+      final api = _api(search: (q) => {'success': true, 'data': [_film(21, 'Arrival')]});
       await _pump(t, _app(api));
       await t.enterText(find.byType(TextField), 'arr');
       await t.pump(const Duration(milliseconds: 250));
@@ -230,7 +241,7 @@ void main() {
       var fail = true;
       final api = _api(search: (q) {
         if (fail) throw Exception('offline');
-        return {'results': [_film(31, 'Retried Film')]};
+        return {'success': true, 'data': [_film(31, 'Retried Film')]};
       });
       await _pump(t, _app(api));
       await _type(t, 'dune');
@@ -257,13 +268,13 @@ void main() {
       await t.pump();
       expect(find.text("Search didn't go through"), findsNothing);
       expect(find.bySemanticsLabel('Loading films'), findsOneWidget);
-      hold.complete({'results': [_film(1, 'Dune')]});
+      hold.complete({'success': true, 'data': [_film(1, 'Dune')]});
       await t.pumpAndSettle();
       expect(find.text('Dune'), findsOneWidget);
     });
 
     testWidgets('clearing the search returns to browse', (t) async {
-      await _pump(t, _app(_api(search: (_) => {'results': [_film(21, 'Arrival')]})));
+      await _pump(t, _app(_api(search: (_) => {'success': true, 'data': [_film(21, 'Arrival')]})));
       await _type(t, 'arr');
       await t.tap(find.byTooltip('Clear search'));
       await t.pumpAndSettle();
@@ -272,7 +283,7 @@ void main() {
     });
 
     testWidgets('the search survives switching tabs', (t) async {
-      final api = _api(search: (_) => {'results': [_film(21, 'Arrival')]});
+      final api = _api(search: (_) => {'success': true, 'data': [_film(21, 'Arrival')]});
       await _pump(t, _app(api));
       await _type(t, 'arr');
       await t.tap(find.bySemanticsLabel('Home'));
@@ -282,7 +293,7 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('arr'), findsOneWidget, reason: 'search text lost');
       expect(find.text('Arrival'), findsOneWidget);
-      expect(api.calls.where((c) => c.path == '/tmdb/trending'), hasLength(1), reason: 'browse refetched on tab switch');
+      expect(api.calls.where((c) => c.path == '/movies/trending'), hasLength(1), reason: 'browse refetched on tab switch');
     });
   });
 
@@ -331,7 +342,7 @@ void main() {
             expectNotTruncated(t, ["Couldn't load Discover — tap to retry"]);
           }
 
-          await _pump(t, _app(_api(search: (q) => q == 'boom' ? throw Exception('x') : {'results': []}), size: size, scale: scale, padding: padding), size: size);
+          await _pump(t, _app(_api(search: (q) => q == 'boom' ? throw Exception('x') : {'success': true, 'data': []}), size: size, scale: scale, padding: padding), size: size);
           // The hint is the field's only visible name: whole while empty.
           expectNotTruncated(t, ['Search films']);
           await _type(t, 'a');

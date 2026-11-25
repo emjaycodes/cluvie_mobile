@@ -35,9 +35,9 @@ FakeApiClient _api({FutureOr<Object?> Function(String path, Map<String, dynamic>
         if (path == '/tmdb/search') {
           if (failSearch) throw Exception('offline');
           final q = params!['query'] as String;
-          return {'results': q == 'zzzz' ? [] : [_film(21, 'Arrival')]};
+          return {'success': true, 'data': q == 'zzzz' ? [] : [_film(21, 'Arrival')]};
         }
-        return {'results': _trending};
+        return {'success': true, 'data': _trending};
       },
       onPost: onPost ?? (_, __) => {'ok': true},
     );
@@ -127,7 +127,7 @@ void main() {
   testWidgets('trending films come from the API (no demo list)', (t) async {
     final api = _api();
     await _pump(t, _app(api));
-    expect(api.calls.map((c) => c.path), contains('/tmdb/trending'));
+    expect(api.calls.map((c) => c.path), contains('/movies/trending'));
     expect(find.text('Aftersun'), findsOneWidget);
     expect(find.text('Dune: Part Two'), findsNothing);
   });

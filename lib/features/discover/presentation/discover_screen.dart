@@ -232,7 +232,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.section)),
       ],
       if (data.popular.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: _Header('Popular')),
+        const SliverToBoxAdapter(child: _Header('Popular in clubs', subtitle: 'The films clubs have voted for most')),
         MoviePosterGrid(movies: data.popular, onTap: _open),
         const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.section)),
       ],
