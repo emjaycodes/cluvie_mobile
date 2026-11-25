@@ -151,3 +151,55 @@ None of them is a dead end. Some destinations show the wrong content (S4–S6).
 - **The bell reads its count aloud** ("Notifications, 3 unread"). The red always-on dot is replaced by a purple badge that is driven by the data.
 - **No overflow** in any of the 12 measured configurations, including 320×568 @1.3×.
 - **`test/helpers/real_fonts.dart`** is a good extraction. `auth_layout_test.dart` now shares it, and its behaviour is unchanged.
+
+---
+
+## Resolution of the remaining findings (2026-11-25)
+
+All round 4 and round 4b findings are now closed. B1–B3, S1 and S3 were fixed in `f4107b6`; round 4b's B4–B7 in `dd3f930`. This pass closes the rest.
+
+**Data and states (S7; 4b S1, S7)**
+- New `lib/features/home/data/home_feed.dart`: public models plus `homeFeedProvider` (a `FutureProvider` serving the demo feed until an API exists).
+- Home is a `ConsumerWidget`. First load shows a skeleton, a failed load shows `ClErrorState` with retry, and a failed refresh keeps the feed and shows a snackbar.
+- Refresh re-runs the provider. The `ValueKey(_generation)` bump is gone, so the scroll position survives a refresh.
+- "Live now" is hidden when nothing is live, and the hero is hidden when there's no pick. The empty discussions action is "Discuss <pick>" and opens that thread (it was "Start a thread", which opened an existing one).
+
+**Destinations match their labels (S4–S6; 4b S2)**
+- "Cast your vote" passes the poll; `VoteSummaryScreen` takes `clubName` and `options`, so it shows the same three films under "Friday Film Club" (no more raw `demo` id).
+- Card RSVP and the hero CTA pass their party; `WatchPartyListScreen` takes `focus` and lists that party first, outlined in purple.
+- "Join live" passes the film and minutes left; `WatchPartyScreen` shows them (it was always "Arrival").
+- The hero CTA is now "RSVP" (mood board), opening the pick's party.
+
+**Accessibility**
+- S2: `container: true` on `ClPressable` and on `ClSectionHeader`'s header node, so this is fixed in the components, not just Home.
+- N5 / 4b S3: `ClProgressRing` gains `semanticValue`; the live ring reads "41 minutes left" with no percent and doesn't repeat its child text.
+- 4b S4: "9 going" is excluded; the avatar stack's names and count are read once.
+- 4b S5: `ClPosterImage(decorative: true)`, used for every poster on Home.
+- N6: the hero title is a header.
+
+**Layout**
+- N7: party cards put time and club on separate lines; the card height grows with text scale. The live card puts the club on its own line, and "Join live" moves below the ring when it would truncate. Poll titles get two lines above 1.15× text.
+- The hero stacks its buttons when *either* label wouldn't fit (it measured only the CTA, which is now the shorter one).
+- N8: nav tabs drop their side inset when a slot is under 48dp. Nav labels clamp to 1.3× text (fixes the FYI 2.0× nav overflow).
+
+**Tokens (N1–N4, 4b S6, N2, N3)**
+- `scrolledUnderElevation: 0` replaces `Colors.transparent`.
+- Off-scale font sizes and spacing literals were replaced with tokens. The rank digit uses `caption` in a circle that grows with the text.
+- The bottom padding uses `ClBottomNavBar.contentPadding`.
+
+**Demo data (4b N5):** the poll club is "Friday Film Club", not "A24 Lovers".
+
+**Cleanup (N9):** `lib/features/home/components/` deleted.
+
+**Tests (S8; 4b S8–S10)**
+`test/home_screen_test.dart` now covers:
+- the 3 sizes × 1.0/1.3/2.0 matrix with truncation checks on every control label and a sideways scroll of the party list
+- a shell-mounted check that the last card clears the nav
+- a gold scan of every icon, text, fill, gradient, border, SVG and the mid-pull spinner (only the hero CTA, logo and active tab may be gold)
+- destination tests that check the film or club each control passes
+- one tap stop per action
+- loading, error, failed refresh, empty feed and the empty-state actions
+- semantics for headings, hero title, ring, posters and party count
+- ranking finders scoped to the poll card
+
+Results: 117/117 tests pass. The analyzer has 0 errors and 0 warnings (15 infos, the same as before).

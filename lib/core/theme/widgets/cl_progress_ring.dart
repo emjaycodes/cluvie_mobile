@@ -16,6 +16,7 @@ class ClProgressRing extends StatelessWidget {
     this.trackColor = AppColors.surfaceRaised,
     this.child,
     this.semanticLabel,
+    this.semanticValue,
   });
 
   /// 0..1
@@ -25,14 +26,22 @@ class ClProgressRing extends StatelessWidget {
   final Color color;
   final Color trackColor;
   final Widget? child;
+
+  /// What the ring means to a screen reader. When set, the child's text is
+  /// not read again.
   final String? semanticLabel;
+
+  /// Spoken value; defaults to the percentage. Pass '' when the label already
+  /// says everything (e.g. a countdown, where the fill is elapsed time).
+  final String? semanticValue;
 
   @override
   Widget build(BuildContext context) {
     final motion = AppMotion.of(context);
     return Semantics(
       label: semanticLabel,
-      value: '${(value.clamp(0, 1) * 100).round()}%',
+      value: semanticValue == null ? '${(value.clamp(0, 1) * 100).round()}%' : (semanticValue!.isEmpty ? null : semanticValue),
+      excludeSemantics: semanticLabel != null,
       child: SizedBox.square(
         dimension: size,
         child: TweenAnimationBuilder<double>(

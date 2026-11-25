@@ -89,13 +89,26 @@ final router = GoRouter(
       path: '/watchParty',
       name: RouteNames.watchParty,
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const WatchPartyScreen(),
+      builder: (context, state) {
+        // Optional: {'title': String, 'minutesLeft': int} from the card that opened it.
+        final extra = state.extra is Map ? state.extra as Map : const {};
+        return WatchPartyScreen(
+          title: extra['title'] is String ? extra['title'] as String : null,
+          minutesLeft: extra['minutesLeft'] is int ? extra['minutesLeft'] as int : null,
+        );
+      },
     ),
     GoRoute(
       path: '/watch-parties',
       name: RouteNames.watchPartyList,
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const WatchPartyListScreen(),
+      builder: (context, state) {
+        // Optional: {'focus': {title, when, club, posterUrl, attending}}, the
+        // party the user tapped; it's listed first and highlighted.
+        final extra = state.extra is Map ? state.extra as Map : const {};
+        final focus = extra['focus'];
+        return WatchPartyListScreen(focus: focus is Map ? Map<String, dynamic>.from(focus) : null);
+      },
     ),
     GoRoute(
       name: RouteNames.movieDetails,
@@ -268,7 +281,15 @@ final router = GoRouter(
           path: 'vote',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            return VoteSummaryScreen(communityId: id);
+            // Optional: {'club': String, 'options': [{title, posterUrl, votes, order}]},
+            // the poll the user was looking at.
+            final extra = state.extra is Map ? state.extra as Map : const {};
+            final options = extra['options'];
+            return VoteSummaryScreen(
+              communityId: id,
+              clubName: extra['club'] is String ? extra['club'] as String : null,
+              options: options is List ? [for (final o in options) if (o is Map) Map<String, dynamic>.from(o)] : null,
+            );
           },
         ),
         GoRoute(

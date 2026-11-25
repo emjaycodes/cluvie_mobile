@@ -21,6 +21,7 @@ class ClPosterImage extends StatelessWidget {
     this.scrim = ClScrim.none,
     this.fit = BoxFit.cover,
     this.semanticLabel,
+    this.decorative = false,
   });
 
   final String? url;
@@ -31,6 +32,10 @@ class ClPosterImage extends StatelessWidget {
   final ClScrim scrim;
   final BoxFit fit;
   final String? semanticLabel;
+
+  /// Hide from assistive tech when nearby text already names the film
+  /// (cards, heroes), so the image doesn't add an extra "image" stop.
+  final bool decorative;
 
   /// Tests: render the fallback tile instead of touching the network/cache.
   @visibleForTesting
@@ -76,12 +81,10 @@ class ClPosterImage extends StatelessWidget {
       ]);
     }
 
-    image = Semantics(
-      image: true,
-      label: semanticLabel,
-      excludeSemantics: true,
-      child: ClipRRect(borderRadius: br, child: SizedBox(width: width, height: height, child: image)),
-    );
+    final clipped = ClipRRect(borderRadius: br, child: SizedBox(width: width, height: height, child: image));
+    image = decorative
+        ? ExcludeSemantics(child: clipped)
+        : Semantics(image: true, label: semanticLabel, excludeSemantics: true, child: clipped);
 
     if (heroTag != null) {
       image = HeroMode(

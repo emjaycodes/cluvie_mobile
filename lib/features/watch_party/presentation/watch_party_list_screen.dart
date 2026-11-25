@@ -11,7 +11,11 @@ import 'package:shimmer/shimmer.dart';
 /// Route: /watch-parties (alias /watchParty for detail)
 /// Shows upcoming + past with RSVP CTAs per ROADMAP M1/M2.
 class WatchPartyListScreen extends StatefulWidget {
-  const WatchPartyListScreen({super.key});
+  const WatchPartyListScreen({super.key, this.focus});
+
+  /// The party the user tapped elsewhere ({title, when, club, posterUrl,
+  /// attending}). Listed first and outlined, added if not already listed.
+  final Map<String, dynamic>? focus;
   @override
   State<WatchPartyListScreen> createState() => _WatchPartyListScreenState();
 }
@@ -34,6 +38,29 @@ class _WatchPartyListScreenState extends State<WatchPartyListScreen> {
       'attendees': 14,
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    final f = widget.focus;
+    if (f == null || f['title'] is! String) return;
+    final i = _upcoming.indexWhere((p) => p['title'] == f['title']);
+    final entry = i >= 0
+        ? _upcoming.removeAt(i)
+        : {
+            'title': f['title'],
+            'date': f['when'] ?? '',
+            'location': f['club'] ?? '',
+            'image': f['posterUrl'] ?? '',
+            'attendees': f['attending'] ?? 0,
+          };
+    // Home's details win, so the time and club match what was tapped.
+    if (f['when'] is String) entry['date'] = f['when'];
+    if (f['club'] is String) entry['location'] = f['club'];
+    if (f['attending'] is int) entry['attendees'] = f['attending'];
+    entry['focused'] = true;
+    _upcoming.insert(0, entry);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +96,11 @@ class _WatchPartyListScreenState extends State<WatchPartyListScreen> {
                   const SizedBox(height: 12),
                   ..._upcoming.map((p) => Container(
                         margin: const EdgeInsets.only(bottom: 14),
-                        decoration: BoxDecoration(color: AppColors.darkSurface, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white10)),
+                        decoration: BoxDecoration(
+                          color: AppColors.darkSurface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: p['focused'] == true ? AppColors.purple : Colors.white10, width: p['focused'] == true ? 2 : 1),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

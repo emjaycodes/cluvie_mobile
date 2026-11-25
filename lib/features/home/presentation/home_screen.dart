@@ -6,66 +6,83 @@ import 'package:cluvie_mobile/core/theme/app_motion.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/features/home/data/home_feed.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// Home feed: this week's pick → active poll → live now → upcoming watch
 /// parties → recent discussions.
 ///
-/// Gold budget (tokens.md): the hero's "Watch party" CTA is the only gold
-/// content owner. Poll leader, badges and the live ring are purple; card CTAs
+/// Gold budget (tokens.md): the hero's RSVP CTA is the only gold content
+/// owner. Poll leader, badges and the live ring are purple; card CTAs
 /// ("Join live", RSVP) are white (`inverse`). Pull-to-refresh is purple.
 ///
-/// Content is still demo data (no feed API yet); every control navigates to
-/// a real route. Empty states render from the data, not from a QA toggle.
-class HomeScreen extends StatefulWidget {
+/// Data comes from [homeFeedProvider] (demo data until the feed API exists).
+/// Loading shows skeletons, a failed load shows a retry, and each section has
+/// its own empty state. Every control opens the thing it names.
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  // Bumped on refresh so sections replay their entrance.
-  int _generation = 0;
-
-  Future<void> _refresh() async {
-    // TODO(api): replace with the home feed request once it exists.
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) setState(() => _generation++);
+  Future<void> _refresh(BuildContext context, WidgetRef ref) async {
+    try {
+      ref.invalidate(homeFeedProvider);
+      await ref.read(homeFeedProvider.future);
+    } catch (_) {
+      // The feed already on screen stays; say the refresh failed.
+      if (context.mounted) {
+        ClSnackbar.show(context, message: "Couldn't refresh. Check your connection.", type: ClSnackbarType.error);
+      }
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    // The text block's cover is tied to its content (see _Hero), so a taller
-    // block would eat the poster. Grow the hero with text scale, and by one
-    // button row when the CTAs stack, but keep the next section peeking above
-    // the fold.
-    final scale = MediaQuery.textScalerOf(context).scale(1);
-    final stacked = _HeroActions.stacks(context, size.width - AppSpacing.gutter * 2);
-    final heroHeight = math.min(
-      (size.height * 0.58).clamp(420.0, 540.0) + (scale - 1) * 300 + (stacked ? 56 : 0),
-      size.height - MediaQuery.paddingOf(context).top - 96,
-    );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(homeFeedProvider);
+    final feed = async.valueOrNull;
+    final pick = feed?.pick;
     final reduced = AppMotion.of(context).reduced;
+    final unread = feed?.unread ?? 0;
+
+    final Widget body;
+    if (feed != null) {
+      body = SliverPadding(
+        padding: EdgeInsets.fromLTRB(0, AppSpacing.xl, 0, ClBottomNavBar.contentPadding(context)),
+        sliver: SliverList.list(children: _sections(context, feed)),
+      );
+    } else if (async.hasError) {
+      body = SliverFillRemaining(
+        hasScrollBody: false,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: ClBottomNavBar.contentPadding(context)),
+          child: ClErrorState(
+            title: "Couldn't load your feed",
+            onRetry: () => ref.invalidate(homeFeedProvider),
+          ),
+        ),
+      );
+    } else {
+      body = SliverPadding(
+        padding: EdgeInsets.only(bottom: ClBottomNavBar.contentPadding(context)),
+        sliver: const SliverToBoxAdapter(child: _HomeSkeleton()),
+      );
+    }
 
     return Scaffold(
       body: RefreshIndicator(
-        onRefresh: _refresh,
+        onRefresh: () => _refresh(context, ref),
         color: AppColors.purple,
         backgroundColor: AppColors.surfaceRaised,
         edgeOffset: MediaQuery.paddingOf(context).top + kToolbarHeight,
         child: CustomScrollView(
-          key: ValueKey(_generation),
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverAppBar(
               pinned: true,
-              stretch: !reduced,
-              expandedHeight: heroHeight,
+              stretch: !reduced && pick != null,
+              expandedHeight: pick == null ? null : _heroHeight(context),
               backgroundColor: AppColors.bg,
-              surfaceTintColor: Colors.transparent,
+              scrolledUnderElevation: 0,
               automaticallyImplyLeading: false,
               titleSpacing: AppSpacing.gutter,
               title: const ClLogo(size: 28),
@@ -73,111 +90,166 @@ class _HomeScreenState extends State<HomeScreen> {
                 ClIconButton(
                   icon: AppIcons.bell,
                   tooltip: 'Notifications',
-                  badge: _demoUnread > 0,
-                  badgeLabel: '$_demoUnread unread',
+                  badge: unread > 0,
+                  badgeLabel: '$unread unread',
                   onPressed: () => context.push('/notifications'),
                 ),
                 const SizedBox(width: AppSpacing.md),
               ],
-              flexibleSpace: FlexibleSpaceBar(
-                collapseMode: reduced ? CollapseMode.pin : CollapseMode.parallax,
-                stretchModes: const [StretchMode.zoomBackground],
-                background: _Hero(pick: _demoPick),
-              ),
+              flexibleSpace:
+                  pick == null
+                      ? null
+                      : FlexibleSpaceBar(
+                        collapseMode: reduced ? CollapseMode.pin : CollapseMode.parallax,
+                        stretchModes: const [StretchMode.zoomBackground],
+                        background: _Hero(pick: pick),
+                      ),
             ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(0, AppSpacing.xl, 0, MediaQuery.paddingOf(context).bottom + AppSpacing.lg),
-              sliver: SliverList.list(
-                children: [
-                  // Active poll
-                  ClEntrance(
-                    index: 0,
-                    child: _Section(
-                      title: 'Active poll',
-                      subtitle:
-                          _demoPolls.isEmpty
-                              ? null
-                              : '${_demoPolls.first.club} · closes in ${_demoPolls.first.closesIn}',
-                      child:
-                          _demoPolls.isEmpty
-                              ? ClCard(
-                                child: ClEmptyState(
-                                  compact: true,
-                                  illustration: ClIllustration.polls,
-                                  message: 'No active polls — suggest a film!',
-                                  actionLabel: 'Suggest a film',
-                                  onAction: () => context.go('/suggest'),
-                                ),
-                              )
-                              : _PollCard(poll: _demoPolls.first),
+            body,
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The text block's cover is tied to its content (see _Hero), so a taller
+  /// block would eat the poster. Grow the hero with text scale, and by one
+  /// button row when the CTAs stack, but keep the next section peeking above
+  /// the fold.
+  static double _heroHeight(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final stacked = _HeroActions.stacks(context, size.width - AppSpacing.gutter * 2);
+    return math.min(
+      (size.height * 0.58).clamp(420.0, 540.0) + (scale - 1) * 300 + (stacked ? 56 : 0),
+      size.height - MediaQuery.paddingOf(context).top - 96,
+    );
+  }
+
+  List<Widget> _sections(BuildContext context, HomeFeed feed) {
+    final poll = feed.poll;
+    final live = feed.live;
+    final pick = feed.pick;
+    var i = 0;
+    return [
+      ClEntrance(
+        index: i++,
+        child: _Section(
+          title: 'Active poll',
+          subtitle: poll == null ? null : '${poll.club} · closes in ${poll.closesIn}',
+          child:
+              poll == null
+                  ? ClCard(
+                    child: ClEmptyState(
+                      compact: true,
+                      illustration: ClIllustration.polls,
+                      message: 'No active polls — suggest a film!',
+                      actionLabel: 'Suggest a film',
+                      onAction: () => context.go('/suggest'),
+                    ),
+                  )
+                  : _PollCard(poll: poll),
+        ),
+      ),
+      // Hidden when nothing is live: an empty "Live now" is noise.
+      if (live != null) ClEntrance(index: i++, child: _Section(title: 'Live now', child: _LiveCard(party: live))),
+      ClEntrance(
+        index: i++,
+        child: _Section(
+          title: 'Watch parties',
+          subtitle: 'RSVP so hosts can plan',
+          actionLabel: feed.parties.isEmpty ? null : 'See all',
+          onAction: () => context.push('/watch-parties'),
+          padChild: false,
+          child:
+              feed.parties.isEmpty
+                  ? const Padding(
+                    padding: AppSpacing.screen,
+                    child: ClCard(
+                      child: ClEmptyState(
+                        compact: true,
+                        illustration: ClIllustration.parties,
+                        message: 'No watch parties planned yet.',
+                      ),
+                    ),
+                  )
+                  : SizedBox(
+                    height: _PartyCard.height(context),
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: AppSpacing.screen,
+                      itemCount: feed.parties.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+                      itemBuilder: (context, i) => _PartyCard(party: feed.parties[i]),
                     ),
                   ),
-                  // Live now
-                  ClEntrance(index: 1, child: _Section(title: 'Live now', child: _LiveCard(party: _demoLive))),
-                  // Upcoming watch parties
-                  ClEntrance(
-                    index: 2,
-                    child: _Section(
-                      title: 'Watch parties',
-                      subtitle: 'RSVP so hosts can plan',
-                      actionLabel: _demoParties.isEmpty ? null : 'See all',
-                      onAction: () => context.push('/watch-parties'),
-                      padChild: false,
-                      child:
-                          _demoParties.isEmpty
-                              ? const Padding(
-                                padding: AppSpacing.screen,
-                                child: ClCard(
-                                  child: ClEmptyState(
-                                    compact: true,
-                                    illustration: ClIllustration.parties,
-                                    message: 'No watch parties planned yet.',
-                                  ),
-                                ),
-                              )
-                              : SizedBox(
-                                height: 268,
-                                child: ListView.separated(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: AppSpacing.screen,
-                                  itemCount: _demoParties.length,
-                                  separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
-                                  itemBuilder: (context, i) => _PartyCard(party: _demoParties[i]),
-                                ),
-                              ),
+        ),
+      ),
+      ClEntrance(
+        index: i++,
+        child: _Section(
+          title: 'Recent discussions',
+          subtitle: 'Join the conversation',
+          child:
+              feed.discussions.isEmpty
+                  ? ClCard(
+                    child: ClEmptyState(
+                      compact: true,
+                      illustration: ClIllustration.discussions,
+                      message: 'Be the first to start a thread about what your club watched.',
+                      // Opens the pick's thread, so the label names the film.
+                      actionLabel: pick == null ? null : 'Discuss ${pick.title}',
+                      onAction:
+                          pick == null ? null : () => context.push('/discussionThread', extra: pick.threadExtra),
                     ),
+                  )
+                  : Column(
+                    children: [
+                      for (final d in feed.discussions) ...[
+                        _DiscussionCard(discussion: d),
+                        if (d != feed.discussions.last) const SizedBox(height: AppSpacing.md),
+                      ],
+                    ],
                   ),
-                  // Recent discussions
-                  ClEntrance(
-                    index: 3,
-                    child: _Section(
-                      title: 'Recent discussions',
-                      subtitle: 'Join the conversation',
-                      child:
-                          _demoDiscussions.isEmpty
-                              ? ClCard(
-                                child: ClEmptyState(
-                                  compact: true,
-                                  illustration: ClIllustration.discussions,
-                                  message: 'Be the first to start a thread about what your club watched.',
-                                  actionLabel: 'Start a thread',
-                                  onAction: () => context.push('/discussionThread'),
-                                ),
-                              )
-                              : Column(
-                                children: [
-                                  for (final d in _demoDiscussions) ...[
-                                    _DiscussionCard(discussion: d),
-                                    if (d != _demoDiscussions.last) const SizedBox(height: AppSpacing.md),
-                                  ],
-                                ],
-                              ),
-                    ),
-                  ),
+        ),
+      ),
+    ];
+  }
+}
+
+/// First-load placeholder shaped like the feed: hero, poll card, party cards.
+class _HomeSkeleton extends StatelessWidget {
+  const _HomeSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Loading your feed',
+      liveRegion: true,
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: AppSpacing.screen,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: AppSpacing.lg),
+              const ClSkeleton(height: 320, radius: AppRadius.lg),
+              const SizedBox(height: AppSpacing.section),
+              const ClSkeleton(height: 20, width: 140),
+              const SizedBox(height: AppSpacing.md),
+              const ClSkeleton(height: 200, radius: AppRadius.lg),
+              const SizedBox(height: AppSpacing.section),
+              const ClSkeleton(height: 20, width: 160),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: const [
+                  Expanded(child: ClSkeleton(height: 180, radius: AppRadius.lg)),
+                  SizedBox(width: AppSpacing.md),
+                  Expanded(child: ClSkeleton(height: 180, radius: AppRadius.lg)),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -237,7 +309,7 @@ class _Section extends StatelessWidget {
 class _Hero extends StatelessWidget {
   const _Hero({required this.pick});
 
-  final _Pick pick;
+  final FeaturedPick pick;
 
   /// Height of the fade between bare poster and the text panel.
   static const double _fade = 48;
@@ -248,7 +320,8 @@ class _Hero extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        ClPosterImage(url: pick.posterUrl, radius: 0, scrim: ClScrim.bottom, semanticLabel: '${pick.title} poster'),
+        // Decorative: the title below already names the film.
+        ClPosterImage(url: pick.posterUrl, radius: 0, scrim: ClScrim.bottom, decorative: true),
         // Top scrim sized to the real inset (tokens.md `scrimTop`): solid at
         // ≥ 0.85 under the status bar and toolbar, then fades out over 24dp,
         // so the logo and bell stay legible on a white poster.
@@ -311,11 +384,14 @@ class _Hero extends StatelessWidget {
                         children: [const ClBadge("This week's pick"), ClBadge(pick.meta, tone: ClBadgeTone.glass)],
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      Text(pick.title, style: AppTextStyles.display, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      Semantics(
+                        header: true,
+                        child: Text(pick.title, style: AppTextStyles.display, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(pick.when, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
                       const SizedBox(height: AppSpacing.lg),
-                      const _HeroActions(),
+                      _HeroActions(pick: pick),
                     ],
                   ),
                 ),
@@ -328,26 +404,22 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// "Watch party" (the screen's one gold CTA) and "Discuss". Side by side when
-/// the CTA label fits at half width; stacked, CTA first, when it doesn't
-/// (narrow phones, larger text).
+/// "RSVP" (the screen's one gold CTA; opens the pick's watch party) and
+/// "Discuss" (opens the pick's thread). Side by side when the CTA label fits at
+/// half width; stacked, CTA first, when it doesn't (narrow phones, larger text).
 class _HeroActions extends StatelessWidget {
-  const _HeroActions();
+  const _HeroActions({required this.pick});
 
-  static const _ctaLabel = 'Watch party';
+  final FeaturedPick pick;
 
-  /// Whether the CTA label would truncate at half of [width].
+  static const _ctaLabel = 'RSVP';
+
+  static const _discussLabel = 'Discuss';
+
+  /// Whether either label would truncate at half of [width].
   static bool stacks(BuildContext context, double width) {
-    final label = TextPainter(
-      text: TextSpan(text: _ctaLabel, style: AppTextStyles.button.copyWith(fontSize: 15)),
-      textScaler: MediaQuery.textScalerOf(context),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout();
-    // ClButton md: 24dp padding each side + 20dp icon + 8dp gap.
-    final needed = label.width + AppSpacing.xl * 2 + 20 + AppSpacing.sm;
-    label.dispose();
-    return needed > (width - AppSpacing.md) / 2;
+    final half = (width - AppSpacing.md) / 2;
+    return [_ctaLabel, _discussLabel].any((l) => _buttonWidth(context, l) > half);
   }
 
   @override
@@ -356,14 +428,13 @@ class _HeroActions extends StatelessWidget {
       label: _ctaLabel,
       icon: AppIcons.ticket,
       variant: ClButtonVariant.primary,
-      onPressed: () => context.push('/watch-parties'),
+      onPressed: () => context.push('/watch-parties', extra: pick.party.focusExtra),
     );
     final discuss = ClButton(
-      label: 'Discuss',
+      label: _discussLabel,
       icon: AppIcons.chat,
       variant: ClButtonVariant.secondary,
-      onPressed:
-          () => context.push('/discussionThread', extra: {'title': _demoPick.title, 'posterUrl': _demoPick.posterUrl}),
+      onPressed: () => context.push('/discussionThread', extra: pick.threadExtra),
     );
     return LayoutBuilder(
       builder: (context, c) {
@@ -379,12 +450,26 @@ class _HeroActions extends StatelessWidget {
   }
 }
 
+/// Width a [ClButton] with an icon needs to show [label] without truncating,
+/// at the current text scale. Mirrors ClButton's padding, icon and gap.
+double _buttonWidth(BuildContext context, String label, {bool small = false}) {
+  final painter = TextPainter(
+    text: TextSpan(text: label, style: AppTextStyles.button.copyWith(fontSize: small ? 14 : 15)),
+    textScaler: MediaQuery.textScalerOf(context),
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+  )..layout();
+  final width = painter.width + (small ? AppSpacing.lg : AppSpacing.xl) * 2 + (small ? 18 : 20) + AppSpacing.sm;
+  painter.dispose();
+  return width + 1; // rounding headroom
+}
+
 // ── Poll ─────────────────────────────────────────────────────────────────────
 
 class _PollCard extends StatelessWidget {
   const _PollCard({required this.poll});
 
-  final _Poll poll;
+  final Poll poll;
 
   @override
   Widget build(BuildContext context) {
@@ -412,7 +497,8 @@ class _PollCard extends StatelessWidget {
                 variant: ClButtonVariant.inverse,
                 size: ClButtonSize.sm,
                 expand: false,
-                onPressed: () => context.push('/communities/${poll.communityId}/vote'),
+                // Pass the poll so the vote screen shows these same options.
+                onPressed: () => context.push('/communities/${poll.communityId}/vote', extra: poll.voteExtra),
               ),
             ],
           ),
@@ -426,7 +512,7 @@ class _PollRow extends StatelessWidget {
   const _PollRow({required this.rank, required this.option, required this.share, required this.leading});
 
   final int rank;
-  final _PollOption option;
+  final PollOption option;
   final double share;
   final bool leading;
 
@@ -434,6 +520,8 @@ class _PollRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final motion = AppMotion.of(context);
     final pct = (share * 100).round();
+    // Long titles get a second line at larger text instead of losing the film.
+    final titleLines = MediaQuery.textScalerOf(context).scale(1) > 1.15 ? 2 : 1;
     return Semantics(
       label: '${option.title}, ${option.votes} votes, $pct percent${leading ? ', leading' : ''}',
       excludeSemantics: true,
@@ -465,13 +553,20 @@ class _PollRow extends StatelessWidget {
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      ClPosterImage(url: option.posterUrl, width: 36, height: 52, radius: AppRadius.sm),
+                      ClPosterImage(
+                        url: option.posterUrl,
+                        width: 36,
+                        height: 52,
+                        radius: AppRadius.sm,
+                        decorative: true,
+                      ),
                       Positioned(
-                        top: -5,
-                        left: -5,
+                        top: -AppSpacing.xs,
+                        left: -AppSpacing.xs,
+                        // Grows with the digit at large text instead of clipping it.
                         child: Container(
-                          width: 20,
-                          height: 20,
+                          constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
@@ -481,8 +576,7 @@ class _PollRow extends StatelessWidget {
                           child: Text(
                             '$rank',
                             style: AppTextStyles.caption.copyWith(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               color: leading ? AppColors.onPurpleBadge : AppColors.textPrimary,
                             ),
                           ),
@@ -497,12 +591,11 @@ class _PollRow extends StatelessWidget {
                       children: [
                         Text(
                           option.title,
-                          style: AppTextStyles.title.copyWith(fontSize: 14),
-                          maxLines: 1,
+                          style: AppTextStyles.label,
+                          maxLines: titleLines,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 2),
-                        // Wrap: the badge drops below on narrow phones / large text.
+                        const SizedBox(height: AppSpacing.xxs),
                         // Inline text so it can wrap at large text sizes; a badge can't
                         // shrink below its own width (round 4b, B6).
                         Text.rich(
@@ -533,8 +626,7 @@ class _PollRow extends StatelessWidget {
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     '$pct%',
-                    style: AppTextStyles.h3.copyWith(
-                      fontSize: 15,
+                    style: AppTextStyles.title.copyWith(
                       color: leading ? AppColors.purpleText : AppColors.textPrimary,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
@@ -554,54 +646,68 @@ class _PollRow extends StatelessWidget {
 class _LiveCard extends StatelessWidget {
   const _LiveCard({required this.party});
 
-  final _Party party;
+  final Party party;
+
+  static const double _ring = 84;
+  static const _joinLabel = 'Join live';
 
   @override
   Widget build(BuildContext context) {
+    final join = ClButton(
+      label: _joinLabel,
+      icon: AppIcons.play,
+      variant: ClButtonVariant.inverse,
+      size: ClButtonSize.sm,
+      expand: false,
+      onPressed: () => context.push('/watchParty', extra: party.roomExtra),
+    );
     return ClCard(
-      child: Row(
-        children: [
-          ClProgressRing(
-            value: party.progress,
-            size: 84,
-            strokeWidth: 6,
-            semanticLabel: '${party.remaining} remaining',
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(party.remaining, style: AppTextStyles.h3.copyWith(fontSize: 16)),
-                Text('left', style: AppTextStyles.caption),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.lg),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const ClBadge('Live', tone: ClBadgeTone.error),
-                const SizedBox(height: AppSpacing.sm),
-                Text(party.title, style: AppTextStyles.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Text(
-                  '${party.club} · ${party.attending} watching',
-                  style: AppTextStyles.bodySm,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                ClButton(
-                  label: 'Join live',
-                  icon: AppIcons.play,
-                  variant: ClButtonVariant.inverse,
-                  size: ClButtonSize.sm,
-                  expand: false,
-                  onPressed: () => context.push('/watchParty'),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, c) {
+          // The button sits under the text; when that column is too narrow for
+          // its label (narrow phones, large text) it moves below the ring.
+          final inline = _buttonWidth(context, _joinLabel, small: true) <= c.maxWidth - _ring - AppSpacing.lg;
+          final info = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const ClBadge('Live', tone: ClBadgeTone.error),
+              const SizedBox(height: AppSpacing.sm),
+              Text(party.title, style: AppTextStyles.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: AppSpacing.xxs),
+              // Club on its own line so it never gets cut for the count.
+              Text(party.club, style: AppTextStyles.bodySm, maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text('${party.attending} watching', style: AppTextStyles.caption),
+              if (inline) ...[const SizedBox(height: AppSpacing.sm), join],
+            ],
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  ClProgressRing(
+                    value: party.progress,
+                    size: _ring,
+                    strokeWidth: 6,
+                    // The fill is time watched; the countdown says it all.
+                    semanticLabel: '${party.minutesLeft} minutes left',
+                    semanticValue: '',
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('${party.minutesLeft}m', style: AppTextStyles.title),
+                        Text('left', style: AppTextStyles.caption),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(child: info),
+                ],
+              ),
+              if (!inline) ...[const SizedBox(height: AppSpacing.md), SizedBox(width: double.infinity, child: join)],
+            ],
+          );
+        },
       ),
     );
   }
@@ -612,7 +718,12 @@ class _LiveCard extends StatelessWidget {
 class _PartyCard extends StatelessWidget {
   const _PartyCard({required this.party});
 
-  final _Party party;
+  final Party party;
+
+  static const double _poster = 128;
+
+  /// List height: the poster is fixed, the text below grows with text scale.
+  static double height(BuildContext context) => _poster + 160 * MediaQuery.textScalerOf(context).scale(1);
 
   @override
   Widget build(BuildContext context) {
@@ -625,12 +736,12 @@ class _PartyCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              height: 128,
+              height: _poster,
               width: double.infinity,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ClPosterImage(url: party.posterUrl, radius: 0, scrim: ClScrim.bottom),
+                  ClPosterImage(url: party.posterUrl, radius: 0, scrim: ClScrim.bottom, decorative: true),
                   if (party.badge != null)
                     Positioned(
                       top: AppSpacing.md,
@@ -638,8 +749,8 @@ class _PartyCard extends StatelessWidget {
                       child: ClBadge(party.badge!, tone: ClBadgeTone.purpleSolid),
                     ),
                   Positioned(
-                    left: 14,
-                    right: 14,
+                    left: AppSpacing.md,
+                    right: AppSpacing.md,
                     bottom: AppSpacing.sm,
                     child: Text(party.title, style: AppTextStyles.h3, maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
@@ -647,36 +758,34 @@ class _PartyCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(AppIcons.calendar, size: 16, color: AppColors.textSecondary),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '${party.when} · ${party.club}',
-                      style: AppTextStyles.bodySm,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                  // When and where on separate lines, so neither is cut.
+                  _MetaLine(icon: AppIcons.calendar, text: party.when),
+                  const SizedBox(height: AppSpacing.xxs),
+                  _MetaLine(icon: AppIcons.clubs, text: party.club),
                 ],
               ),
             ),
+            const Spacer(),
             const ClTicketDivider(),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 2, 10, 8),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xxs, AppSpacing.sm, AppSpacing.sm),
               child: Row(
                 children: [
-                  // Avatars show who; a short count avoids truncating names next to RSVP.
+                  // The stack's semantics already say who and how many.
                   ClAvatarStack(people: party.people, total: party.attending, showCaption: false),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: Text(
-                      '${party.attending} going',
-                      style: AppTextStyles.bodySm,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: ExcludeSemantics(
+                      child: Text(
+                        '${party.attending} going',
+                        style: AppTextStyles.bodySm,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                   ClButton(
@@ -684,7 +793,8 @@ class _PartyCard extends StatelessWidget {
                     variant: ClButtonVariant.inverse,
                     size: ClButtonSize.sm,
                     expand: false,
-                    onPressed: () => context.push('/watch-parties'),
+                    // Opens the list with this party first and outlined.
+                    onPressed: () => context.push('/watch-parties', extra: party.focusExtra),
                   ),
                 ],
               ),
@@ -696,22 +806,41 @@ class _PartyCard extends StatelessWidget {
   }
 }
 
+class _MetaLine extends StatelessWidget {
+  const _MetaLine({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.textSecondary),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(child: Text(text, style: AppTextStyles.bodySm, maxLines: 1, overflow: TextOverflow.ellipsis)),
+      ],
+    );
+  }
+}
+
 // ── Discussions ──────────────────────────────────────────────────────────────
 
 class _DiscussionCard extends StatelessWidget {
   const _DiscussionCard({required this.discussion});
 
-  final _Discussion discussion;
+  final Discussion discussion;
 
   @override
   Widget build(BuildContext context) {
     final d = discussion;
+    const meta = TextStyle(color: AppColors.textMuted);
     return ClCard(
-      onTap: () => context.push('/discussionThread', extra: {'title': d.title, 'posterUrl': d.posterUrl}),
+      onTap: () => context.push('/discussionThread', extra: d.threadExtra),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClPosterImage(url: d.posterUrl, width: 48, height: 70, radius: AppRadius.sm),
+          ClPosterImage(url: d.posterUrl, width: 48, height: 70, radius: AppRadius.sm, decorative: true),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
@@ -734,12 +863,12 @@ class _DiscussionCard extends StatelessWidget {
                 Row(
                   children: [
                     const Icon(AppIcons.chat, size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: 4),
-                    Text('${d.replies} replies', style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text('${d.replies} replies', style: AppTextStyles.caption.merge(meta)),
                     const SizedBox(width: AppSpacing.md),
                     const Icon(AppIcons.clock, size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: 4),
-                    Text(d.ago, style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(d.ago, style: AppTextStyles.caption.merge(meta)),
                   ],
                 ),
               ],
@@ -750,165 +879,3 @@ class _DiscussionCard extends StatelessWidget {
     );
   }
 }
-
-// ── Demo data (replace with providers when the feed API exists) ─────────────
-
-const _tmdb = 'https://image.tmdb.org/t/p/w342';
-
-class _Pick {
-  const _Pick({required this.title, required this.meta, required this.when, required this.posterUrl});
-  final String title;
-  final String meta;
-  final String when;
-  final String posterUrl;
-}
-
-class _PollOption {
-  const _PollOption(this.title, this.votes, this.posterUrl, this.order);
-  final String title;
-  final int votes;
-  final String posterUrl;
-
-  /// Suggestion order; ties go to the earliest suggestion.
-  final int order;
-}
-
-class _Poll {
-  const _Poll({
-    required this.communityId,
-    required this.club,
-    required this.closesIn,
-    required this.options,
-    required this.members,
-  });
-  final String communityId;
-  final String club;
-  final String closesIn;
-  final List<_PollOption> options;
-  final int members;
-
-  int get totalVotes => options.fold(0, (a, o) => a + o.votes);
-
-  /// Most votes first; ties go to the earliest suggestion.
-  List<_PollOption> get ranked =>
-      [...options]..sort((a, b) => b.votes != a.votes ? b.votes.compareTo(a.votes) : a.order.compareTo(b.order));
-}
-
-class _Party {
-  const _Party({
-    required this.title,
-    required this.club,
-    required this.when,
-    required this.posterUrl,
-    required this.attending,
-    required this.people,
-    this.badge,
-    this.progress = 0,
-    this.remaining = '',
-  });
-  final String title;
-  final String club;
-  final String when;
-  final String posterUrl;
-  final int attending;
-  final List<({String name, String? imageUrl})> people;
-  final String? badge;
-  final double progress;
-  final String remaining;
-}
-
-class _Discussion {
-  const _Discussion(this.title, this.prompt, this.posterUrl, this.replies, this.ago, {this.pinned = false});
-  final String title;
-  final String prompt;
-  final String posterUrl;
-  final int replies;
-  final String ago;
-  final bool pinned;
-}
-
-const _demoUnread = 3;
-
-const _demoPick = _Pick(
-  title: 'Past Lives',
-  meta: 'Drama · 2023',
-  when: 'Cinema Sundays · Watch party Sun 8:00 PM',
-  posterUrl: 'https://image.tmdb.org/t/p/w780/kAellTx1ukNtc42BP1kcnHPCG5e.jpg',
-);
-
-const _demoPolls = [
-  _Poll(
-    communityId: 'demo',
-    club: 'A24 Lovers',
-    closesIn: '2 days',
-    members: 31,
-    // Posters limited to ones whose films are confirmed elsewhere in the app.
-    options: [
-      _PollOption('Oppenheimer', 8, '$_tmdb/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg', 1),
-      _PollOption('Everything Everywhere All at Once', 11, '$_tmdb/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg', 0),
-      _PollOption('Mission: Impossible — Fallout', 5, '$_tmdb/74xTEgt7R36Fpooo50r9T25onhq.jpg', 2),
-    ],
-  ),
-];
-
-const _ada = (name: 'Ada Obi', imageUrl: null);
-const _tunde = (name: 'Tunde Bello', imageUrl: null);
-const _mira = (name: 'Mira Chen', imageUrl: null);
-const _sam = (name: 'Sam Reyes', imageUrl: null);
-
-const _demoLive = _Party(
-  title: 'Mission: Impossible — Fallout',
-  club: 'Action Heads',
-  when: 'Now',
-  posterUrl: '$_tmdb/74xTEgt7R36Fpooo50r9T25onhq.jpg',
-  attending: 12,
-  people: [_sam, _ada],
-  progress: 0.72,
-  remaining: '41m',
-);
-
-const _demoParties = [
-  _Party(
-    title: 'Oppenheimer',
-    club: 'Nolan Nerds',
-    when: 'Tonight 8:00 PM',
-    posterUrl: '$_tmdb/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
-    attending: 9,
-    people: [_ada, _tunde, _mira],
-    badge: 'Tonight',
-  ),
-  _Party(
-    title: 'Past Lives',
-    club: 'Cinema Sundays',
-    when: 'Sun 8:00 PM',
-    posterUrl: '$_tmdb/kAellTx1ukNtc42BP1kcnHPCG5e.jpg',
-    attending: 14,
-    people: [_mira, _sam, _tunde],
-  ),
-  _Party(
-    title: 'Everything Everywhere All at Once',
-    club: 'A24 Lovers',
-    when: 'Fri 7:30 PM',
-    posterUrl: '$_tmdb/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg',
-    attending: 6,
-    people: [_tunde, _ada],
-  ),
-];
-
-const _demoDiscussions = [
-  _Discussion(
-    'Oppenheimer',
-    "Christopher Nolan's magnum opus. Did the three timelines work for you?",
-    '$_tmdb/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
-    12,
-    '2h',
-    pinned: true,
-  ),
-  _Discussion(
-    'Mission: Impossible — Fallout',
-    'Most thrilling practical stunt ever filmed? Make your case.',
-    '$_tmdb/74xTEgt7R36Fpooo50r9T25onhq.jpg',
-    5,
-    '5h',
-  ),
-];

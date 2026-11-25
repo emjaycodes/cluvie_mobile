@@ -27,6 +27,7 @@ class ClSectionHeader extends StatelessWidget {
       child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
         Expanded(
           child: Semantics(
+            container: true,
             header: true,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               Text(title, style: AppTextStyles.h3),

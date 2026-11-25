@@ -67,7 +67,10 @@ class _ClPressableState extends State<ClPressable> {
     );
     if (widget.hitPadding != null) visual = Padding(padding: widget.hitPadding!, child: visual);
 
+    // A container, so a control never merges into a heading or another
+    // control above it (round 4, S2).
     return Semantics(
+      container: true,
       button: widget.isButton,
       enabled: _enabled,
       selected: widget.selected,

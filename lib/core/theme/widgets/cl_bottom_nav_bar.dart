@@ -152,7 +152,9 @@ class _FloatingNav extends StatelessWidget {
                               child: i == 2
                                   ? const SizedBox.shrink()
                                   : Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                                      // Drop the side inset on narrow phones so
+                                      // each tab keeps a 48dp hit area.
+                                      padding: EdgeInsets.symmetric(vertical: 8, horizontal: slot - 8 >= AppSpacing.minTouch ? 4 : 0),
                                       child: _Tab(item: _items[i], active: i == index, onTap: () => onTap(i)),
                                     ),
                             ),
@@ -197,8 +199,11 @@ class _Tab extends StatelessWidget {
             child: Icon(active ? item.activeIcon : item.icon, key: ValueKey(active), size: 24, color: color),
           ),
           const SizedBox(height: 3),
+          // Labels scale to 1.3x at most: the bar has a fixed height, and the
+          // full name is still in semantics.
           Text(
             item.label,
+            textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3),
             style: AppTextStyles.caption.copyWith(
               fontSize: 11,
               color: color,

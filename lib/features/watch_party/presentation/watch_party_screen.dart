@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 class WatchPartyScreen extends StatelessWidget {
-  const WatchPartyScreen({super.key});
+  const WatchPartyScreen({super.key, this.title, this.minutesLeft});
+
+  /// The film being watched; the demo room shows "Arrival" when not given.
+  final String? title;
+  final int? minutesLeft;
 
   @override
   Widget build(BuildContext context) {
@@ -11,12 +15,12 @@ class WatchPartyScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
-            children: const [
-              _TopBar(),
-              SizedBox(height: 24),
-              Expanded(child: _AvatarSection()),
-              _ControlPanel(),
-              SizedBox(height: 20),
+            children: [
+              _TopBar(title: title ?? 'Arrival', minutesLeft: minutesLeft ?? 42),
+              const SizedBox(height: 24),
+              const Expanded(child: _AvatarSection()),
+              const _ControlPanel(),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -26,22 +30,29 @@ class WatchPartyScreen extends StatelessWidget {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar();
+  const _TopBar({required this.title, required this.minutesLeft});
+
+  final String title;
+  final int minutesLeft;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: const [
-        Text('Arrival',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            )),
+      children: [
+        Flexible(
+          child: Text(title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              )),
+        ),
         Text(
-          '0:42:16 remaining',
-          style: TextStyle(color: Colors.white54),
+          '${minutesLeft}m remaining',
+          style: const TextStyle(color: Colors.white54),
         ),
       ],
     );

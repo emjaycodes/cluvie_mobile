@@ -15,7 +15,14 @@ import 'package:shimmer/shimmer.dart';
 /// Shows ranked suggestions, vote counts, winner badge.
 class VoteSummaryScreen extends StatefulWidget {
   final String? communityId;
-  const VoteSummaryScreen({super.key, this.communityId});
+
+  /// Club name for the header; falls back to [communityId].
+  final String? clubName;
+
+  /// The poll as the opening screen showed it: {title, posterUrl, votes,
+  /// order}. Falls back to the built-in demo poll.
+  final List<Map<String, dynamic>>? options;
+  const VoteSummaryScreen({super.key, this.communityId, this.clubName, this.options});
   @override
   State<VoteSummaryScreen> createState() => _VoteSummaryScreenState();
 }
@@ -29,6 +36,25 @@ class _VoteSummaryScreenState extends State<VoteSummaryScreen> {
   @override
   void initState() {
     super.initState();
+    final given = widget.options;
+    if (given != null && given.isNotEmpty) {
+      final now = DateTime.now();
+      _suggestions = [
+        for (final o in given)
+          {
+            'id': '${o['order']}',
+            'title': o['title'],
+            'year': '',
+            'poster': o['posterUrl'],
+            'votes': o['votes'],
+            'voters': <String>[],
+            // Earlier suggestion = earlier createdAt, so ties resolve the same way.
+            'createdAt': now.subtract(Duration(hours: 48 - ((o['order'] as int?) ?? 0))),
+          },
+      ];
+      _sortAndResolve();
+      return;
+    }
     _suggestions = [
       {'id': '1', 'title': 'Past Lives', 'year': '2023', 'poster': 'https://image.tmdb.org/t/p/w200/kAellTx1ukNtc42BP1kcnHPCG5e.jpg', 'votes': 9, 'voters': ['u1', 'u2'], 'createdAt': DateTime.now().subtract(const Duration(hours: 20))},
       {'id': '2', 'title': 'Oppenheimer', 'year': '2023', 'poster': 'https://image.tmdb.org/t/p/w200/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg', 'votes': 7, 'voters': ['u3'], 'createdAt': DateTime.now().subtract(const Duration(hours: 18))},
@@ -125,7 +151,7 @@ class _VoteSummaryScreenState extends State<VoteSummaryScreen> {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(gradient: AppColors.cinematicGradient, borderRadius: BorderRadius.circular(14)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Weekly Pick — ${widget.communityId ?? 'Cinema Sundays'}', style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                Text('Weekly Pick — ${widget.clubName ?? widget.communityId ?? 'Cinema Sundays'}', style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
                 Text('Poll closes ${_expiresAt.toLocal().toString().split(' ').first} · Winner = highest votes, tie = earliest suggestion', style: AppTextStyles.caption.copyWith(color: Colors.white70)),
                 const SizedBox(height: 10),
