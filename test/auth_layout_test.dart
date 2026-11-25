@@ -1,28 +1,13 @@
-import 'dart:io';
-
 import 'package:cluvie_mobile/core/theme/app_theme.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/onboarding_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/welcome_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Review round 3 B1/B2 regressions, measured with the real bundled fonts
-/// (the default test font is wider and gives false results).
-Future<void> _loadFonts() async {
-  for (final (fam, files) in [
-    ('Sora', ['SemiBold', 'Bold', 'ExtraBold']),
-    ('PlusJakartaSans', ['Regular', 'Medium', 'SemiBold', 'Bold']),
-  ]) {
-    final loader = FontLoader(fam);
-    for (final f in files) {
-      loader.addFont(Future.value(ByteData.sublistView(File('assets/fonts/$fam-$f.ttf').readAsBytesSync())));
-    }
-    await loader.load();
-  }
-}
+import 'helpers/real_fonts.dart';
 
+/// Review round 3 B1/B2 regressions, measured with the real bundled fonts.
 final _heading = find.byWidgetPredicate(
   (w) => w is RichText && w.text.toPlainText().startsWith('Join the club.'),
 );
@@ -47,7 +32,7 @@ Future<void> _pump(WidgetTester t, Widget screen, Size size, double scale) async
 void main() {
   setUpAll(() async {
     ClPosterImage.debugDisableNetwork = true;
-    await _loadFonts();
+    await loadRealFonts();
   });
 
   for (final size in _sizes) {
