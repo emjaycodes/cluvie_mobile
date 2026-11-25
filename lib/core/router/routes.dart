@@ -17,7 +17,8 @@ import 'package:cluvie_mobile/features/clubs/presentation/community_list_screen.
 import 'package:cluvie_mobile/features/clubs/presentation/create_community_screen.dart';
 import 'package:cluvie_mobile/features/discover/presentation/discover_screen.dart';
 import 'package:cluvie_mobile/features/home/presentation/home_screen.dart';
-import 'package:cluvie_mobile/features/movies/presentation/disscusion_thread.dart';
+import 'package:cluvie_mobile/features/movies/presentation/club_discussions_screen.dart';
+import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_details_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/vote_summary_screen.dart';
 import 'package:cluvie_mobile/features/notifications/presentation/notifications_screen.dart';
@@ -147,16 +148,8 @@ final router = GoRouter(
       name: RouteNames.discussionThread,
       path: '/discussionThread',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        // Optional film context: {'title': String, 'posterUrl': String}.
-        final extra = state.extra is Map ? state.extra as Map : const {};
-        final title = extra['title'];
-        final poster = extra['posterUrl'];
-        if (title is String && poster is String) {
-          return DiscussionThreadScreen(title: title, posterUrl: poster);
-        }
-        return const DiscussionThreadScreen();
-      },
+      // Film context in `extra`: DiscussionThreadScreen.extraFor(...).
+      builder: (context, state) => DiscussionThreadScreen.fromExtra(state.extra),
     ),
     GoRoute(
       name: RouteNames.communityChat,
@@ -280,16 +273,11 @@ final router = GoRouter(
           path: 'vote',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            // Optional: {'club': String, 'closesInMinutes': int,
-            // 'options': [{id, title, posterUrl, votes, order}]}, the poll the
-            // user was looking at.
+            // Optional: {'club': String}, the club name for the title.
             final extra = state.extra is Map ? state.extra as Map : const {};
-            final options = extra['options'];
             return VoteSummaryScreen(
               communityId: id,
               clubName: extra['club'] is String ? extra['club'] as String : null,
-              options: options is List ? [for (final o in options) if (o is Map) Map<String, dynamic>.from(o)] : null,
-              closesIn: extra['closesInMinutes'] is int ? Duration(minutes: extra['closesInMinutes'] as int) : null,
             );
           },
         ),
@@ -298,7 +286,7 @@ final router = GoRouter(
           path: 'discussion',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            return DiscussionThreadScreen(communityId: id);
+            return ClubDiscussionsScreen(communityId: id);
           },
         ),
       ],

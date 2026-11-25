@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/core/utils/build_config.dart';
 
@@ -25,6 +27,22 @@ class AuthRepository {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     _apiClient.clearAuthToken();
+  }
+
+  /// The signed-in user's id, read from the saved token's payload (`{id}`), or
+  /// null when there's no readable token. Used after a cold start, when the
+  /// session is restored without fetching the user.
+  Future<String?> savedUserId() async {
+    final token = await _getToken();
+    final parts = token?.split('.');
+    if (parts == null || parts.length != 3) return null;
+    try {
+      final payload = jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+      final id = payload is Map ? payload['id'] : null;
+      return id is String && id.isNotEmpty ? id : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Restores a saved session (sets the auth header). True when a token exists.
