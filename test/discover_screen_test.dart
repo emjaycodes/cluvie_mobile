@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/models/community.dart';
+import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_theme.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
@@ -45,6 +46,7 @@ Widget _app(
   EdgeInsets padding = const EdgeInsets.only(top: 47, bottom: 34),
   FutureOr<List<Community>> Function()? all,
   FutureOr<List<Community>> Function()? joined,
+  int unread = 0,
 }) {
   final router = GoRouter(initialLocation: '/discover', routes: [
     ShellRoute(builder: (_, __, child) => ClBottomNavBar(child: child), routes: [
@@ -60,6 +62,7 @@ Widget _app(
     overrides: [
       apiClientProvider.overrideWithValue(api),
       homeFeedProvider.overrideWith((ref) async => demoHomeFeed),
+      unreadCountProvider.overrideWithValue(unread),
       allCommunitiesProvider.overrideWith(() => FakeAllCommunities(all ?? () => _clubs)),
       joinedCommunitiesProvider.overrideWith(() => FakeJoinedCommunities(joined ?? () => [_clubs.first])),
     ],
@@ -162,9 +165,34 @@ void main() {
       expect(find.textContaining(RegExp(r'^\d{4}$')), findsNothing);
     });
 
-    testWidgets('the bell shows the same unread count as Home', (t) async {
+    testWidgets('the bell follows the shared unread count, with no made-up badge', (t) async {
+      await _pump(t, _app(_api(), unread: 2));
+      expect(find.byTooltip('Notifications, 2 unread'), findsOneWidget);
       await _pump(t, _app(_api()));
-      expect(find.byTooltip('Notifications, 3 unread'), findsOneWidget);
+      expect(find.byTooltip('Notifications'), findsOneWidget, reason: 'badge without unread notifications');
+    });
+
+    testWidgets('a failed refresh keeps the films and says so', (t) async {
+      var fail = false;
+      final api = FakeApiClient(onGet: (path, _) {
+        if (fail) throw Exception('offline');
+        return path == '/tmdb/trending' ? {'results': _trending} : _popular;
+      });
+      await _pump(t, _app(api));
+      fail = true;
+      await t.fling(find.byType(CustomScrollView), const Offset(0, 500), 1500);
+      await t.pumpAndSettle();
+      expect(find.text('Aftersun'), findsOneWidget);
+      expect(find.textContaining("Couldn't refresh"), findsOneWidget);
+    });
+
+    testWidgets('the search field uses the input tokens: borderInput at rest, 2px focus ring', (t) async {
+      await _pump(t, _app(_api()));
+      final deco = t.widget<TextField>(find.byType(TextField)).decoration!;
+      expect((deco.enabledBorder! as OutlineInputBorder).borderSide.color, AppColors.borderInput);
+      final focused = (deco.focusedBorder! as OutlineInputBorder).borderSide;
+      expect(focused.color, AppColors.focusRing);
+      expect(focused.width, 2);
     });
   });
 
@@ -212,6 +240,26 @@ void main() {
       await t.tap(find.ancestor(of: find.text('Try again'), matching: find.byType(ClPressable)));
       await t.pumpAndSettle();
       expect(find.text('Retried Film'), findsOneWidget);
+    });
+
+    testWidgets('while a search retry is in flight the skeleton replaces the error', (t) async {
+      var calls = 0;
+      final hold = Completer<Object?>();
+      final api = _api(search: (q) {
+        calls++;
+        if (calls == 1) throw Exception('offline');
+        return hold.future;
+      });
+      await _pump(t, _app(api));
+      await _type(t, 'dune');
+      await t.tap(find.ancestor(of: find.text('Try again'), matching: find.byType(ClPressable)));
+      await t.pump();
+      await t.pump();
+      expect(find.text("Search didn't go through"), findsNothing);
+      expect(find.bySemanticsLabel('Loading films'), findsOneWidget);
+      hold.complete({'results': [_film(1, 'Dune')]});
+      await t.pumpAndSettle();
+      expect(find.text('Dune'), findsOneWidget);
     });
 
     testWidgets('clearing the search returns to browse', (t) async {
@@ -273,6 +321,30 @@ void main() {
           }
           expect(find.text('Night Owls'), findsOneWidget, reason: 'did not reach the end');
           expect(t.takeException(), isNull);
+        });
+
+        testWidgets('${size.width.toInt()}x${size.height.toInt()} @${scale}x: hint, no-results, search-error and feed-error states fit', (t) async {
+          final padding = EdgeInsets.only(top: size.height > 800 ? 47 : 20, bottom: 34);
+          Future<void> check() async {
+            expect(t.takeException(), isNull);
+            expectNoBrokenWords(t);
+            expectNotTruncated(t, ["Couldn't load Discover — tap to retry"]);
+          }
+
+          await _pump(t, _app(_api(search: (q) => q == 'boom' ? throw Exception('x') : {'results': []}), size: size, scale: scale, padding: padding), size: size);
+          // The hint is the field's only visible name: whole while empty.
+          expectNotTruncated(t, ['Search films']);
+          await _type(t, 'a');
+          await check();
+          await _type(t, 'zzzz');
+          await check();
+          await _type(t, 'boom');
+          await check();
+          // A fresh ProviderScope (same-position scopes keep their container).
+          await t.pumpWidget(const SizedBox());
+          await _pump(t, _app(_api(failFeed: true), size: size, scale: scale, padding: padding), size: size);
+          expect(find.text("Couldn't load Discover — tap to retry"), findsOneWidget);
+          await check();
         });
       }
     }

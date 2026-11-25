@@ -12,6 +12,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:cluvie_mobile/core/router/routes.dart' as app_routes;
+
 import 'helpers/design_checks.dart';
 import 'helpers/fakes.dart';
 import 'helpers/real_fonts.dart';
@@ -20,7 +22,12 @@ Map<String, Object?> _film(int id, String title) =>
     {'id': id, 'title': title, 'poster_path': '/p.jpg', 'release_date': '2023-01-01'};
 
 final _trending = [_film(11, 'Aftersun'), _film(12, 'Anatomy of a Fall'), _film(13, 'Perfect Days')];
-final _clubs = [fakeClub('c1', 'Cinema Sundays', members: 8), fakeClub('c2', 'Night Owls', members: 12)];
+const _longClub = 'The Extremely Long Named Midnight Cinema Appreciation Society of Lagos';
+final _clubs = [
+  fakeClub('c1', 'Cinema Sundays', members: 8),
+  fakeClub('c2', 'Night Owls', members: 12),
+  fakeClub('c3', _longClub, members: 40),
+];
 
 FakeApiClient _api({FutureOr<Object?> Function(String path, Map<String, dynamic>? data)? onPost, bool failSearch = false}) =>
     FakeApiClient(
@@ -42,13 +49,14 @@ Widget _app(
   Size size = const Size(390, 844),
   double scale = 1,
   EdgeInsets padding = const EdgeInsets.only(top: 47, bottom: 34),
+  EdgeInsets viewInsets = EdgeInsets.zero,
 }) {
   final router = GoRouter(initialLocation: initial, routes: [
     ShellRoute(builder: (_, __, child) => ClBottomNavBar(child: child), routes: [
       GoRoute(path: '/suggest', builder: (_, __) => const SuggestMovieScreen()),
       for (final p in ['/home', '/discover', '/profile', '/communities']) GoRoute(path: p, builder: (_, __) => Text('tab $p')),
     ]),
-    GoRoute(path: '/communities/:id', builder: (_, st) => Text('club ${st.pathParameters['id']}'), routes: [
+    GoRoute(path: '/communities/:id', builder: (_, st) => Scaffold(body: Text('club ${st.pathParameters['id']}')), routes: [
       GoRoute(path: 'suggest', builder: (_, st) => SuggestMovieScreen(communityId: st.pathParameters['id'])),
     ]),
   ]);
@@ -57,10 +65,16 @@ Widget _app(
       apiClientProvider.overrideWithValue(api),
       homeFeedProvider.overrideWith((ref) async => demoHomeFeed),
       joinedCommunitiesProvider.overrideWith(() => FakeJoinedCommunities(joined ?? () => _clubs)),
-      allCommunitiesProvider.overrideWith(() => FakeAllCommunities(() => _clubs)),
+      allCommunitiesProvider.overrideWith(() => FakeAllCommunities(() => [..._clubs, fakeClub('zz', 'Horror Hounds')])),
     ],
     child: MediaQuery(
-      data: MediaQueryData(size: size, textScaler: TextScaler.linear(scale), padding: padding, viewPadding: padding),
+      data: MediaQueryData(
+        size: size,
+        textScaler: TextScaler.linear(scale),
+        padding: padding,
+        viewPadding: padding,
+        viewInsets: viewInsets,
+      ),
       child: MaterialApp.router(theme: AppTheme.theme, routerConfig: router),
     ),
   );
@@ -157,6 +171,97 @@ void main() {
     expect(find.text('Suggested Aftersun to Cinema Sundays.'), findsOneWidget);
   });
 
+  testWidgets('the submit says what it does, starting with its visible text', (t) async {
+    final handle = t.ensureSemantics();
+    final api = _api(onPost: (_, __) => throw Exception('offline'));
+    await _pump(t, _app(api, joined: () => [_clubs.first]));
+    await _openSheet(t, 'Aftersun');
+    expect(find.bySemanticsLabel('Suggest Aftersun to Cinema Sundays'), findsOneWidget);
+    await _tapInSheet(t, find.text('Suggest'));
+    expect(find.text('Try again'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Try again: suggest Aftersun to Cinema Sundays'),
+      findsOneWidget,
+      reason: 'spoken label must start with the visible one',
+    );
+    expect(find.bySemanticsLabel('Suggest Aftersun to Cinema Sundays'), findsNothing);
+    handle.dispose();
+  });
+
+  testWidgets('club rows read as one choice (radio group)', (t) async {
+    final handle = t.ensureSemantics();
+    await _pump(t, _app(_api()));
+    await _openSheet(t, 'Aftersun');
+    await _tapInSheet(t, find.text('Night Owls'));
+    final picked = t.getSemantics(_pressable(find.text('Night Owls'))).getSemanticsData().flagsCollection;
+    final other = t.getSemantics(_pressable(find.text('Cinema Sundays'))).getSemanticsData().flagsCollection;
+    expect('${picked.isInMutuallyExclusiveGroup}', anyOf('true', contains('isTrue')));
+    expect('${picked.isChecked}', anyOf('true', contains('isTrue')));
+    expect('${other.isChecked}', anyOf('false', contains('isFalse')));
+    handle.dispose();
+  });
+
+  testWidgets('the sheet cannot be dismissed while sending, and the result is shown', (t) async {
+    final hold = Completer<Object?>();
+    await _pump(t, _app(_api(onPost: (_, __) => hold.future), joined: () => [_clubs.first]));
+    await _openSheet(t, 'Aftersun');
+    await t.tap(_pressable(find.text('Suggest')));
+    await t.pump();
+    await t.tapAt(const Offset(20, 20)); // the scrim
+    // The sending spinner never settles; pump past the dismiss animation.
+    await t.pump(const Duration(milliseconds: 600));
+    expect(find.byType(BottomSheet), findsOneWidget, reason: 'closed mid-send');
+    hold.complete({'ok': true});
+    await t.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('Suggested Aftersun to Cinema Sundays.'), findsOneWidget);
+  });
+
+  testWidgets('while a clubs retry is in flight the skeleton replaces the error', (t) async {
+    var calls = 0;
+    final hold = Completer<List<Community>>();
+    await _pump(t, _app(_api(), joined: () {
+      calls++;
+      if (calls == 1) throw Exception('offline');
+      return hold.future;
+    }));
+    await _openSheet(t, 'Aftersun');
+    await t.tap(_pressable(find.text('Try again')));
+    await t.pump();
+    await t.pump();
+    expect(find.text("Couldn't load your clubs"), findsNothing);
+    expect(find.bySemanticsLabel('Loading your clubs'), findsOneWidget);
+    hold.complete(_clubs);
+    await t.pumpAndSettle();
+    expect(find.text('Night Owls'), findsOneWidget);
+  });
+
+  testWidgets('with the keyboard up, the note field can be scrolled above it', (t) async {
+    for (final (size, scale) in const [(Size(320, 568), 2.0), (Size(375, 667), 1.3), (Size(390, 844), 1.0)]) {
+      // A phone keyboard takes about 40% of the screen.
+      final inset = (size.height * 0.4).roundToDouble();
+      await t.pumpWidget(const SizedBox());
+      await _pump(
+        t,
+        _app(
+          _api(),
+          size: size,
+          scale: scale,
+          padding: const EdgeInsets.only(top: 20),
+          viewInsets: EdgeInsets.only(bottom: inset),
+        ),
+        size: size,
+      );
+      await _openSheet(t, 'Aftersun');
+      final note = find.descendant(of: find.byType(BottomSheet), matching: find.byType(TextField));
+      await t.ensureVisible(note);
+      await t.pumpAndSettle();
+      final rect = t.getRect(note);
+      expect(rect.top, greaterThanOrEqualTo(0), reason: 'note above the screen at $size @$scale');
+      expect(rect.top + 24, lessThanOrEqualTo(size.height - inset), reason: 'note under the keyboard at $size @$scale');
+    }
+  });
+
   testWidgets('no clubs: the sheet sends the user to find one', (t) async {
     await _pump(t, _app(_api(), joined: () => []));
     await _openSheet(t, 'Aftersun');
@@ -208,6 +313,28 @@ void main() {
       expect(_submitFor('Perfect Days', 'Night Owls'), findsOneWidget, reason: 'club not preselected');
       await _tapInSheet(t, find.text('Suggest'));
       expect(api.calls.singleWhere((c) => c.method == 'POST').path, '/communities/c2/suggest');
+      expect(find.text('club c2'), findsOneWidget, reason: 'did not return to the club');
+      expect(find.text('Suggested Perfect Days to Night Owls.'), findsOneWidget);
+    });
+
+    testWidgets('a club the user is not in: says so and offers the club, not other clubs', (t) async {
+      final api = _api();
+      await _pump(t, _app(api, initial: '/communities/zz/suggest'));
+      await _openSheet(t, 'Aftersun');
+      expect(find.textContaining("You're not in Horror Hounds yet"), findsOneWidget);
+      expect(find.text('Night Owls'), findsNothing, reason: 'offered a different club');
+      await _tapInSheet(t, find.text('Open club'));
+      expect(find.text('club zz'), findsOneWidget);
+      expect(api.calls.where((c) => c.method == 'POST'), isEmpty);
+    });
+
+    testWidgets("the app's real route opens Suggest outside the shell", (t) async {
+      final route = app_routes.router.configuration.findMatch(Uri.parse('/communities/x/suggest'));
+      final leaf = route.matches.last;
+      expect(leaf, isA<RouteMatch>());
+      expect((leaf as RouteMatch).route.path, 'suggest');
+      // Not under the ShellRoute: no ShellRouteMatch on the way down.
+      expect(route.matches.whereType<ShellRouteMatch>(), isEmpty);
     });
   });
 
@@ -233,7 +360,7 @@ void main() {
           await _tapInSheet(t, find.text('Night Owls'));
           expect(t.takeException(), isNull);
           expectNoBrokenWords(t);
-          expectNotTruncated(t, ['Suggest', 'Cinema Sundays', 'Night Owls', 'Aftersun']);
+          expectNotTruncated(t, ['Suggest', 'Cinema Sundays', 'Night Owls', 'Aftersun', _longClub]);
           // The submit is reachable (the sheet scrolls at large text).
           await t.ensureVisible(_submit);
           await t.pumpAndSettle();

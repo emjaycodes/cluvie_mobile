@@ -17,19 +17,25 @@ import 'package:go_router/go_router.dart';
 /// user picked. [communityId] preselects a club (deep link from a club page).
 /// Resolves to the club the film was suggested to, or null if dismissed.
 /// Reusable from anywhere a film is shown (e.g. Movie Detail).
+///
+/// The sheet can't be dismissed while a suggestion is sending. If it is gone
+/// anyway when the request finishes, the outcome is reported from [context].
 Future<Community?> showSuggestSheet(BuildContext context, TmdbMovie movie, {String? communityId}) {
   return showClSheet<Community>(
     context,
     title: 'Suggest a film',
-    child: SuggestSheet(movie: movie, communityId: communityId),
+    child: SuggestSheet(movie: movie, communityId: communityId, reportTo: context),
   );
 }
 
 class SuggestSheet extends ConsumerStatefulWidget {
-  const SuggestSheet({super.key, required this.movie, this.communityId});
+  const SuggestSheet({super.key, required this.movie, this.communityId, this.reportTo});
 
   final TmdbMovie movie;
   final String? communityId;
+
+  /// Where to report the result if the sheet has closed before it arrives.
+  final BuildContext? reportTo;
 
   @override
   ConsumerState<SuggestSheet> createState() => _SuggestSheetState();
@@ -66,58 +72,104 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
       await ref
           .read(apiClientProvider)
           .post('/communities/${club.id}/suggest', data: {'tmdbId': widget.movie.id, 'note': _note.text.trim()});
-      if (mounted) Navigator.of(context).pop(club);
+      if (mounted) {
+        Navigator.of(context).pop(club);
+      } else {
+        _report('Suggested ${widget.movie.title} to ${club.name ?? 'your club'}.', ClSnackbarType.success);
+      }
     } catch (_) {
       if (mounted) {
         setState(() {
           _submitting = false;
           _failed = true;
         });
+      } else {
+        _report("Couldn't suggest ${widget.movie.title}. Try again.", ClSnackbarType.error);
       }
     }
+  }
+
+  void _report(String message, ClSnackbarType type) {
+    final ctx = widget.reportTo;
+    if (ctx != null && ctx.mounted) ClSnackbar.show(ctx, message: message, type: type);
   }
 
   @override
   Widget build(BuildContext context) {
     final clubs = ref.watch(joinedCommunitiesProvider);
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _FilmRow(movie: widget.movie),
-          const SizedBox(height: AppSpacing.xl),
-          Semantics(header: true, child: Text('Suggest to', style: AppTextStyles.h3)),
-          const SizedBox(height: AppSpacing.md),
-          ...clubs.when(
-            skipLoadingOnReload: true,
-            loading:
-                () => [
-                  Semantics(
-                    label: 'Loading your clubs',
-                    child: const ExcludeSemantics(
-                      child: Column(
-                        children: [
-                          ClSkeleton(height: 56, radius: AppRadius.lg),
-                          SizedBox(height: AppSpacing.sm),
-                          ClSkeleton(height: 56, radius: AppRadius.lg),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-            error:
-                (_, __) => [
-                  ClErrorState(
-                    compact: true,
-                    title: "Couldn't load your clubs",
-                    onRetry: () => ref.invalidate(joinedCommunitiesProvider),
-                  ),
-                ],
-            data: (list) => list.isEmpty ? [_noClubs(context)] : _form(list),
+    final List<Widget> body;
+    if (clubs.hasValue && !(clubs.isLoading && clubs.hasError)) {
+      final list = clubs.requireValue;
+      final linked = widget.communityId;
+      body =
+          list.isEmpty
+              ? [_noClubs(context)]
+              : linked != null && !list.any((c) => c.id == linked)
+              ? [_notMember(context, linked)]
+              : _form(list);
+    } else if (clubs.isLoading) {
+      // Also while a retry is in flight, so "Try again" visibly does something.
+      body = [
+        Semantics(
+          label: 'Loading your clubs',
+          liveRegion: true,
+          child: const ExcludeSemantics(
+            child: Column(
+              children: [
+                ClSkeleton(height: 56, radius: AppRadius.lg),
+                SizedBox(height: AppSpacing.sm),
+                ClSkeleton(height: 56, radius: AppRadius.lg),
+              ],
+            ),
           ),
-        ],
+        ),
+      ];
+    } else {
+      body = [
+        ClErrorState(
+          compact: true,
+          title: "Couldn't load your clubs",
+          onRetry: () => ref.invalidate(joinedCommunitiesProvider),
+        ),
+      ];
+    }
+    return PopScope(
+      // No closing mid-send: the result would be lost.
+      canPop: !_submitting,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _FilmRow(movie: widget.movie),
+            const SizedBox(height: AppSpacing.xl),
+            Semantics(header: true, child: Text('Suggest to', style: AppTextStyles.h3)),
+            const SizedBox(height: AppSpacing.md),
+            ...body,
+          ],
+        ),
       ),
+    );
+  }
+
+  /// Deep link to a club the user isn't in: say so, rather than quietly
+  /// offering their other clubs.
+  Widget _notMember(BuildContext context, String id) {
+    final name =
+        (ref.watch(allCommunitiesProvider).valueOrNull ?? const <Community>[])
+            .where((c) => c.id == id)
+            .map((c) => c.name)
+            .firstOrNull;
+    return ClEmptyState(
+      compact: true,
+      illustration: ClIllustration.clubs,
+      message: "You're not in ${name ?? 'this club'} yet. Join it to suggest films to its poll.",
+      actionLabel: 'Open club',
+      actionVariant: ClButtonVariant.secondary,
+      onAction: () {
+        Navigator.of(context).pop();
+        GoRouter.of(context).go('/communities/$id');
+      },
     );
   }
 
@@ -142,7 +194,7 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
       Semantics(
         // Announce the group so the rows read as one choice.
         container: true,
-        label: 'Clubs',
+        label: 'Choose a club',
         child: Column(
           children: [
             for (final c in clubs) ...[
@@ -189,7 +241,13 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
       // selected club is shown above). The spoken label says it all.
       ClButton(
         label: club == null ? 'Pick a club' : (_failed ? 'Try again' : 'Suggest'),
-        semanticLabel: club == null ? null : 'Suggest ${widget.movie.title} to $clubName',
+        // Starts with the visible text (WCAG 2.5.3), then says what it does.
+        semanticLabel:
+            club == null
+                ? null
+                : _failed
+                ? 'Try again: suggest ${widget.movie.title} to $clubName'
+                : 'Suggest ${widget.movie.title} to $clubName',
         variant: ClButtonVariant.primary,
         icon: AppIcons.send,
         isLoading: _submitting,
@@ -240,7 +298,8 @@ class _ClubOption extends StatelessWidget {
     final members = club.members.length;
     return ClPressable(
       onTap: onTap,
-      selected: selected,
+      checked: selected,
+      inMutuallyExclusiveGroup: true,
       borderRadius: AppRadius.lgAll,
       semanticLabel: '$name, $members member${members == 1 ? '' : 's'}',
       excludeChildSemantics: true,
@@ -254,13 +313,18 @@ class _ClubOption extends StatelessWidget {
         ),
         child: Row(
           children: [
-            ClAvatar(name: name, radius: 18),
-            const SizedBox(width: AppSpacing.md),
+            // At very large text the (decorative) avatar steps aside so long
+            // words in the club name keep the width.
+            if (MediaQuery.textScalerOf(context).scale(1) <= 1.6) ...[
+              ClAvatar(name: name, radius: 18),
+              const SizedBox(width: AppSpacing.md),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: AppTextStyles.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  // The club the user commits to: always shown in full.
+                  Text(name, style: AppTextStyles.title),
                   Text('$members member${members == 1 ? '' : 's'}', style: AppTextStyles.caption),
                 ],
               ),
@@ -270,9 +334,9 @@ class _ClubOption extends StatelessWidget {
             selected
                 ? const Icon(AppIcons.success, size: 24, color: AppColors.purpleText)
                 : Container(
-                  width: 22,
-                  height: 22,
-                  margin: const EdgeInsets.all(1),
+                  width: 20,
+                  height: 20,
+                  margin: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: AppColors.textSecondary, width: 1.5),

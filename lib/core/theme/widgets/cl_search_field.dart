@@ -83,17 +83,19 @@ class _ClSearchFieldState extends State<ClSearchField> {
         filled: true,
         fillColor: AppColors.surfaceRaised,
         contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+        // Theme input tokens on a pill: borderInput at rest (>= 3:1, WCAG
+        // 1.4.11) and the 2px focusRing when focused.
         border: const OutlineInputBorder(
           borderRadius: AppRadius.pillAll,
-          borderSide: BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.borderInput),
         ),
         enabledBorder: const OutlineInputBorder(
           borderRadius: AppRadius.pillAll,
-          borderSide: BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.borderInput),
         ),
         focusedBorder: const OutlineInputBorder(
           borderRadius: AppRadius.pillAll,
-          borderSide: BorderSide(color: AppColors.purpleText, width: 1.5),
+          borderSide: BorderSide(color: AppColors.focusRing, width: 2),
         ),
         prefixIcon: SizedBox(
           width: 48,

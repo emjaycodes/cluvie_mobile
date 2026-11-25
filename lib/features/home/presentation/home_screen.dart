@@ -42,7 +42,7 @@ class HomeScreen extends ConsumerWidget {
     final feed = async.valueOrNull;
     final pick = feed?.pick;
     final reduced = AppMotion.of(context).reduced;
-    final unread = feed?.unread ?? 0;
+    final unread = ref.watch(unreadCountProvider);
 
     final Widget body;
     if (feed != null) {

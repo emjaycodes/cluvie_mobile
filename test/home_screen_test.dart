@@ -52,7 +52,11 @@ Widget _app({
       GoRoute(path: p, builder: (_, st) => Scaffold(body: Text('at $p${_describe(st.extra)}'))),
   ]);
   return ProviderScope(
-    overrides: [homeFeedProvider.overrideWith((ref) async => (feed ?? () => demoHomeFeed)())],
+    overrides: [
+      homeFeedProvider.overrideWith((ref) async => (feed ?? () => demoHomeFeed)()),
+      // The app has no unread source yet (0); 3 exercises the badge.
+      unreadCountProvider.overrideWithValue(3),
+    ],
     child: MediaQuery(
       data: MediaQueryData(
         size: size,

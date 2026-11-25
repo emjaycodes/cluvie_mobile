@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -94,9 +96,15 @@ final discoverFeedProvider = FutureProvider<({List<TmdbMovie> trending, List<Tmd
 
 /// Search results per query. Keyed by query, so a slow response for an old
 /// query can never replace the results for the current one.
-final movieSearchProvider = FutureProvider.autoDispose.family<List<TmdbMovie>, String>(
-  (ref, query) => ref.read(tmdbRepositoryProvider).search(query),
-);
+final movieSearchProvider = FutureProvider.autoDispose.family<List<TmdbMovie>, String>((ref, query) async {
+  final results = await ref.read(tmdbRepositoryProvider).search(query);
+  // Keep results for 5 minutes after the last listener goes, so coming back
+  // to a tab doesn't search again.
+  final link = ref.keepAlive();
+  final timer = Timer(const Duration(minutes: 5), link.close);
+  ref.onDispose(timer.cancel);
+  return results;
+});
 
 /// Searches start at this many characters.
 const kMinSearchLength = 2;

@@ -61,6 +61,11 @@ class _SuggestMovieScreenState extends ConsumerState<SuggestMovieScreen> {
     final club = await showSuggestSheet(context, movie, communityId: widget.communityId);
     if (club == null || !mounted) return;
     ClSnackbar.show(context, message: 'Suggested ${movie.title} to ${club.name ?? 'your club'}.');
+    // From a club's page: done, go back to it. From the tab: ready for another.
+    if (widget.communityId != null && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
     _search.clear();
     _submitNow('');
   }
@@ -75,7 +80,14 @@ class _SuggestMovieScreenState extends ConsumerState<SuggestMovieScreen> {
         await ref.read(discoverFeedProvider.future);
       }
     } catch (_) {
-      // Shown by the error state.
+      // With earlier results on screen, say the refresh failed.
+      final cached =
+          _query.length >= kMinSearchLength
+              ? ref.read(movieSearchProvider(_query)).hasValue
+              : ref.read(discoverFeedProvider).hasValue;
+      if (mounted && cached) {
+        ClSnackbar.show(context, message: "Couldn't refresh. Showing earlier results.", type: ClSnackbarType.error);
+      }
     }
   }
 
@@ -133,7 +145,7 @@ class _SuggestMovieScreenState extends ConsumerState<SuggestMovieScreen> {
               sliver: SliverToBoxAdapter(
                 child: ClSearchField(
                   controller: _search,
-                  hintText: 'Search films to suggest',
+                  hintText: 'Search films',
                   busy: busy,
                   onChanged: _onChanged,
                   onSubmitted: _submitNow,
@@ -147,13 +159,17 @@ class _SuggestMovieScreenState extends ConsumerState<SuggestMovieScreen> {
                 sliver: SliverToBoxAdapter(
                   child: Semantics(
                     liveRegion: true,
-                    child: Text('Keep typing: search starts at $kMinSearchLength letters.', style: AppTextStyles.caption),
+                    child: Text(
+                      'Keep typing: search starts at $kMinSearchLength letters.',
+                      style: AppTextStyles.caption,
+                    ),
                   ),
                 ),
               ),
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
             ...(searching ? _results() : _trending()),
-            SliverToBoxAdapter(child: SizedBox(height: ClBottomNavBar.contentPadding(context))),
+            // Same clearance above the floating nav as Home.
+            SliverToBoxAdapter(child: SizedBox(height: ClBottomNavBar.contentPadding(context) + AppSpacing.xl)),
           ],
         ),
       ),
@@ -174,33 +190,38 @@ class _SuggestMovieScreenState extends ConsumerState<SuggestMovieScreen> {
     final results = ref.watch(movieSearchProvider(_query));
     return [
       _header("Results for '$_query'", subtitle: 'Tap a film to suggest it'),
-      ...results.when(
-        skipLoadingOnReload: true,
-        loading: () => [const SliverToBoxAdapter(child: MoviePosterGridSkeleton())],
-        error:
-            (_, __) => [
-              _card(
-                ClErrorState(
-                  compact: true,
-                  title: "Search didn't go through",
-                  onRetry: () => ref.invalidate(movieSearchProvider(_query)),
-                ),
-              ),
-            ],
-        data:
-            (movies) =>
-                movies.isEmpty
-                    ? [
-                      _card(
-                        ClEmptyState(
-                          compact: true,
-                          illustration: ClIllustration.search,
-                          message: "No results for '$_query' — try another title",
-                        ),
-                      ),
-                    ]
-                    : [MoviePosterGrid(movies: movies, onTap: _suggest)],
-      ),
+      // A retry after an error shows the skeleton (Riverpod keeps the old
+      // error while reloading), and a failed refresh keeps earlier results.
+      ...(results.isLoading && results.hasError && !results.hasValue
+          ? const <Widget>[SliverToBoxAdapter(child: MoviePosterGridSkeleton())]
+          : results.when(
+            skipLoadingOnReload: true,
+            skipError: true,
+            loading: () => [const SliverToBoxAdapter(child: MoviePosterGridSkeleton())],
+            error:
+                (_, __) => [
+                  _card(
+                    ClErrorState(
+                      compact: true,
+                      title: "Search didn't go through",
+                      onRetry: () => ref.invalidate(movieSearchProvider(_query)),
+                    ),
+                  ),
+                ],
+            data:
+                (movies) =>
+                    movies.isEmpty
+                        ? [
+                          _card(
+                            ClEmptyState(
+                              compact: true,
+                              illustration: ClIllustration.search,
+                              message: "No results for '$_query' — try another title",
+                            ),
+                          ),
+                        ]
+                        : [MoviePosterGrid(movies: movies, onTap: _suggest)],
+          )),
     ];
   }
 

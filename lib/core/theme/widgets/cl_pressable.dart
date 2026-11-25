@@ -24,6 +24,8 @@ class ClPressable extends StatefulWidget {
     this.selected,
     this.hitPadding,
     this.excludeChildSemantics = false,
+    this.checked,
+    this.inMutuallyExclusiveGroup = false,
   });
 
   final Widget child;
@@ -40,6 +42,12 @@ class ClPressable extends StatefulWidget {
 
   /// Use when [semanticLabel] fully describes the control.
   final bool excludeChildSemantics;
+
+  /// Radio and checkbox controls: the checked state, announced as such.
+  final bool? checked;
+
+  /// Radio controls: one of a set where only one can be checked.
+  final bool inMutuallyExclusiveGroup;
 
   @override
   State<ClPressable> createState() => _ClPressableState();
@@ -74,6 +82,8 @@ class _ClPressableState extends State<ClPressable> {
       button: widget.isButton,
       enabled: _enabled,
       selected: widget.selected,
+      checked: widget.checked,
+      inMutuallyExclusiveGroup: widget.inMutuallyExclusiveGroup,
       label: widget.semanticLabel,
       child: AnimatedScale(
         scale: _pressed ? AppMotion.pressScale : 1,

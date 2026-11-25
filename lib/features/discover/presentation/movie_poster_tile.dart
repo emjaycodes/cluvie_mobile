@@ -55,8 +55,8 @@ class MoviePosterTile extends StatelessWidget {
               top: AppSpacing.sm,
               right: AppSpacing.sm,
               child: Container(
-                width: 28,
-                height: 28,
+                width: 24,
+                height: 24,
                 decoration: const BoxDecoration(color: AppColors.purpleBadge, shape: BoxShape.circle),
                 child: const Icon(AppIcons.check, size: 16, color: AppColors.onPurpleBadge),
               ),

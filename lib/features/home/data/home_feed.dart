@@ -155,8 +155,10 @@ final homeFeedProvider = FutureProvider<HomeFeed>((ref) async {
 });
 
 /// Unread notification count for every bell in the app, so the tabs agree.
-/// Comes from the Home feed until notifications have their own endpoint.
-final unreadCountProvider = Provider<int>((ref) => ref.watch(homeFeedProvider).valueOrNull?.unread ?? 0);
+///
+/// There is no notifications endpoint yet, so this is 0: the bells show no
+/// badge rather than a made-up count. Wire it to the API when one exists.
+final unreadCountProvider = Provider<int>((ref) => 0);
 
 // ── Demo data ────────────────────────────────────────────────────────────────
 

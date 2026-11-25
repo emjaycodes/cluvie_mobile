@@ -66,9 +66,18 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         await ref.read(discoverFeedProvider.future);
       }
     } catch (_) {
-      // The screen shows the error state; nothing more to say here.
+      // With nothing cached the error state says it; with earlier results on
+      // screen, say the refresh failed rather than stopping silently.
+      if (mounted && _hasCached(query)) {
+        ClSnackbar.show(context, message: "Couldn't refresh. Showing earlier results.", type: ClSnackbarType.error);
+      }
     }
   }
+
+  bool _hasCached(String query) =>
+      query.length >= kMinSearchLength
+          ? ref.read(movieSearchProvider(query)).hasValue
+          : ref.read(discoverFeedProvider).hasValue;
 
   void _open(TmdbMovie m) => context.push('/movie/${m.id}');
 
@@ -128,13 +137,17 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 sliver: SliverToBoxAdapter(
                   child: Semantics(
                     liveRegion: true,
-                    child: Text('Keep typing: search starts at $kMinSearchLength letters.', style: AppTextStyles.caption),
+                    child: Text(
+                      'Keep typing: search starts at $kMinSearchLength letters.',
+                      style: AppTextStyles.caption,
+                    ),
                   ),
                 ),
               ),
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
             if (searching) ..._results(query) else ..._browse(),
-            SliverToBoxAdapter(child: SizedBox(height: ClBottomNavBar.contentPadding(context))),
+            // Same clearance above the floating nav as Home.
+            SliverToBoxAdapter(child: SizedBox(height: ClBottomNavBar.contentPadding(context) + AppSpacing.xl)),
           ],
         ),
       ),
@@ -151,43 +164,48 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
-      ...results.when(
-        skipLoadingOnReload: true,
-        loading: () => [const SliverToBoxAdapter(child: MoviePosterGridSkeleton())],
-        error:
-            (_, __) => [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: AppSpacing.screen,
-                  child: ClCard(
-                    child: ClErrorState(
-                      compact: true,
-                      title: "Search didn't go through",
-                      onRetry: () => ref.invalidate(movieSearchProvider(query)),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-        data:
-            (movies) =>
-                movies.isEmpty
-                    ? [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: AppSpacing.screen,
-                          child: ClCard(
-                            child: ClEmptyState(
-                              compact: true,
-                              illustration: ClIllustration.search,
-                              message: "No results for '$query' — try another title",
-                            ),
-                          ),
+      // A retry after an error shows the skeleton (Riverpod keeps the old
+      // error while reloading), and a failed refresh keeps earlier results.
+      ...(results.isLoading && results.hasError && !results.hasValue
+          ? const <Widget>[SliverToBoxAdapter(child: MoviePosterGridSkeleton())]
+          : results.when(
+            skipLoadingOnReload: true,
+            skipError: true,
+            loading: () => [const SliverToBoxAdapter(child: MoviePosterGridSkeleton())],
+            error:
+                (_, __) => [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: AppSpacing.screen,
+                      child: ClCard(
+                        child: ClErrorState(
+                          compact: true,
+                          title: "Search didn't go through",
+                          onRetry: () => ref.invalidate(movieSearchProvider(query)),
                         ),
                       ),
-                    ]
-                    : [MoviePosterGrid(movies: movies, onTap: _open)],
-      ),
+                    ),
+                  ),
+                ],
+            data:
+                (movies) =>
+                    movies.isEmpty
+                        ? [
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: AppSpacing.screen,
+                              child: ClCard(
+                                child: ClEmptyState(
+                                  compact: true,
+                                  illustration: ClIllustration.search,
+                                  message: "No results for '$query' — try another title",
+                                ),
+                              ),
+                            ),
+                          ),
+                        ]
+                        : [MoviePosterGrid(movies: movies, onTap: _open)],
+          )),
     ];
   }
 
@@ -223,7 +241,11 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           child: Padding(
             padding: AppSpacing.screen,
             child: ClCard(
-              child: ClEmptyState(compact: true, illustration: ClIllustration.search, message: 'Nothing to browse yet. Search for a film above.'),
+              child: ClEmptyState(
+                compact: true,
+                illustration: ClIllustration.search,
+                message: 'Nothing to browse yet. Search for a film above.',
+              ),
             ),
           ),
         ),
