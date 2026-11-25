@@ -17,6 +17,7 @@ export 'cl_poster_image.dart';
 export 'cl_pressable.dart';
 export 'cl_progress_ring.dart';
 export 'cl_section_header.dart';
+export 'cl_search_field.dart';
 export 'cl_snackbar.dart';
 export 'cl_status_widget.dart';
 export 'cl_tab_bar.dart';

@@ -154,6 +154,10 @@ final homeFeedProvider = FutureProvider<HomeFeed>((ref) async {
   return demoHomeFeed;
 });
 
+/// Unread notification count for every bell in the app, so the tabs agree.
+/// Comes from the Home feed until notifications have their own endpoint.
+final unreadCountProvider = Provider<int>((ref) => ref.watch(homeFeedProvider).valueOrNull?.unread ?? 0);
+
 // ── Demo data ────────────────────────────────────────────────────────────────
 
 const _tmdb = 'https://image.tmdb.org/t/p/w342';

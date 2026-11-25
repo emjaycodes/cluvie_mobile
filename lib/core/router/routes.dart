@@ -19,7 +19,6 @@ import 'package:cluvie_mobile/features/discover/presentation/discover_screen.dar
 import 'package:cluvie_mobile/features/home/presentation/home_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/disscusion_thread.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_details_screen.dart';
-import 'package:cluvie_mobile/features/movies/presentation/movie_search_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/vote_summary_screen.dart';
 import 'package:cluvie_mobile/features/notifications/presentation/notifications_screen.dart';
 import 'package:cluvie_mobile/features/suggest/presentation/suggestion_screen.dart';
@@ -129,14 +128,14 @@ final router = GoRouter(
     GoRoute(
       name: RouteNames.movieSearch,
       path: '/search',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const MovieSearchScreen(),
+      // Film search lives in Discover (debounced, via the backend's TMDB
+      // proxy). The old standalone screen is gone.
+      redirect: (context, state) => '/discover',
     ),
     GoRoute(
       name: 'movieSearchLegacy',
       path: '/MovieSearch',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const MovieSearchScreen(),
+      redirect: (context, state) => '/discover',
     ),
     GoRoute(
       name: RouteNames.createCommunity,
@@ -273,7 +272,7 @@ final router = GoRouter(
           path: 'suggest',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            return SuggestMovieDeepScreen(communityId: id);
+            return SuggestMovieScreen(communityId: id);
           },
         ),
         GoRoute(
@@ -329,24 +328,3 @@ class _MissingExtraScreen extends StatelessWidget {
   }
 }
 
-/// Stub for deep-linked suggest when opened via /communities/:id/suggest
-class SuggestMovieDeepScreen extends StatelessWidget {
-  final String communityId;
-  const SuggestMovieDeepScreen({super.key, required this.communityId});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Suggest Movie')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            ClEmptyState(message: 'Suggest to community $communityId — search TMDB above.'),
-            const SizedBox(height: 16),
-            const SuggestMovieScreen(),
-          ],
-        ),
-      ),
-    );
-  }
-}

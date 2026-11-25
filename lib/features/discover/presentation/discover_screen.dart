@@ -1,357 +1,406 @@
-// ignore_for_file: deprecated_member_use
 import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cluvie_mobile/core/api/api_client.dart';
-import 'package:cluvie_mobile/core/theme/app_color.dart';
-import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_empty_state.dart';
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
 
-/// Discover — CF-03
-/// Trending/popular via GET /api/tmdb proxy (cached).
-/// Features: pull-to-refresh, retry card ("Couldn't load Discover — tap to retry"),
-/// stale cache indicator, lazy posters with cached_network_image placeholder,
-/// debounced search (300ms) with empty state "No results for '…'".
-class DiscoverScreen extends StatefulWidget {
+import 'package:cluvie_mobile/core/models/community.dart';
+import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
+import 'package:cluvie_mobile/core/theme/app_spacing.dart';
+import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
+import 'package:cluvie_mobile/features/discover/presentation/movie_poster_tile.dart';
+import 'package:cluvie_mobile/features/home/data/home_feed.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+/// Discover (tab 1): search films, browse trending and popular, find clubs.
+///
+/// * Search is debounced ([kSearchDebounce]) and starts at
+///   [kMinSearchLength] characters; it shows searching, error-with-retry,
+///   "No results for '…' — try another title", and results.
+/// * Browse content comes from [discoverFeedProvider]; a failure shows one
+///   retry card. There is no demo fallback.
+/// * The search survives tab switches ([discoverQueryProvider]).
+///
+/// Gold budget: none. Discover has no single primary action.
+class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
+
   @override
-  State<DiscoverScreen> createState() => _DiscoverScreenState();
+  ConsumerState<DiscoverScreen> createState() => _DiscoverScreenState();
 }
 
-class _DiscoverScreenState extends State<DiscoverScreen> {
-  final _searchCtrl = TextEditingController();
+class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
+  late final _search = TextEditingController(text: ref.read(discoverQueryProvider));
   Timer? _debounce;
-  bool _isLoading = true;
-  bool _hasError = false;
-  bool _isStale = false;
-  String _query = '';
-  List<dynamic> _trending = [];
-  List<dynamic> _popular = [];
-  List<dynamic> _searchResults = [];
-
-  final ApiClient _api = ApiClient();
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-    _searchCtrl.addListener(_onSearchChanged);
-  }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    _searchCtrl.dispose();
+    _search.dispose();
     super.dispose();
   }
 
-  void _onSearchChanged() {
+  void _onChanged(String text) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      final q = _searchCtrl.text.trim();
-      if (q.length >= 2) {
-        _search(q);
+    _debounce = Timer(kSearchDebounce, () {
+      if (mounted) ref.read(discoverQueryProvider.notifier).state = text.trim();
+    });
+    // Rebuild for the "keep typing" hint.
+    setState(() {});
+  }
+
+  void _submitNow(String text) {
+    _debounce?.cancel();
+    ref.read(discoverQueryProvider.notifier).state = text.trim();
+  }
+
+  Future<void> _refresh(String query) async {
+    try {
+      if (query.length >= kMinSearchLength) {
+        ref.invalidate(movieSearchProvider(query));
+        await ref.read(movieSearchProvider(query).future);
       } else {
-        setState(() {
-          _query = '';
-          _searchResults = [];
-        });
-      }
-    });
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
-    try {
-      // Try backend proxy first; fallback to demo on failure
-      final trendingRes = await _api.get('/tmdb/trending').catchError((e) => throw e);
-      final popularRes = await _api.get('/tmdb/popular').catchError((e) => throw e);
-      final t = trendingRes.data is List ? trendingRes.data as List : (trendingRes.data['results'] ?? trendingRes.data['trending'] ?? []) as List;
-      final p = popularRes.data is List ? popularRes.data as List : (popularRes.data['results'] ?? popularRes.data['popular'] ?? []) as List;
-      if (mounted) {
-        setState(() {
-          _trending = t.isNotEmpty ? t : _demoMovies;
-          _popular = p.isNotEmpty ? p : _demoMovies.reversed.toList();
-          _isLoading = false;
-          _isStale = false;
-        });
+        ref.invalidate(discoverFeedProvider);
+        await ref.read(discoverFeedProvider.future);
       }
     } catch (_) {
-      // On failure show demo data but mark stale + retry affordance
-      if (mounted) {
-        setState(() {
-          _trending = _demoMovies;
-          _popular = _demoMovies.reversed.toList();
-          _isLoading = false;
-          _hasError = true;
-          _isStale = true;
-        });
-      }
+      // The screen shows the error state; nothing more to say here.
     }
   }
 
-  Future<void> _search(String q) async {
-    setState(() => _query = q);
-    try {
-      final res = await _api.get('/tmdb/search', params: {'query': q});
-      final results = res.data is List ? res.data as List : (res.data['results'] ?? []) as List;
-      if (mounted) setState(() => _searchResults = results);
-    } catch (_) {
-      if (mounted) setState(() => _searchResults = _demoMovies.where((m) => (m['title'] as String).toLowerCase().contains(q.toLowerCase())).toList());
-    }
-  }
+  void _open(TmdbMovie m) => context.push('/movie/${m.id}');
 
   @override
   Widget build(BuildContext context) {
+    final query = ref.watch(discoverQueryProvider);
+    final searching = query.length >= kMinSearchLength;
+    final typed = _search.text.trim();
+    final tooShort = typed.isNotEmpty && typed.length < kMinSearchLength;
+    final unread = ref.watch(unreadCountProvider);
+    final searchBusy = searching && ref.watch(movieSearchProvider(query)).isLoading;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Discover', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-        actions: [
-          IconButton(icon: const Icon(Icons.notifications_none_rounded), onPressed: () => context.push('/notifications')),
-        ],
-      ),
       body: RefreshIndicator(
-        color: AppColors.accent,
-        onRefresh: _load,
-        child: _isLoading
-            ? _shimmerGrid()
-            : CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Search with debounce
-                          TextField(
-                            controller: _searchCtrl,
-                            style: const TextStyle(color: Colors.white),
-                            decoration: InputDecoration(
-                              hintText: 'Search movies, clubs...',
-                              hintStyle: const TextStyle(color: Colors.white54),
-                              prefixIcon: const Icon(Icons.search, color: Colors.white54),
-                              suffixIcon: _query.isNotEmpty
-                                  ? IconButton(icon: const Icon(Icons.clear, color: Colors.white54), onPressed: () => _searchCtrl.clear())
-                                  : null,
-                              filled: true,
-                              fillColor: AppColors.darkSurface,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                            ),
-                          ),
-                          if (_isStale)
-                            Container(
-                              margin: const EdgeInsets.only(top: 10),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.warning.withOpacity(0.4))),
-                              child: Row(children: [
-                                const Icon(Icons.cloud_off, size: 14, color: AppColors.warning),
-                                const SizedBox(width: 8),
-                                Text('Using cached data — pull to refresh', style: AppTextStyles.caption.copyWith(color: AppColors.warning, fontWeight: FontWeight.w600)),
-                              ]),
-                            ),
-                          if (_hasError)
-                            GestureDetector(
-                              onTap: _load,
-                              child: Container(
-                                margin: const EdgeInsets.only(top: 10),
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(color: AppColors.error.withOpacity(0.12), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.error.withOpacity(0.4))),
-                                child: Row(children: [
-                                  const Icon(Icons.error_outline, color: AppColors.error),
-                                  const SizedBox(width: 10),
-                                  Expanded(child: Text("Couldn't load Discover — tap to retry", style: AppTextStyles.body.copyWith(color: AppColors.error, fontWeight: FontWeight.w600))),
-                                  const Icon(Icons.refresh, color: AppColors.error),
-                                ]),
-                              ),
-                            ),
-                          // Search results
-                          if (_query.isNotEmpty) ...[
-                            const SizedBox(height: 16),
-                            Text("Results for '$_query'", style: AppTextStyles.heading2.copyWith(color: Colors.white, fontSize: 16)),
-                            const SizedBox(height: 10),
-                            if (_searchResults.isEmpty)
-                              Container(
-                                padding: const EdgeInsets.all(24),
-                                decoration: BoxDecoration(color: AppColors.darkSurface, borderRadius: BorderRadius.circular(12)),
-                                child: ClEmptyState(message: "No results for '$_query' — try another title", icon: Icons.search_off_rounded),
-                              )
-                            else
-                              GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.68),
-                                itemCount: _searchResults.length,
-                                itemBuilder: (_, i) => _MoviePosterCard(movie: _searchResults[i]),
-                              ),
-                            const Divider(color: Colors.white12, height: 32),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (_query.isEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('Trending Now', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-                      ),
-                    ),
-                    SliverToBoxAdapter(child: const SizedBox(height: 10)),
-                    SliverToBoxAdapter(child: _HorizontalRow(movies: _trending)),
-                    SliverToBoxAdapter(child: const SizedBox(height: 18)),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('Popular', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-                      ),
-                    ),
-                    SliverToBoxAdapter(child: const SizedBox(height: 10)),
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      sliver: SliverGrid(
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.68),
-                        delegate: SliverChildBuilderDelegate((c, i) => _MoviePosterCard(movie: _popular[i % _popular.length]), childCount: 4),
-                      ),
-                    ),
-                    SliverToBoxAdapter(child: const SizedBox(height: 20)),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('Suggested Clubs', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-                      ),
-                    ),
-                    SliverToBoxAdapter(child: const SizedBox(height: 10)),
-                    SliverToBoxAdapter(child: const SuggestedClubsWidget()),
-                    const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                  ],
-                  // Clear the floating nav bar.
-                  SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom)),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _shimmerGrid() {
-    return GridView.builder(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.paddingOf(context).bottom),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.68),
-      itemCount: 6,
-      itemBuilder: (_, __) => Shimmer.fromColors(baseColor: Colors.grey.shade800, highlightColor: Colors.grey.shade700, child: Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)))),
-    );
-  }
-
-  static const _demoMovies = [
-    {'title': 'Dune: Part Two', 'poster_path': '/d5NXSklXo0qyIYkgV94XAgMIckC.jpg', 'release_date': '2024-02-27', 'vote_average': 8.2},
-    {'title': 'The Batman', 'poster_path': '/74xTEgt7R36Fpooo50r9T25onhq.jpg', 'release_date': '2022-03-01', 'vote_average': 7.7},
-    {'title': 'Everything Everywhere', 'poster_path': '/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg', 'release_date': '2022-03-11', 'vote_average': 7.8},
-    {'title': 'Blade Runner 2049', 'poster_path': '/aMpyrCizvSdc0UIMblJ1srVgAEF.jpg', 'release_date': '2017-10-04', 'vote_average': 8.0},
-  ];
-}
-
-class _MoviePosterCard extends StatelessWidget {
-  final dynamic movie;
-  const _MoviePosterCard({required this.movie});
-
-  String get _poster {
-    final path = movie['poster_path'] ?? movie['posterPath'] ?? movie['poster'] ?? '';
-    if (path.toString().startsWith('http')) return path;
-    if (path.toString().isEmpty) return 'https://image.tmdb.org/t/p/w500/d5NXSklXo0qyIYkgV94XAgMIckC.jpg';
-    return 'https://image.tmdb.org/t/p/w500$path';
-  }
-
-  String get _title => movie['title'] ?? 'Untitled';
-  String get _year {
-    final d = movie['release_date'] ?? movie['releaseDate'] ?? '';
-    if (d.toString().length >= 4) return d.toString().substring(0, 4);
-    return '';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push('/movie/${movie['id'] ?? '0'}'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: CachedNetworkImage(
-                imageUrl: _poster,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                placeholder: (c, u) => Shimmer.fromColors(baseColor: Colors.grey.shade800, highlightColor: Colors.grey.shade700, child: Container(color: Colors.white)),
-                errorWidget: (c, u, e) => Container(color: AppColors.darkSurface, child: const Icon(Icons.broken_image, color: Colors.white30)),
+        onRefresh: () => _refresh(query),
+        color: AppColors.purple,
+        backgroundColor: AppColors.surfaceRaised,
+        edgeOffset: MediaQuery.paddingOf(context).top + kToolbarHeight,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              automaticallyImplyLeading: false,
+              backgroundColor: AppColors.bg,
+              scrolledUnderElevation: 0,
+              titleSpacing: AppSpacing.gutter,
+              title: Semantics(header: true, child: Text('Discover', style: AppTextStyles.h2)),
+              actions: [
+                ClIconButton(
+                  icon: AppIcons.bell,
+                  tooltip: 'Notifications',
+                  badge: unread > 0,
+                  badgeLabel: '$unread unread',
+                  onPressed: () => context.push('/notifications'),
+                ),
+                const SizedBox(width: AppSpacing.md),
+              ],
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.sm, AppSpacing.gutter, 0),
+              sliver: SliverToBoxAdapter(
+                child: ClSearchField(
+                  controller: _search,
+                  hintText: 'Search films',
+                  busy: searchBusy,
+                  onChanged: _onChanged,
+                  onSubmitted: _submitNow,
+                  onCleared: () => _submitNow(''),
+                ),
               ),
             ),
+            if (tooShort)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.sm, AppSpacing.gutter, 0),
+                sliver: SliverToBoxAdapter(
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text('Keep typing: search starts at $kMinSearchLength letters.', style: AppTextStyles.caption),
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
+            if (searching) ..._results(query) else ..._browse(),
+            SliverToBoxAdapter(child: SizedBox(height: ClBottomNavBar.contentPadding(context))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _results(String query) {
+    final results = ref.watch(movieSearchProvider(query));
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: AppSpacing.screen,
+          child: Semantics(header: true, child: Text("Results for '$query'", style: AppTextStyles.h3)),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+      ...results.when(
+        skipLoadingOnReload: true,
+        loading: () => [const SliverToBoxAdapter(child: MoviePosterGridSkeleton())],
+        error:
+            (_, __) => [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: AppSpacing.screen,
+                  child: ClCard(
+                    child: ClErrorState(
+                      compact: true,
+                      title: "Search didn't go through",
+                      onRetry: () => ref.invalidate(movieSearchProvider(query)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+        data:
+            (movies) =>
+                movies.isEmpty
+                    ? [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: AppSpacing.screen,
+                          child: ClCard(
+                            child: ClEmptyState(
+                              compact: true,
+                              illustration: ClIllustration.search,
+                              message: "No results for '$query' — try another title",
+                            ),
+                          ),
+                        ),
+                      ),
+                    ]
+                    : [MoviePosterGrid(movies: movies, onTap: _open)],
+      ),
+    ];
+  }
+
+  List<Widget> _browse() {
+    final feed = ref.watch(discoverFeedProvider);
+    final data = feed.valueOrNull;
+    if (data == null && feed.hasError && !feed.isLoading) {
+      return [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: AppSpacing.screen,
+            child: _RetryCard(onRetry: () => ref.invalidate(discoverFeedProvider)),
           ),
-          const SizedBox(height: 6),
-          Text(_title, style: AppTextStyles.body.copyWith(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-          if (_year.isNotEmpty) Text(_year, style: AppTextStyles.caption.copyWith(color: AppColors.darkTextSecondary)),
-        ],
+        ),
+      ];
+    }
+    if (data == null) {
+      return const [SliverToBoxAdapter(child: _BrowseSkeleton())];
+    }
+    return [
+      if (data.trending.isNotEmpty) ...[
+        const SliverToBoxAdapter(child: _Header('Trending now', subtitle: 'What everyone is watching this week')),
+        SliverToBoxAdapter(child: _TrendingRow(movies: data.trending, onTap: _open)),
+        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.section)),
+      ],
+      if (data.popular.isNotEmpty) ...[
+        const SliverToBoxAdapter(child: _Header('Popular')),
+        MoviePosterGrid(movies: data.popular, onTap: _open),
+        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.section)),
+      ],
+      if (data.trending.isEmpty && data.popular.isEmpty)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: AppSpacing.screen,
+            child: ClCard(
+              child: ClEmptyState(compact: true, illustration: ClIllustration.search, message: 'Nothing to browse yet. Search for a film above.'),
+            ),
+          ),
+        ),
+      const SliverToBoxAdapter(child: SuggestedClubsWidget()),
+    ];
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header(this.title, {this.subtitle});
+
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+    child: ClSectionHeader(title: title, subtitle: subtitle, padding: AppSpacing.screen),
+  );
+}
+
+/// The one failure state for browse content. The whole card is the retry
+/// control, so the copy can say "tap to retry" honestly.
+class _RetryCard extends StatelessWidget {
+  const _RetryCard({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: ClCard(
+        onTap: onRetry,
+        child: Row(
+          children: [
+            const Icon(AppIcons.offline, size: 24, color: AppColors.error),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: Text("Couldn't load Discover — tap to retry", style: AppTextStyles.title)),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _HorizontalRow extends StatelessWidget {
-  final List<dynamic> movies;
-  const _HorizontalRow({required this.movies});
+class _TrendingRow extends StatelessWidget {
+  const _TrendingRow({required this.movies, required this.onTap});
+
+  final List<TmdbMovie> movies;
+  final void Function(TmdbMovie) onTap;
+
+  static const double _width = 132;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 220,
+      height: _width * 3 / 2 + MoviePosterTile.textHeight(context),
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
+        padding: AppSpacing.screen,
         itemCount: movies.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, i) => SizedBox(width: 140, child: _MoviePosterCard(movie: movies[i])),
+        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+        itemBuilder: (context, i) {
+          final m = movies[i];
+          return MoviePosterTile(movie: m, width: _width, onTap: m.id == null ? null : () => onTap(m));
+        },
       ),
     );
   }
 }
 
-class SuggestedClubsWidget extends StatelessWidget {
-  const SuggestedClubsWidget({super.key});
+class _BrowseSkeleton extends StatelessWidget {
+  const _BrowseSkeleton();
+
   @override
   Widget build(BuildContext context) {
-    final clubs = [
-      {'name': 'Chinatown Club', 'image': 'assets/images/group.jpg'},
-      {'name': 'A24 Lovers', 'image': 'assets/images/group.jpg'},
-      {'name': 'Drama Enthusiasts', 'image': 'assets/images/group.jpg'},
-    ];
+    return Semantics(
+      label: 'Loading films',
+      liveRegion: true,
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: AppSpacing.screen,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const ClSkeleton(height: 20, width: 150),
+              const SizedBox(height: AppSpacing.md),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < 4; i++) ...[
+                      const ClSkeleton(width: 132, height: 198, radius: AppRadius.md),
+                      const SizedBox(width: AppSpacing.md),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.section),
+              const ClSkeleton(height: 20, width: 100),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Clubs to join": real clubs the user isn't in yet, from the club API.
+/// Each card opens the club, where joining happens. Hidden while loading,
+/// on error, or when there's nothing to suggest, so it never shows fake clubs.
+class SuggestedClubsWidget extends ConsumerWidget {
+  const SuggestedClubsWidget({super.key, this.max = 3});
+
+  final int max;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final all = ref.watch(allCommunitiesProvider).valueOrNull;
+    final joined = ref.watch(joinedCommunitiesProvider).valueOrNull;
+    if (all == null || joined == null) return const SizedBox.shrink();
+    final mine = {for (final c in joined) c.id};
+    final clubs = all.where((c) => c.id != null && !mine.contains(c.id)).take(max).toList();
+    if (clubs.isEmpty) return const SizedBox.shrink();
     return Column(
-      children: clubs
-          .map((club) => Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                height: 110,
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), image: DecorationImage(image: AssetImage(club['image']!), fit: BoxFit.cover)),
-                child: Stack(children: [
-                  Container(decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), gradient: LinearGradient(colors: [Colors.black.withOpacity(0.55), Colors.transparent], begin: Alignment.bottomCenter, end: Alignment.topCenter))),
-                  Positioned(
-                    left: 16,
-                    bottom: 14,
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(club['name']!, style: AppTextStyles.heading2.copyWith(color: Colors.white, fontSize: 16)),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(20)),
-                        child: Text('Join Club', style: AppTextStyles.caption.copyWith(color: Colors.black, fontWeight: FontWeight.w700)),
-                      ),
-                    ]),
-                  ),
-                ]),
-              ))
-          .toList(),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _Header('Clubs to join', subtitle: 'Open a club to see what it watches'),
+        Padding(
+          padding: AppSpacing.screen,
+          child: Column(
+            children: [
+              for (final c in clubs) ...[
+                _ClubCard(club: c),
+                if (c != clubs.last) const SizedBox(height: AppSpacing.md),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ClubCard extends StatelessWidget {
+  const _ClubCard({required this.club});
+
+  final Community club;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = club.name ?? 'Club';
+    final members = club.members.length;
+    final description = club.description;
+    return ClCard(
+      onTap: () => context.push('/communities/${club.id}'),
+      child: Row(
+        children: [
+          ClAvatar(name: name, radius: 22),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: AppTextStyles.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text('$members member${members == 1 ? '' : 's'}', style: AppTextStyles.caption),
+                if (description != null && description.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(description, style: AppTextStyles.bodySm, maxLines: 2, overflow: TextOverflow.ellipsis),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

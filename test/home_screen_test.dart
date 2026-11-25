@@ -8,10 +8,10 @@ import 'package:cluvie_mobile/features/home/presentation/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'helpers/design_checks.dart';
 import 'helpers/real_fonts.dart';
 
 const _targets = [
@@ -114,55 +114,8 @@ Finder _inHero(Finder f) => find.descendant(of: find.byType(FlexibleSpaceBar), m
 /// The card wrapping [label].
 Finder _card(Finder label) => find.ancestor(of: label, matching: find.byType(ClCard)).first;
 
-bool _isGold(Color? c) => c != null && (c.toARGB32() == AppColors.gold.toARGB32() || c.toARGB32() == AppColors.goldDeep.toARGB32());
-
-bool _decorationIsGold(Decoration? d) {
-  if (d is! BoxDecoration) return false;
-  final g = d.gradient;
-  final border = d.border;
-  return _isGold(d.color) ||
-      (g != null && g.colors.any(_isGold)) ||
-      (border is Border && [border.top, border.bottom, border.left, border.right].any((s) => s.style != BorderStyle.none && _isGold(s.color)));
-}
-
-/// Every element painting gold that isn't an allowed owner: the hero CTA,
-/// the logo, the active nav tab and the focus ring.
-List<String> _goldViolations(WidgetTester t) {
-  final heroCta = _inHero(find.ancestor(of: find.text('RSVP'), matching: find.byType(ClButton)));
-  final allowed = <Element>{
-    ...heroCta.evaluate(),
-    ...find.byType(ClLogo).evaluate(),
-    // Only the floating nav itself (the active tab), not the whole shell:
-    // Home is a descendant of ClBottomNavBar.
-    ...find.byWidgetPredicate((w) => w.runtimeType.toString() == '_FloatingNav').evaluate(),
-  };
-  bool underAllowed(Element e) {
-    var ok = false;
-    e.visitAncestorElements((a) {
-      if (allowed.contains(a)) ok = true;
-      return !ok;
-    });
-    return ok || allowed.contains(e);
-  }
-
-  final out = <String>[];
-  for (final e in find.byWidgetPredicate((_) => true).evaluate()) {
-    final w = e.widget;
-    final gold = switch (w) {
-      Icon(:final color) => _isGold(color),
-      Text(:final style) => _isGold(style?.color),
-      RichText(:final text) => _isGold(text.style?.color),
-      DecoratedBox(:final decoration) => _decorationIsGold(decoration),
-      Container(:final decoration, :final color) => _isGold(color) || _decorationIsGold(decoration),
-      ColoredBox(:final color) => _isGold(color),
-      RefreshIndicator(:final color) => _isGold(color),
-      SvgPicture(:final colorFilter) => colorFilter != null && colorFilter.toString().contains('ffffd27d'),
-      _ => false,
-    };
-    if (gold && !underAllowed(e)) out.add(w.toStringShort());
-  }
-  return out;
-}
+List<String> _goldViolations(WidgetTester t) =>
+    goldViolations(t, allowed: [_inHero(find.ancestor(of: find.text('RSVP'), matching: find.byType(ClButton)))]);
 
 void main() {
   setUpAll(() async {
@@ -179,26 +132,6 @@ void main() {
       for (final e in find.text(label).evaluate()) {
         final p = e.findRenderObject()! as RenderParagraph;
         expect(p.didExceedMaxLines, isFalse, reason: '"$label" truncated');
-      }
-    }
-
-    // Any wrapping text whose single word is wider than its box has been
-    // broken mid-word ("Oppen/heimer"): a layout that's too narrow.
-    void expectNoBrokenWords(WidgetTester t) {
-      for (final e in find.byType(RichText).evaluate()) {
-        final p = e.renderObject;
-        if (p is! RenderParagraph || !p.hasSize || !p.softWrap || p.maxLines == 1) continue;
-        final style = p.text.style;
-        final plain = p.text.toPlainText();
-        for (final word in plain.split(RegExp(r'\s+')).where((w) => w.isNotEmpty)) {
-          final tp = TextPainter(
-            text: TextSpan(text: word, style: style),
-            textScaler: p.textScaler,
-            textDirection: TextDirection.ltr,
-          )..layout();
-          expect(tp.width, lessThanOrEqualTo(p.size.width + 0.5), reason: '"$word" is broken mid-word in "$plain"');
-          tp.dispose();
-        }
       }
     }
 
@@ -321,7 +254,7 @@ void main() {
       await t.pump();
       expect(find.byType(RefreshProgressIndicator), findsOneWidget);
       final spinner = t.widget<RefreshProgressIndicator>(find.byType(RefreshProgressIndicator));
-      expect(_isGold(spinner.valueColor?.value ?? spinner.color), isFalse, reason: 'spinner is gold');
+      expect(isGold(spinner.valueColor?.value ?? spinner.color), isFalse, reason: 'spinner is gold');
       expect(_goldViolations(t), isEmpty);
       await gesture.up();
       await t.pumpAndSettle();
