@@ -74,6 +74,10 @@ abstract final class AppColors {
     stops: [0.0, 0.35, 0.55, 1.0],
   );
 
+  /// Opacity of `bg` behind any text or control on a poster (tokens.md
+  /// `scrimSolid`). Worst case, white poster: textPrimary ≥ 12:1.
+  static const double scrimSolid = 0.9;
+
   /// Alias used in tokens.md "Gradients".
   static const LinearGradient posterScrim = scrimBottom;
 

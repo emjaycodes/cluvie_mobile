@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/theme/app_motion.dart';
@@ -11,8 +13,8 @@ import 'package:go_router/go_router.dart';
 /// parties → recent discussions.
 ///
 /// Gold budget (tokens.md): the hero's "Watch party" CTA is the only gold
-/// content owner. Poll leader, badges and "Join live" are purple; card CTAs
-/// are white (`inverse`).
+/// content owner. Poll leader, badges and the live ring are purple; card CTAs
+/// ("Join live", RSVP) are white (`inverse`). Pull-to-refresh is purple.
 ///
 /// Content is still demo data (no feed API yet); every control navigates to
 /// a real route. Empty states render from the data, not from a QA toggle.
@@ -36,12 +38,23 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final heroHeight = (size.height * 0.58).clamp(420.0, 540.0);
+    // The text block's cover is tied to its content (see _Hero), so a taller
+    // block would eat the poster. Grow the hero with text scale, and by one
+    // button row when the CTAs stack, but keep the next section peeking above
+    // the fold.
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final stacked = _HeroActions.stacks(context, size.width - AppSpacing.gutter * 2);
+    final heroHeight = math.min(
+      (size.height * 0.58).clamp(420.0, 540.0) + (scale - 1) * 300 + (stacked ? 56 : 0),
+      size.height - MediaQuery.paddingOf(context).top - 96,
+    );
     final reduced = AppMotion.of(context).reduced;
 
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: _refresh,
+        color: AppColors.purple,
+        backgroundColor: AppColors.surfaceRaised,
         edgeOffset: MediaQuery.paddingOf(context).top + kToolbarHeight,
         child: CustomScrollView(
           key: ValueKey(_generation),
@@ -221,55 +234,145 @@ class _Hero extends StatelessWidget {
 
   final _Pick pick;
 
+  /// Height of the fade between bare poster and the text panel.
+  static const double _fade = 48;
+
   @override
   Widget build(BuildContext context) {
+    final topCover = MediaQuery.paddingOf(context).top + kToolbarHeight;
     return Stack(
       fit: StackFit.expand,
       children: [
-        ClPosterImage(url: pick.posterUrl, radius: 0, scrim: ClScrim.both, semanticLabel: '${pick.title} poster'),
+        ClPosterImage(url: pick.posterUrl, radius: 0, scrim: ClScrim.bottom, semanticLabel: '${pick.title} poster'),
+        // Top scrim sized to the real inset (tokens.md `scrimTop`): solid at
+        // ≥ 0.85 under the status bar and toolbar, then fades out over 24dp,
+        // so the logo and bell stay legible on a white poster.
         Positioned(
-          left: AppSpacing.gutter,
-          right: AppSpacing.gutter,
-          bottom: AppSpacing.xl,
+          top: 0,
+          left: 0,
+          right: 0,
+          height: topCover + AppSpacing.lg,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppColors.bg.withValues(alpha: AppColors.scrimSolid),
+                    AppColors.bg.withValues(alpha: AppColors.scrimSolid),
+                    AppColors.bg.withValues(alpha: 0),
+                  ],
+                  stops: [0, topCover / (topCover + AppSpacing.lg), 1],
+                ),
+              ),
+            ),
+          ),
+        ),
+        // Text block. Its cover is tied to the content, not the screen: a
+        // `bg` panel at ≥ 0.85 behind every line, with a fade above it, so
+        // larger text sizes can never push a line onto bare poster.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [const ClBadge("This week's pick"), ClBadge(pick.meta, tone: ClBadgeTone.glass)],
+              IgnorePointer(
+                child: Container(
+                  height: _fade,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [AppColors.bg.withValues(alpha: 0), AppColors.bg.withValues(alpha: AppColors.scrimSolid)],
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: AppSpacing.md),
-              Text(pick.title, style: AppTextStyles.display, maxLines: 2, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: AppSpacing.sm),
-              Text(pick.when, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
-              const SizedBox(height: AppSpacing.lg),
-              Row(
-                children: [
-                  Expanded(
-                    child: ClButton(
-                      label: 'Watch party',
-                      icon: AppIcons.ticket,
-                      onPressed: () => context.push('/watch-parties'),
-                    ),
+              ColoredBox(
+                color: AppColors.bg.withValues(alpha: AppColors.scrimSolid),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, 0, AppSpacing.gutter, AppSpacing.xl),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: [const ClBadge("This week's pick"), ClBadge(pick.meta, tone: ClBadgeTone.glass)],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(pick.title, style: AppTextStyles.display, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(pick.when, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+                      const SizedBox(height: AppSpacing.lg),
+                      const _HeroActions(),
+                    ],
                   ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: ClButton(
-                      label: 'Discuss',
-                      icon: AppIcons.chat,
-                      variant: ClButtonVariant.secondary,
-                      onPressed: () => context.push('/discussionThread'),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
         ),
       ],
     );
+  }
+}
+
+/// "Watch party" (the screen's one gold CTA) and "Discuss". Side by side when
+/// the CTA label fits at half width; stacked, CTA first, when it doesn't
+/// (narrow phones, larger text).
+class _HeroActions extends StatelessWidget {
+  const _HeroActions();
+
+  static const _ctaLabel = 'Watch party';
+
+  /// Whether the CTA label would truncate at half of [width].
+  static bool stacks(BuildContext context, double width) {
+    final label = TextPainter(
+      text: TextSpan(text: _ctaLabel, style: AppTextStyles.button.copyWith(fontSize: 15)),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    // ClButton md: 24dp padding each side + 20dp icon + 8dp gap.
+    final needed = label.width + AppSpacing.xl * 2 + 20 + AppSpacing.sm;
+    label.dispose();
+    return needed > (width - AppSpacing.md) / 2;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cta = ClButton(
+      label: _ctaLabel,
+      icon: AppIcons.ticket,
+      variant: ClButtonVariant.primary,
+      onPressed: () => context.push('/watch-parties'),
+    );
+    final discuss = ClButton(
+      label: 'Discuss',
+      icon: AppIcons.chat,
+      variant: ClButtonVariant.secondary,
+      onPressed: () => context.push('/discussionThread'),
+    );
+    return LayoutBuilder(builder: (context, c) {
+      if (!stacks(context, c.maxWidth)) {
+        return Row(children: [
+          Expanded(child: cta),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(child: discuss),
+        ]);
+      }
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        cta,
+        const SizedBox(height: AppSpacing.sm),
+        discuss,
+      ]);
+    });
   }
 }
 
@@ -476,7 +579,7 @@ class _LiveCard extends StatelessWidget {
                 ClButton(
                   label: 'Join live',
                   icon: AppIcons.play,
-                  variant: ClButtonVariant.purple,
+                  variant: ClButtonVariant.inverse,
                   size: ClButtonSize.sm,
                   expand: false,
                   onPressed: () => context.push('/watchParty'),

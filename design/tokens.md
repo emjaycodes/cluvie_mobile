@@ -25,7 +25,8 @@ v1.1 applies review round 1 blocking fixes B1–B8 (see `design/review/round-1.m
 | `borderInput` | `#6A6380` | Resting input border — 3.05:1 on raised, 3.30:1 on surface (WCAG 1.4.11 ✓) |
 | `focusRing` | `#FFD27D`, 2px, 2px offset | All focusable controls — 13:1 |
 | `scrimBottom` | `bg` 0% @ 35% → 85% @ 55% → 96% @ 100% | Posters: any text block must start where alpha ≥ 0.85 (worst-case white poster → `textPrimary` 12.3, `textSecondary` 5.6) |
-| `scrimTop` | `bg` 70% → 0% over top 120dp | Behind status bar, logo, icon buttons on posters |
+| `scrimTop` | `bg` @ `scrimSolid` from 0 to `inset.top + toolbar`, then → 0% over 24dp. **Sized from the real top inset, never a fixed height** (round 4 B2). The fixed 120dp `AppColors.scrimTop` is only for posters with no status bar or toolbar over them. | Behind status bar, logo, icon buttons on posters |
+| `scrimSolid` | `bg` @ 90% | Content-tied panel behind a poster text block (with a 48dp fade above it), so the cover grows with text size (round 4 B1). Worst case, white poster: `textPrimary` ≥ 12:1. |
 
 ### Text
 | Token | Hex | On bg | On surface | On raised | Rule |
