@@ -11,7 +11,17 @@ import 'package:flutter/material.dart';
 /// pinned badge sorts first.
 class DiscussionThreadScreen extends StatefulWidget {
   final String? communityId;
-  const DiscussionThreadScreen({super.key, this.communityId});
+
+  /// The film this thread is about. Defaults to the existing demo thread.
+  final String title;
+  final String posterUrl;
+
+  const DiscussionThreadScreen({
+    super.key,
+    this.communityId,
+    this.title = 'Past Lives',
+    this.posterUrl = 'https://image.tmdb.org/t/p/w92/8FhKnPpql374qyyHAkZDld93IUw.jpg',
+  });
 
   @override
   State<DiscussionThreadScreen> createState() => _DiscussionThreadScreenState();
@@ -114,7 +124,8 @@ class _DiscussionThreadScreenState extends State<DiscussionThreadScreen> {
         'id': 'more_${_page}',
         'author': 'Alex Rivera',
         'avatar': 'https://randomuser.me/api/portraits/men/${20 + _page}.jpg',
-        'body': 'Page $_page — infinite scroll demo. Real app paginates newest-first via GET /api/comments?communityId=&page=$_page',
+        'body':
+            'Page $_page — infinite scroll demo. Real app paginates newest-first via GET /api/comments?communityId=&page=$_page',
         'time': '${_page + 1}h ago',
         'pinned': false,
         'reactions': {'👍': 1},
@@ -187,18 +198,27 @@ class _DiscussionThreadScreenState extends State<DiscussionThreadScreen> {
       appBar: AppBar(
         elevation: 0,
         leading: const BackButton(color: Colors.white),
-        title: Row(children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: CachedNetworkImage(imageUrl: 'https://image.tmdb.org/t/p/w92/8FhKnPpql374qyyHAkZDld93IUw.jpg', width: 28, height: 28, fit: BoxFit.cover),
-          ),
-          const SizedBox(width: 8),
-          Text('Past Lives', style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-          if (widget.communityId != null) ...[
-            const SizedBox(width: 6),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(6)), child: Text(widget.communityId!, style: AppTextStyles.caption.copyWith(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w800))),
+        title: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: CachedNetworkImage(imageUrl: widget.posterUrl, width: 28, height: 28, fit: BoxFit.cover),
+            ),
+            const SizedBox(width: 8),
+            Text(widget.title, style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+            if (widget.communityId != null) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(6)),
+                child: Text(
+                  widget.communityId!,
+                  style: AppTextStyles.caption.copyWith(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
           ],
-        ]),
+        ),
         actions: const [Icon(Icons.ios_share_outlined, color: Colors.white), SizedBox(width: 12)],
       ),
       body: Column(
@@ -207,132 +227,232 @@ class _DiscussionThreadScreenState extends State<DiscussionThreadScreen> {
             child: RefreshIndicator(
               color: AppColors.accent,
               onRefresh: _refresh,
-              child: _comments.isEmpty
-                  ? ListView(children: const [SizedBox(height: 60), ClEmptyState(message: 'Be the first to comment', icon: Icons.chat_bubble_outline_rounded)])
-                  : ListView.builder(
-                      controller: _scrollCtrl,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      itemCount: _comments.length + (_isLoadingMore ? 1 : 0),
-                      itemBuilder: (context, i) {
-                        if (i >= _comments.length) {
-                          return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent)));
-                        }
-                        final c = _comments[i];
-                        final isPinned = c['pinned'] as bool;
-                        final reactions = c['reactions'] as Map<String, int>;
-                        final mine = c['myReactions'] as List<String>;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: isPinned ? AppColors.accent.withOpacity(0.08) : const Color(0xFF1A122A),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: isPinned ? AppColors.accent.withOpacity(0.35) : Colors.white10),
-                          ),
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                (c['avatar'] as String).isNotEmpty
-                                    ? CircleAvatar(radius: 16, backgroundImage: CachedNetworkImageProvider(c['avatar']))
-                                    : const CircleAvatar(radius: 16, backgroundColor: Colors.grey, child: Icon(Icons.person, size: 14, color: Colors.white)),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    Row(children: [
-                                      Text(c['author'], style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-                                      if (isPinned) ...[
-                                        const SizedBox(width: 6),
-                                        Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(6)), child: Text('PINNED', style: AppTextStyles.caption.copyWith(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 9))),
-                                      ],
-                                      const Spacer(),
-                                      Text(c['time'], style: AppTextStyles.caption.copyWith(color: Colors.white54, fontSize: 11)),
-                                    ]),
-                                    const SizedBox(height: 4),
-                                    Text(c['body'], style: AppTextStyles.body.copyWith(color: Colors.white70, fontSize: 13)),
-                                  ]),
+              child:
+                  _comments.isEmpty
+                      ? ListView(
+                        children: const [
+                          SizedBox(height: 60),
+                          ClEmptyState(message: 'Be the first to comment', icon: Icons.chat_bubble_outline_rounded),
+                        ],
+                      )
+                      : ListView.builder(
+                        controller: _scrollCtrl,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        itemCount: _comments.length + (_isLoadingMore ? 1 : 0),
+                        itemBuilder: (context, i) {
+                          if (i >= _comments.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent)),
+                            );
+                          }
+                          final c = _comments[i];
+                          final isPinned = c['pinned'] as bool;
+                          final reactions = c['reactions'] as Map<String, int>;
+                          final mine = c['myReactions'] as List<String>;
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: isPinned ? AppColors.accent.withOpacity(0.08) : const Color(0xFF1A122A),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: isPinned ? AppColors.accent.withOpacity(0.35) : Colors.white10),
+                            ),
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    (c['avatar'] as String).isNotEmpty
+                                        ? CircleAvatar(
+                                          radius: 16,
+                                          backgroundImage: CachedNetworkImageProvider(c['avatar']),
+                                        )
+                                        : const CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: Colors.grey,
+                                          child: Icon(Icons.person, size: 14, color: Colors.white),
+                                        ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                c['author'],
+                                                style: AppTextStyles.body.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              if (isPinned) ...[
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.accent,
+                                                    borderRadius: BorderRadius.circular(6),
+                                                  ),
+                                                  child: Text(
+                                                    'PINNED',
+                                                    style: AppTextStyles.caption.copyWith(
+                                                      color: Colors.black,
+                                                      fontWeight: FontWeight.w900,
+                                                      fontSize: 9,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                              const Spacer(),
+                                              Text(
+                                                c['time'],
+                                                style: AppTextStyles.caption.copyWith(
+                                                  color: Colors.white54,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            c['body'],
+                                            style: AppTextStyles.body.copyWith(color: Colors.white70, fontSize: 13),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ]),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  ...reactions.entries.map((e) => GestureDetector(
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    ...reactions.entries.map(
+                                      (e) => GestureDetector(
                                         onTap: () => _toggleReaction(i, e.key),
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: mine.contains(e.key) ? AppColors.accent.withOpacity(0.18) : Colors.white10,
+                                            color:
+                                                mine.contains(e.key)
+                                                    ? AppColors.accent.withOpacity(0.18)
+                                                    : Colors.white10,
                                             borderRadius: BorderRadius.circular(20),
-                                            border: Border.all(color: mine.contains(e.key) ? AppColors.accent.withOpacity(0.5) : Colors.white12),
+                                            border: Border.all(
+                                              color:
+                                                  mine.contains(e.key)
+                                                      ? AppColors.accent.withOpacity(0.5)
+                                                      : Colors.white12,
+                                            ),
                                           ),
-                                          child: Text('${e.key} ${e.value}', style: AppTextStyles.caption.copyWith(color: mine.contains(e.key) ? AppColors.accent : Colors.white, fontWeight: FontWeight.w700, fontSize: 11)),
+                                          child: Text(
+                                            '${e.key} ${e.value}',
+                                            style: AppTextStyles.caption.copyWith(
+                                              color: mine.contains(e.key) ? AppColors.accent : Colors.white,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 11,
+                                            ),
+                                          ),
                                         ),
-                                      )),
-                                  // add reaction
-                                  ...['❤️', '👍', '😂', '😮'].where((em) => !reactions.containsKey(em)).take(2).map((em) => GestureDetector(
-                                        onTap: () => _toggleReaction(i, em),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white12)),
-                                          child: Text(em, style: const TextStyle(fontSize: 12)),
+                                      ),
+                                    ),
+                                    // add reaction
+                                    ...['❤️', '👍', '😂', '😮']
+                                        .where((em) => !reactions.containsKey(em))
+                                        .take(2)
+                                        .map(
+                                          (em) => GestureDetector(
+                                            onTap: () => _toggleReaction(i, em),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withOpacity(0.04),
+                                                borderRadius: BorderRadius.circular(20),
+                                                border: Border.all(color: Colors.white12),
+                                              ),
+                                              child: Text(em, style: const TextStyle(fontSize: 12)),
+                                            ),
+                                          ),
                                         ),
-                                      )),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
             ),
           ),
           // reaction bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             color: Colors.black.withOpacity(0.15),
-            child: Row(children: [
-              Text('Tap a reaction to toggle:', style: AppTextStyles.caption.copyWith(color: Colors.white38, fontSize: 11)),
-              const SizedBox(width: 8),
-              ...['❤️', '👍', '😂', '😮'].map((em) => Padding(
+            child: Row(
+              children: [
+                Text(
+                  'Tap a reaction to toggle:',
+                  style: AppTextStyles.caption.copyWith(color: Colors.white38, fontSize: 11),
+                ),
+                const SizedBox(width: 8),
+                ...['❤️', '👍', '😂', '😮'].map(
+                  (em) => Padding(
                     padding: const EdgeInsets.only(right: 6),
-                    child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)), child: Text(em, style: const TextStyle(fontSize: 14))),
-                  )),
-            ]),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
+                      child: Text(em, style: const TextStyle(fontSize: 14)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           // input
           Container(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            decoration: BoxDecoration(color: const Color(0xFF0E0C1E), border: Border(top: BorderSide(color: Colors.white10))),
-            child: Row(children: [
-              const Icon(Icons.emoji_emotions_outlined, color: Colors.white30, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _ctrl,
-                  style: const TextStyle(color: Colors.white),
-                  maxLength: 2000,
-                  minLines: 1,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: 'Share your thoughts... (1–2000 chars)',
-                    hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-                    filled: true,
-                    fillColor: const Color(0xFF1A122A),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                    counterText: '',
+            decoration: BoxDecoration(
+              color: const Color(0xFF0E0C1E),
+              border: Border(top: BorderSide(color: Colors.white10)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.emoji_emotions_outlined, color: Colors.white30, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _ctrl,
+                    style: const TextStyle(color: Colors.white),
+                    maxLength: 2000,
+                    minLines: 1,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: 'Share your thoughts... (1–2000 chars)',
+                      hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                      filled: true,
+                      fillColor: const Color(0xFF1A122A),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                      counterText: '',
+                    ),
+                    onSubmitted: (_) => _post(),
                   ),
-                  onSubmitted: (_) => _post(),
                 ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: _post,
-                child: Container(padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle), child: const Icon(Icons.send_rounded, color: Colors.black, size: 16)),
-              ),
-            ]),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _post,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+                    child: const Icon(Icons.send_rounded, color: Colors.black, size: 16),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

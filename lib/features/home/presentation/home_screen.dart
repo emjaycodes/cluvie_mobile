@@ -212,15 +212,20 @@ class _Section extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ClSectionHeader(
-            title: title,
-            subtitle: subtitle,
-            actionLabel: actionLabel,
-            onAction: onAction,
-            padding: AppSpacing.screen,
+          // Separate containers so the heading is never merged into a card's
+          // button node (round 4b, B4).
+          Semantics(
+            container: true,
+            child: ClSectionHeader(
+              title: title,
+              subtitle: subtitle,
+              actionLabel: actionLabel,
+              onAction: onAction,
+              padding: AppSpacing.screen,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
-          padChild ? Padding(padding: AppSpacing.screen, child: child) : child,
+          Semantics(container: true, child: padChild ? Padding(padding: AppSpacing.screen, child: child) : child),
         ],
       ),
     );
@@ -357,22 +362,20 @@ class _HeroActions extends StatelessWidget {
       label: 'Discuss',
       icon: AppIcons.chat,
       variant: ClButtonVariant.secondary,
-      onPressed: () => context.push('/discussionThread'),
+      onPressed:
+          () => context.push('/discussionThread', extra: {'title': _demoPick.title, 'posterUrl': _demoPick.posterUrl}),
     );
-    return LayoutBuilder(builder: (context, c) {
-      if (!stacks(context, c.maxWidth)) {
-        return Row(children: [
-          Expanded(child: cta),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(child: discuss),
-        ]);
-      }
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        cta,
-        const SizedBox(height: AppSpacing.sm),
-        discuss,
-      ]);
-    });
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (!stacks(context, c.maxWidth)) {
+          return Row(children: [Expanded(child: cta), const SizedBox(width: AppSpacing.md), Expanded(child: discuss)]);
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [cta, const SizedBox(height: AppSpacing.sm), discuss],
+        );
+      },
+    );
   }
 }
 
@@ -388,7 +391,6 @@ class _PollCard extends StatelessWidget {
     final ranked = poll.ranked;
     final total = poll.totalVotes;
     return ClCard(
-      onTap: () => context.push('/communities/${poll.communityId}/vote'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -404,9 +406,7 @@ class _PollCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
-              Expanded(
-                child: Text('$total votes · ${poll.voters} of ${poll.members} members', style: AppTextStyles.caption),
-              ),
+              Expanded(child: Text('$total of ${poll.members} members voted', style: AppTextStyles.caption)),
               ClButton(
                 label: 'Cast your vote',
                 variant: ClButtonVariant.inverse,
@@ -503,14 +503,29 @@ class _PollRow extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         // Wrap: the badge drops below on narrow phones / large text.
-                        Wrap(
-                          spacing: AppSpacing.sm,
-                          runSpacing: AppSpacing.xs,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            Text('${option.votes} votes', style: AppTextStyles.caption),
-                            if (leading) const ClBadge('Leading', icon: AppIcons.crown),
-                          ],
+                        // Inline text so it can wrap at large text sizes; a badge can't
+                        // shrink below its own width (round 4b, B6).
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(text: '${option.votes} votes'),
+                              if (leading) ...[
+                                const TextSpan(text: '  ·  '),
+                                const WidgetSpan(
+                                  alignment: PlaceholderAlignment.middle,
+                                  child: Icon(AppIcons.crown, size: 12, color: AppColors.purpleText),
+                                ),
+                                TextSpan(
+                                  text: ' Leading',
+                                  style: AppTextStyles.caption.copyWith(
+                                    color: AppColors.purpleText,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          style: AppTextStyles.caption,
                         ),
                       ],
                     ),
@@ -544,7 +559,6 @@ class _LiveCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClCard(
-      onTap: () => context.push('/watchParty'),
       child: Row(
         children: [
           ClProgressRing(
@@ -607,7 +621,6 @@ class _PartyCard extends StatelessWidget {
       child: ClCard(
         padding: EdgeInsets.zero,
         clip: true,
-        onTap: () => context.push('/watch-parties'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -694,7 +707,7 @@ class _DiscussionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = discussion;
     return ClCard(
-      onTap: () => context.push('/discussionThread'),
+      onTap: () => context.push('/discussionThread', extra: {'title': d.title, 'posterUrl': d.posterUrl}),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -766,14 +779,12 @@ class _Poll {
     required this.club,
     required this.closesIn,
     required this.options,
-    required this.voters,
     required this.members,
   });
   final String communityId;
   final String club;
   final String closesIn;
   final List<_PollOption> options;
-  final int voters;
   final int members;
 
   int get totalVotes => options.fold(0, (a, o) => a + o.votes);
@@ -830,7 +841,6 @@ const _demoPolls = [
     communityId: 'demo',
     club: 'A24 Lovers',
     closesIn: '2 days',
-    voters: 22,
     members: 31,
     // Posters limited to ones whose films are confirmed elsewhere in the app.
     options: [

@@ -50,41 +50,28 @@ final router = GoRouter(
     // ignore: unused_local_variable
     final loggedIn = false; // TODO(M3): replace with token check
     // ignore: unused_local_variable
-    final isAuthRoute = ['/splash', '/', '/welcome', '/login', '/signup', '/forgotPassword'].contains(state.matchedLocation);
+    final isAuthRoute = [
+      '/splash',
+      '/',
+      '/welcome',
+      '/login',
+      '/signup',
+      '/forgotPassword',
+    ].contains(state.matchedLocation);
     return null;
   },
   routes: [
-    GoRoute(
-      name: RouteNames.splash,
-      path: '/splash',
-      builder: (context, state) => const SplashScreen(),
-    ),
+    GoRoute(name: RouteNames.splash, path: '/splash', builder: (context, state) => const SplashScreen()),
     GoRoute(
       name: RouteNames.onboarding,
       path: '/onboarding-legacy',
       builder: (context, state) => const OnboardingScreen(),
     ),
     // Root is onboarding for first-install flow (splash -> onboarding -> welcome)
-    GoRoute(
-      name: 'onboardingRoot',
-      path: '/',
-      builder: (context, state) => const OnboardingScreen(),
-    ),
-    GoRoute(
-      name: RouteNames.welcome,
-      path: '/welcome',
-      builder: (context, state) => const WelcomeScreen(),
-    ),
-    GoRoute(
-      name: RouteNames.login,
-      path: '/login',
-      builder: (context, state) => const LoginScreen(),
-    ),
-    GoRoute(
-      name: RouteNames.signup,
-      path: '/signup',
-      builder: (context, state) => const SignupScreen(),
-    ),
+    GoRoute(name: 'onboardingRoot', path: '/', builder: (context, state) => const OnboardingScreen()),
+    GoRoute(name: RouteNames.welcome, path: '/welcome', builder: (context, state) => const WelcomeScreen()),
+    GoRoute(name: RouteNames.login, path: '/login', builder: (context, state) => const LoginScreen()),
+    GoRoute(name: RouteNames.signup, path: '/signup', builder: (context, state) => const SignupScreen()),
     GoRoute(
       name: RouteNames.forgotPassword,
       path: '/forgotPassword',
@@ -148,7 +135,16 @@ final router = GoRouter(
       name: RouteNames.discussionThread,
       path: '/discussionThread',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const DiscussionThreadScreen(),
+      builder: (context, state) {
+        // Optional film context: {'title': String, 'posterUrl': String}.
+        final extra = state.extra is Map ? state.extra as Map : const {};
+        final title = extra['title'];
+        final poster = extra['posterUrl'];
+        if (title is String && poster is String) {
+          return DiscussionThreadScreen(title: title, posterUrl: poster);
+        }
+        return const DiscussionThreadScreen();
+      },
     ),
     GoRoute(
       name: RouteNames.communityChat,

@@ -14,7 +14,13 @@ const _targets = ['/notifications', '/watch-parties', '/discussionThread', '/wat
 Widget _app({Size size = const Size(390, 844), double scale = 1, EdgeInsets padding = EdgeInsets.zero}) {
   final router = GoRouter(initialLocation: '/home', routes: [
     GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
-    for (final p in _targets) GoRoute(path: p, builder: (_, __) => Scaffold(body: Text('at $p'))),
+    for (final p in _targets)
+      GoRoute(
+        path: p,
+        builder: (_, st) => Scaffold(
+          body: Text(st.extra is Map ? 'at $p about ${(st.extra as Map)['title']}' : 'at $p'),
+        ),
+      ),
   ]);
   return MediaQuery(
     data: MediaQueryData(size: size, textScaler: TextScaler.linear(scale), padding: padding, viewPadding: padding),
@@ -132,7 +138,7 @@ void main() {
     testWidgets('ranked by votes with the leader marked; no premature WINNER', (t) async {
       await _pump(t);
       await _scrollTo(t, find.text('Cast your vote'));
-      expect(find.text('LEADING'), findsOneWidget); // ClBadge uppercases
+      expect(find.textContaining('Leading', findRichText: true), findsOneWidget);
       expect(find.textContaining('WINNER'), findsNothing);
       final top = t.getTopLeft(find.text('Everything Everywhere All at Once').first).dy;
       final second = t.getTopLeft(find.text('Oppenheimer').last).dy;
@@ -147,7 +153,7 @@ void main() {
       final target = find.ancestor(of: f.first, matching: find.byType(ClPressable)).evaluate().isEmpty ? f.first : _control(f.first);
       await t.tap(target);
       await t.pumpAndSettle();
-      expect(find.text('at $route'), findsOneWidget, reason: '$f → $route');
+      expect(find.textContaining('at $route'), findsOneWidget, reason: '$f → $route');
     }
 
     testWidgets('bell → notifications', (t) => tapAndExpect(t, find.byTooltip('Notifications, 3 unread'), '/notifications'));
@@ -157,5 +163,46 @@ void main() {
     testWidgets('Join live → live room', (t) => tapAndExpect(t, find.text('Join live'), '/watchParty'));
     testWidgets('RSVP → watch parties', (t) => tapAndExpect(t, find.text('RSVP'), '/watch-parties'));
     testWidgets('discussion card → thread', (t) => tapAndExpect(t, find.text('12 replies'), '/discussionThread'));
+  });
+
+  group('Round 4b fixes', () {
+    testWidgets('B4: section headings are their own semantics node, not merged into a button', (t) async {
+      final handle = t.ensureSemantics();
+      await _pump(t);
+      await _scrollTo(t, find.text('Active poll'));
+      final data = t.getSemantics(find.text('Active poll')).getSemanticsData();
+      expect(data.flagsCollection.isHeader, isTrue);
+      expect(data.flagsCollection.isButton, isFalse, reason: 'heading must not be announced as a button');
+      expect(data.label, isNot(contains('Everything Everywhere')), reason: 'heading must not absorb poll rows');
+      handle.dispose();
+    });
+
+    testWidgets('B5: poll footer count matches the votes shown', (t) async {
+      await _pump(t);
+      await _scrollTo(t, find.text('Cast your vote'));
+      expect(find.text('24 of 31 members voted'), findsOneWidget);
+    });
+
+    testWidgets('B6: no overflow at 320x568 with 2.0x text', (t) async {
+      await _pump(t, size: const Size(320, 568), scale: 2.0);
+      expect(t.takeException(), isNull);
+      await _scrollTo(t, find.text('Cast your vote'));
+      expect(t.takeException(), isNull);
+    });
+
+    testWidgets('B7: a discussion card opens the thread for its own film', (t) async {
+      await _pump(t);
+      await _scrollTo(t, find.text('5 replies'));
+      await t.tap(_control(find.text('5 replies')));
+      await t.pumpAndSettle();
+      expect(find.text('at /discussionThread about Mission: Impossible — Fallout'), findsOneWidget);
+    });
+
+    testWidgets('B7: hero Discuss opens the featured film', (t) async {
+      await _pump(t);
+      await t.tap(_control(find.text('Discuss')));
+      await t.pumpAndSettle();
+      expect(find.text('at /discussionThread about Past Lives'), findsOneWidget);
+    });
   });
 }
