@@ -5,7 +5,6 @@ import '../../../core/api/api_client.dart';
 import '../models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
 class AuthRepository {
   final ApiClient _apiClient = ApiClient();
 
@@ -38,44 +37,34 @@ class AuthRepository {
 
   Future<UserModel> login(String email, String password) async {
     try {
-      final response = await _apiClient.post('/auth/login', data: {
-      'email': email,
-      'password': password,
-    });
+      final response = await _apiClient.post('/auth/login', data: {'email': email, 'password': password});
 
-    final token = response.data['token'];
-    final userJson = response.data['user'];
-    
-    await _saveToken(token);
-     log(' Success: ${response.data}');
-    return UserModel.fromJson(userJson);
+      // Parse first: a malformed response must not leave a half-saved session.
+      final token = response.data['token'] as String;
+      final user = UserModel.fromJson(response.data['user']);
+      await _saveToken(token);
+      return user;
     } catch (e) {
       log('Error during login: $e');
       throw ApiException.fromDio(e);
     }
-
-    
   }
 
   Future<UserModel> register(String username, String email, String password) async {
     try {
-       final response = await _apiClient.post('/auth/register', data: {
-      'username': username,
-      'email': email,
-      'password': password,
-    });
+      final response = await _apiClient.post(
+        '/auth/register',
+        data: {'username': username, 'email': email, 'password': password},
+      );
 
-    final token = response.data['token'];
-    log('✅ Success: ${response.data}');
-    final userJson = response.data['user'];
-
-    await _saveToken(token);
-    return UserModel.fromJson(userJson);
+      final token = response.data['token'] as String;
+      final user = UserModel.fromJson(response.data['user']);
+      await _saveToken(token);
+      return user;
     } catch (e) {
       log('❌ Error during registration: $e');
       throw ApiException.fromDio(e);
     }
-   
   }
 
   Future<UserModel> getProfile() async {
@@ -92,4 +81,3 @@ class AuthRepository {
     await _clearToken();
   }
 }
-

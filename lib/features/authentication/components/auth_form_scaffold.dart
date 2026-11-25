@@ -33,6 +33,11 @@ class AuthFormScaffold extends StatelessWidget {
   }
 }
 
+/// No password-reset endpoint exists yet. Until it does, the "Forgot
+/// password?" link is hidden and the screen says so plainly instead of
+/// pretending an email was sent (review round 3, B4).
+const bool kPasswordResetAvailable = false;
+
 /// Simple email shape check (server is the source of truth).
 String? validateEmail(String? v) {
   final value = v?.trim() ?? '';

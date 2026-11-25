@@ -33,7 +33,10 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _route() async {
     // Let the reveal play; resolve the gate in parallel.
     final results = await Future.wait([
-      (widget.launchState ?? LaunchState()).resolve(),
+      (widget.launchState ?? LaunchState())
+          .resolve()
+          .timeout(const Duration(seconds: 5), onTimeout: () => LaunchDestination.welcome)
+          .catchError((_) => LaunchDestination.welcome),
       Future<void>.delayed(const Duration(milliseconds: 1100)),
     ]);
     if (!mounted) return;
@@ -68,11 +71,10 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       body: AuthBackdrop(
         child: Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            logo,
-            const SizedBox(height: AppSpacing.lg),
-            tagline,
-          ]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [logo, const SizedBox(height: AppSpacing.lg), tagline],
+          ),
         ),
       ),
     );

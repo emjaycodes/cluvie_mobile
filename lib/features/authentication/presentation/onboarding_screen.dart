@@ -58,71 +58,80 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Scaffold(
       body: AuthBackdrop(
         child: SafeArea(
-          child: Column(children: [
-            // Top bar: logo + Skip
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.sm, AppSpacing.sm, 0),
-              child: Row(children: [
-                const ClLogo(size: 24),
-                const Spacer(),
-                AnimatedOpacity(
-                  duration: AppMotion.of(context).quick,
-                  opacity: isLast ? 0 : 1,
-                  child: IgnorePointer(
-                    ignoring: isLast,
-                    child: TextButton(onPressed: _finish, child: const Text('Skip')),
-                  ),
-                ),
-              ]),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _controller,
-                onPageChanged: (i) => setState(() => _page = i),
-                children: [
-                  _OnboardingPage(
-                    index: 0,
-                    controller: _controller,
-                    visual: const _PosterFan(),
-                    line1: 'Movie night,',
-                    line2: 'decided together.',
-                    body: 'Suggest films, vote as a club and watch the winner together.',
-                  ),
-                  _OnboardingPage(
-                    index: 1,
-                    controller: _controller,
-                    visual: _GenrePicker(
-                      selected: _genres,
-                      onToggle: (g) => setState(() => _genres.contains(g) ? _genres.remove(g) : _genres.add(g)),
+          child: Column(
+            children: [
+              // Top bar: logo + Skip
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.sm, AppSpacing.sm, 0),
+                child: Row(
+                  children: [
+                    const ClLogo(size: 24),
+                    const Spacer(),
+                    AnimatedOpacity(
+                      duration: AppMotion.of(context).quick,
+                      opacity: isLast ? 0 : 1,
+                      child: IgnorePointer(
+                        ignoring: isLast,
+                        child: TextButton(onPressed: _finish, child: const Text('Skip')),
+                      ),
                     ),
-                    line1: 'What do you',
-                    line2: 'love watching?',
-                    body: 'Pick a few genres and we\'ll tune Discover for you. You can change this later.',
-                  ),
-                  _OnboardingPage(
-                    index: 2,
-                    controller: _controller,
-                    visual: const _PartyPreview(),
-                    line1: 'Watch parties,',
-                    line2: 'anywhere.',
-                    body: 'RSVP, count down together and keep the conversation going after the credits.',
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, AppSpacing.xl),
-              child: Column(children: [
-                _PageDots(count: _pageCount, current: _page),
-                const SizedBox(height: AppSpacing.xl),
-                ClButton(
-                  label: isLast ? 'Get started' : (_page == 1 && _genres.isNotEmpty ? 'Continue (${_genres.length})' : 'Next'),
-                  icon: isLast ? AppIcons.ticket : null,
-                  onPressed: _next,
+                  ],
                 ),
-              ]),
-            ),
-          ]),
+              ),
+              Expanded(
+                child: PageView(
+                  controller: _controller,
+                  onPageChanged: (i) => setState(() => _page = i),
+                  children: [
+                    _OnboardingPage(
+                      index: 0,
+                      controller: _controller,
+                      visual: const _PosterFan(),
+                      line1: 'Movie night,',
+                      line2: 'decided together.',
+                      body: 'Suggest films, vote as a club and watch the winner together.',
+                    ),
+                    _OnboardingPage(
+                      index: 1,
+                      controller: _controller,
+                      visual: _GenrePicker(
+                        selected: _genres,
+                        onToggle: (g) => setState(() => _genres.contains(g) ? _genres.remove(g) : _genres.add(g)),
+                      ),
+                      line1: 'What do you',
+                      line2: 'love watching?',
+                      body: 'Pick a few genres and we\'ll tune Discover for you. You can change this later.',
+                    ),
+                    _OnboardingPage(
+                      index: 2,
+                      controller: _controller,
+                      visual: const _PartyPreview(),
+                      line1: 'Watch parties,',
+                      line2: 'anywhere.',
+                      body: 'RSVP, count down together and keep the conversation going after the credits.',
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, AppSpacing.xl),
+                child: Column(
+                  children: [
+                    _PageDots(count: _pageCount, current: _page),
+                    const SizedBox(height: AppSpacing.xl),
+                    ClButton(
+                      label:
+                          isLast
+                              ? 'Get started'
+                              : (_page == 1 && _genres.isNotEmpty ? 'Continue (${_genres.length})' : 'Next'),
+                      icon: isLast ? AppIcons.ticket : null,
+                      onPressed: _next,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -151,22 +160,32 @@ class _OnboardingPage extends StatelessWidget {
     final reduced = AppMotion.of(context).reduced;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
-      child: Column(children: [
-        Expanded(
-          child: AnimatedBuilder(
-            animation: controller,
-            builder: (context, child) {
-              if (reduced || !controller.hasClients || !controller.position.haveDimensions) return child!;
-              // Parallax: the visual drifts slower than the page.
-              final delta = (controller.page ?? index.toDouble()) - index;
-              return Transform.translate(offset: Offset(delta * -60, 0), child: child);
-            },
-            child: Center(child: visual),
+      // Visual gets 3/5 and scales down to fit; the heading gets up to 2/5 and
+      // scrolls if cramped (320pt phones at 1.3x text — review round 3, B1).
+      child: Column(
+        children: [
+          Expanded(
+            flex: 3,
+            child: AnimatedBuilder(
+              animation: controller,
+              builder: (context, child) {
+                if (reduced || !controller.hasClients || !controller.position.haveDimensions) return child!;
+                // Parallax: the visual drifts slower than the page.
+                final delta = (controller.page ?? index.toDouble()) - index;
+                return Transform.translate(offset: Offset(delta * -60, 0), child: child);
+              },
+              child: Center(child: visual),
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.xl),
-        Align(alignment: Alignment.centerLeft, child: AuthHeading(line1: line1, line2: line2, body: body)),
-      ]),
+          const SizedBox(height: AppSpacing.lg),
+          Flexible(
+            flex: 2,
+            child: SingleChildScrollView(
+              child: Align(alignment: Alignment.centerLeft, child: AuthHeading(line1: line1, line2: line2, body: body)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -184,20 +203,23 @@ class _PageDots extends StatelessWidget {
     return Semantics(
       label: 'Page ${current + 1} of $count',
       excludeSemantics: true,
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        for (var i = 0; i < count; i++)
-          AnimatedContainer(
-            duration: motion.quick,
-            curve: AppMotion.emphasized,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: i == current ? 24 : 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: i == current ? AppColors.purpleText : AppColors.borderStrong,
-              borderRadius: AppRadius.pillAll,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var i = 0; i < count; i++)
+            AnimatedContainer(
+              duration: motion.quick,
+              curve: AppMotion.emphasized,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: i == current ? 24 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: i == current ? AppColors.purpleText : AppColors.borderStrong,
+                borderRadius: AppRadius.pillAll,
+              ),
             ),
-          ),
-      ]),
+        ],
+      ),
     );
   }
 }
@@ -225,51 +247,60 @@ class _PosterFan extends StatelessWidget {
   }
 
   Widget _fan() {
-    return LayoutBuilder(builder: (context, c) {
-      final h = math.min(c.maxHeight * 0.86, 340.0);
-      final w = h * 2 / 3;
-      Widget poster(int i, double angle, double dx, double scale) => Transform.translate(
-            offset: Offset(dx * w, 0),
-            child: Transform.rotate(
-              angle: angle,
-              child: Transform.scale(
-                scale: scale,
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(borderRadius: AppRadius.lgAll, boxShadow: AppShadows.float),
-                  child: ClPosterImage(url: _posters[i], width: w, height: h, radius: AppRadius.lg),
-                ),
+    return LayoutBuilder(
+      builder: (context, c) {
+        final h = math.min(c.maxHeight * 0.86, 340.0);
+        final w = h * 2 / 3;
+        Widget poster(int i, double angle, double dx, double scale) => Transform.translate(
+          offset: Offset(dx * w, 0),
+          child: Transform.rotate(
+            angle: angle,
+            child: Transform.scale(
+              scale: scale,
+              child: DecoratedBox(
+                decoration: const BoxDecoration(borderRadius: AppRadius.lgAll, boxShadow: AppShadows.float),
+                child: ClPosterImage(url: _posters[i], width: w, height: h, radius: AppRadius.lg),
               ),
             ),
-          );
-      return SizedBox(
-        width: c.maxWidth,
-        height: h + 40,
-        child: Stack(alignment: Alignment.center, clipBehavior: Clip.none, children: [
-          Container(
-            width: w * 2.2,
-            height: w * 2.2,
-            decoration: const BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGlow),
           ),
-          poster(0, -0.14, -0.55, 0.82),
-          poster(2, 0.14, 0.55, 0.82),
-          poster(1, 0, 0, 1),
-          Positioned(
-            bottom: 0,
-            child: ClGlass(
-              blur: false,
-              color: AppColors.surfaceRaised,
-              borderRadius: AppRadius.pillAll,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(AppIcons.crown, size: 16, color: AppColors.purpleText),
-                const SizedBox(width: 6),
-                Text('7 of 9 votes', style: AppTextStyles.label.copyWith(fontSize: 13)),
-              ]),
-            ),
+        );
+        return SizedBox(
+          width: c.maxWidth,
+          height: h + 40,
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: w * 2.2,
+                height: w * 2.2,
+                decoration: const BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGlow),
+              ),
+              poster(0, -0.14, -0.55, 0.82),
+              poster(2, 0.14, 0.55, 0.82),
+              poster(1, 0, 0, 1),
+              Positioned(
+                bottom: 0,
+                child: ClGlass(
+                  blur: false,
+                  color: AppColors.surfaceRaised,
+                  borderRadius: AppRadius.pillAll,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(AppIcons.crown, size: 16, color: AppColors.purpleText),
+                      const SizedBox(width: 6),
+                      Text('7 of 9 votes', style: AppTextStyles.label.copyWith(fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ]),
-      );
-    });
+        );
+      },
+    );
   }
 }
 
@@ -317,115 +348,96 @@ class _PartyPreview extends StatelessWidget {
       image: true,
       label: 'Example watch party card: Oppenheimer tonight at 8 PM, 9 people going',
       excludeSemantics: true,
-      child: IgnorePointer(child: _card()),
+      child: IgnorePointer(child: FittedBox(fit: BoxFit.scaleDown, child: SizedBox(width: 320, child: _card()))),
     );
   }
 
   Widget _card() {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 320),
-      child: Stack(alignment: Alignment.center, clipBehavior: Clip.none, children: [
-        Positioned.fill(
-          child: Transform.scale(
-            scale: 1.4,
-            child: const DecoratedBox(decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGlow)),
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: Transform.scale(
+              scale: 1.4,
+              child: const DecoratedBox(
+                decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGlow),
+              ),
+            ),
           ),
-        ),
-        ClCard(
-          padding: EdgeInsets.zero,
-          clip: true,
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(
-              height: 150,
-              width: double.infinity,
-              child: Stack(fit: StackFit.expand, children: [
-                ClPosterImage(url: _posters[1], radius: 0, scrim: ClScrim.bottom),
-                const Positioned(top: 12, left: 12, child: ClBadge('Tonight', tone: ClBadgeTone.purpleSolid)),
-                Positioned(
-                  left: 14,
-                  bottom: 10,
-                  right: 14,
-                  child: Text('Oppenheimer', style: AppTextStyles.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-              ]),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-              child: Row(children: [
-                const Icon(AppIcons.clock, size: 16, color: AppColors.textSecondary),
-                const SizedBox(width: 6),
-                Text('8:00 PM · Nolan Nerds', style: AppTextStyles.bodySm),
-              ]),
-            ),
-            const _TicketDivider(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-              child: Row(children: [
-                const Expanded(
-                  child: ClAvatarStack(
-                    people: [
-                      (name: 'Ada Obi', imageUrl: null),
-                      (name: 'Tunde Bello', imageUrl: null),
-                      (name: 'Mira Chen', imageUrl: null),
+          ClCard(
+            padding: EdgeInsets.zero,
+            clip: true,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 150,
+                  width: double.infinity,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ClPosterImage(url: _posters[1], radius: 0, scrim: ClScrim.bottom),
+                      const Positioned(top: 12, left: 12, child: ClBadge('Tonight', tone: ClBadgeTone.purpleSolid)),
+                      Positioned(
+                        left: 14,
+                        bottom: 10,
+                        right: 14,
+                        child: Text(
+                          'Oppenheimer',
+                          style: AppTextStyles.h2,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
-                    total: 9,
                   ),
                 ),
-                ClButton(
-                  label: 'RSVP',
-                  variant: ClButtonVariant.inverse,
-                  size: ClButtonSize.sm,
-                  expand: false,
-                  onPressed: _noop,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                  child: Row(
+                    children: [
+                      const Icon(AppIcons.clock, size: 16, color: AppColors.textSecondary),
+                      const SizedBox(width: 6),
+                      Text('8:00 PM · Nolan Nerds', style: AppTextStyles.bodySm),
+                    ],
+                  ),
                 ),
-              ]),
+                const ClTicketDivider(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: ClAvatarStack(
+                          people: [
+                            (name: 'Ada Obi', imageUrl: null),
+                            (name: 'Tunde Bello', imageUrl: null),
+                            (name: 'Mira Chen', imageUrl: null),
+                          ],
+                          total: 9,
+                        ),
+                      ),
+                      ClButton(
+                        label: 'RSVP',
+                        variant: ClButtonVariant.inverse,
+                        size: ClButtonSize.sm,
+                        expand: false,
+                        onPressed: _noop,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ]),
-        ),
-      ]),
+          ),
+        ],
+      ),
     );
   }
-}
-
-/// Dashed divider with ticket notches.
-class _TicketDivider extends StatelessWidget {
-  const _TicketDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 16,
-      child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-        Positioned.fill(child: CustomPaint(painter: _DashPainter())),
-        const Positioned(left: -8, child: _Notch()),
-        const Positioned(right: -8, child: _Notch()),
-      ]),
-    );
-  }
-}
-
-class _Notch extends StatelessWidget {
-  const _Notch();
-
-  @override
-  Widget build(BuildContext context) =>
-      Container(width: 16, height: 16, decoration: const BoxDecoration(color: AppColors.bg, shape: BoxShape.circle));
-}
-
-class _DashPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = AppColors.borderStrong
-      ..strokeWidth = 1;
-    final y = size.height / 2;
-    for (double x = 14; x < size.width - 14; x += 9) {
-      canvas.drawLine(Offset(x, y), Offset(x + 5, y), p);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashPainter old) => false;
 }
 
 // The preview card is wrapped in IgnorePointer; this only keeps the button

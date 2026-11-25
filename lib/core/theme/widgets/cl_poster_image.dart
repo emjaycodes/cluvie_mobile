@@ -32,10 +32,14 @@ class ClPosterImage extends StatelessWidget {
   final BoxFit fit;
   final String? semanticLabel;
 
+  /// Tests: render the fallback tile instead of touching the network/cache.
+  @visibleForTesting
+  static bool debugDisableNetwork = false;
+
   @override
   Widget build(BuildContext context) {
     final br = BorderRadius.circular(radius);
-    final hasUrl = url != null && url!.isNotEmpty;
+    final hasUrl = url != null && url!.isNotEmpty && !debugDisableNetwork;
 
     Widget image = hasUrl
         ? CachedNetworkImage(

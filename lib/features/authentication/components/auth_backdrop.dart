@@ -19,53 +19,38 @@ class AuthBackdrop extends StatelessWidget {
     final size = MediaQuery.sizeOf(context);
     return ColoredBox(
       color: AppColors.bg,
-      child: Stack(children: [
-        Positioned(
-          top: -size.width * 0.55,
-          left: -size.width * 0.35,
-          width: size.width * 1.5,
-          height: size.width * 1.5,
-          child: IgnorePointer(
-            child: Opacity(
-              opacity: intensity,
-              child: const DecoratedBox(
-                decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGlow),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          top: size.height * 0.1,
-          right: -size.width * 0.4,
-          width: size.width * 0.9,
-          height: size.width * 0.9,
-          child: IgnorePointer(
-            child: Opacity(
-              opacity: 0.5 * intensity,
-              child: const DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(colors: [Color(0x1FFFD27D), Color(0x00FFD27D)]),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -size.width * 0.55,
+            left: -size.width * 0.35,
+            width: size.width * 1.5,
+            height: size.width * 1.5,
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: intensity,
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGlow),
                 ),
               ),
             ),
           ),
-        ),
-        Positioned.fill(
-          child: IgnorePointer(
-            child: Opacity(
-              opacity: 0.35 * intensity,
-              child: SvgPicture.asset(
-                'assets/images/topography.svg',
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-                excludeFromSemantics: true,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: 0.35 * intensity,
+                child: SvgPicture.asset(
+                  'assets/images/topography.svg',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  excludeFromSemantics: true,
+                ),
               ),
             ),
           ),
-        ),
-        Positioned.fill(child: child),
-      ]),
+          Positioned.fill(child: child),
+        ],
+      ),
     );
   }
 }
@@ -92,17 +77,23 @@ class AuthHeading extends StatelessWidget {
           label: '$line1 $line2',
           excludeSemantics: true,
           child: Text.rich(
-            TextSpan(children: [
-              TextSpan(text: '$line1\n'),
-              TextSpan(text: line2, style: const TextStyle(color: AppColors.purpleText)),
-            ]),
+            TextSpan(
+              children: [
+                TextSpan(text: '$line1\n'),
+                TextSpan(text: line2, style: const TextStyle(color: AppColors.purpleText)),
+              ],
+            ),
             style: AppTextStyles.display.copyWith(fontSize: 34, height: 40 / 34),
             textAlign: align,
           ),
         ),
         if (body != null) ...[
           const SizedBox(height: AppSpacing.md),
-          Text(body!, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary, fontSize: 16), textAlign: align),
+          Text(
+            body!,
+            style: AppTextStyles.body.copyWith(color: AppColors.textSecondary, fontSize: 16),
+            textAlign: align,
+          ),
         ],
       ],
     );

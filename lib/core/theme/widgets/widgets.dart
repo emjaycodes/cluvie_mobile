@@ -21,3 +21,4 @@ export 'cl_snackbar.dart';
 export 'cl_status_widget.dart';
 export 'cl_tab_bar.dart';
 export 'cl_text_field.dart';
+export 'cl_ticket_divider.dart';

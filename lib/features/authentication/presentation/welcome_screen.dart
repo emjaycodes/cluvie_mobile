@@ -13,6 +13,9 @@ import 'package:go_router/go_router.dart';
 /// work (UX audit P0-4: no controls that do nothing).
 const bool kSocialAuthEnabled = false;
 
+/// 96% bg — solid enough that copy meets AA over any poster colour.
+const _panel = Color(0xF50A0812);
+
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
@@ -23,6 +26,13 @@ class WelcomeScreen extends StatelessWidget {
         child: Stack(
           children: [
             const Positioned.fill(child: _PosterWall()),
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 160,
+              child: IgnorePointer(child: DecoratedBox(decoration: BoxDecoration(gradient: AppColors.scrimTop))),
+            ),
             SafeArea(
               child: LayoutBuilder(
                 builder:
@@ -37,46 +47,73 @@ class WelcomeScreen extends StatelessWidget {
                               const SizedBox(height: AppSpacing.xl),
                               const Align(alignment: Alignment.centerLeft, child: ClLogo(size: 32)),
                               const Spacer(),
-                              const ClEntrance(
-                                child: AuthHeading(
-                                  line1: 'Join the club.',
-                                  line2: 'Pick the film together.',
-                                  body: 'Suggest what to watch, vote with friends and plan watch parties in one place.',
+                              // Text never sits on the poster wall: a fixed 56dp fade, then a
+                              // solid 96% bg panel under all copy at any text size (round 3, B2).
+                              const SizedBox(
+                                height: 56,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [Color(0x000A0812), _panel],
+                                    ),
+                                  ),
                                 ),
                               ),
-                              const SizedBox(height: AppSpacing.xxl),
-                              ClEntrance(
-                                index: 2,
-                                child: ClButton(
-                                  label: 'Continue with email',
-                                  icon: AppIcons.email,
-                                  onPressed: () => context.pushNamed(RouteNames.signup),
+                              ColoredBox(
+                                key: const ValueKey('welcome-panel'),
+                                color: _panel,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: AppSpacing.sm),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      const ClEntrance(
+                                        child: AuthHeading(
+                                          line1: 'Join the club.',
+                                          line2: 'Pick the film together.',
+                                          body:
+                                              'Suggest what to watch, vote with friends and plan watch parties in one place.',
+                                        ),
+                                      ),
+                                      const SizedBox(height: AppSpacing.xxl),
+                                      ClEntrance(
+                                        index: 2,
+                                        child: ClButton(
+                                          label: 'Continue with email',
+                                          icon: AppIcons.email,
+                                          onPressed: () => context.pushNamed(RouteNames.signup),
+                                        ),
+                                      ),
+                                      if (kSocialAuthEnabled) ...[
+                                        const SizedBox(height: AppSpacing.md),
+                                        _SocialButton(
+                                          label: 'Continue with Google',
+                                          asset: 'assets/icons/google.svg',
+                                          onPressed: () {},
+                                        ),
+                                        const SizedBox(height: AppSpacing.md),
+                                        _SocialButton(
+                                          label: 'Continue with Apple',
+                                          asset: 'assets/icons/apple.svg',
+                                          onPressed: () {},
+                                        ),
+                                      ],
+                                      const SizedBox(height: AppSpacing.lg),
+                                      ClEntrance(
+                                        index: 3,
+                                        child: AuthSwitchLink(
+                                          prompt: 'Already have an account?',
+                                          action: 'Log in',
+                                          onTap: () => context.pushNamed(RouteNames.login),
+                                        ),
+                                      ),
+                                      const SizedBox(height: AppSpacing.lg),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              if (kSocialAuthEnabled) ...[
-                                const SizedBox(height: AppSpacing.md),
-                                _SocialButton(
-                                  label: 'Continue with Google',
-                                  asset: 'assets/icons/google.svg',
-                                  onPressed: () {},
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                _SocialButton(
-                                  label: 'Continue with Apple',
-                                  asset: 'assets/icons/apple.svg',
-                                  onPressed: () {},
-                                ),
-                              ],
-                              const SizedBox(height: AppSpacing.lg),
-                              ClEntrance(
-                                index: 3,
-                                child: AuthSwitchLink(
-                                  prompt: 'Already have an account?',
-                                  action: 'Log in',
-                                  onTap: () => context.pushNamed(RouteNames.login),
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.lg),
                             ],
                           ),
                         ),

@@ -21,17 +21,9 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  bool _submitted = false;
   final _email = TextEditingController();
   final _password = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    // Don't show an error left over from another auth screen.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(authNotifierProvider.notifier).clearError();
-    });
-  }
 
   @override
   void dispose() {
@@ -41,8 +33,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    // S7: ignore repeat submits (keyboard Done + button) while in flight.
+    if (ref.read(authNotifierProvider).isLoading) return;
     FocusScope.of(context).unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _submitted = true);
     final ok = await ref.read(authNotifierProvider.notifier).login(_email.text.trim(), _password.text);
     if (!ok || !mounted) return;
     TextInput.finishAutofillContext();
@@ -53,60 +48,65 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authNotifierProvider);
-    return AuthFormScaffold(children: [
-      const ClEntrance(
-        child: AuthHeading(line1: 'Welcome back.', line2: 'Your club is waiting.'),
-      ),
-      const SizedBox(height: AppSpacing.xl),
-      if (auth.error != null && !auth.isLoading) ...[
-        ClStatusBanner(type: ClStatusType.error, message: auth.error!),
+    return AuthFormScaffold(
+      children: [
+        const ClEntrance(child: AuthHeading(line1: 'Welcome back.', line2: 'Your club is waiting.')),
+        const SizedBox(height: AppSpacing.xl),
+        if (_submitted && auth.error != null && !auth.isLoading) ...[
+          ClStatusBanner(type: ClStatusType.error, message: auth.error!),
+          const SizedBox(height: AppSpacing.lg),
+        ],
+        Form(
+          key: _formKey,
+          child: AutofillGroup(
+            child: Column(
+              children: [
+                ClTextField(
+                  label: 'Email',
+                  controller: _email,
+                  hintText: 'ada@example.com',
+                  prefixIcon: AppIcons.email,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
+                  validator: validateEmail,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                ClTextField(
+                  label: 'Password',
+                  controller: _password,
+                  hintText: 'Your password',
+                  prefixIcon: AppIcons.lock,
+                  isPassword: true,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.password],
+                  validator: validatePassword,
+                  onSubmitted: (_) => _submit(),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (kPasswordResetAvailable)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => context.pushNamed(RouteNames.forgotPassword),
+              style: TextButton.styleFrom(foregroundColor: AppColors.purpleText),
+              child: const Text('Forgot password?'),
+            ),
+          )
+        else
+          const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
+        ClButton(label: 'Log in', isLoading: auth.isLoading, onPressed: _submit),
         const SizedBox(height: AppSpacing.lg),
+        AuthSwitchLink(
+          prompt: 'New to Cluvie?',
+          action: 'Create an account',
+          onTap: () => context.pushReplacementNamed(RouteNames.signup),
+        ),
       ],
-      Form(
-        key: _formKey,
-        child: AutofillGroup(
-          child: Column(children: [
-            ClTextField(
-              label: 'Email',
-              controller: _email,
-              hintText: 'ada@example.com',
-              prefixIcon: AppIcons.email,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.email],
-              validator: validateEmail,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            ClTextField(
-              label: 'Password',
-              controller: _password,
-              hintText: 'Your password',
-              prefixIcon: AppIcons.lock,
-              isPassword: true,
-              textInputAction: TextInputAction.done,
-              autofillHints: const [AutofillHints.password],
-              validator: validatePassword,
-              onSubmitted: (_) => _submit(),
-            ),
-          ]),
-        ),
-      ),
-      Align(
-        alignment: Alignment.centerRight,
-        child: TextButton(
-          onPressed: () => context.pushNamed(RouteNames.forgotPassword),
-          style: TextButton.styleFrom(foregroundColor: AppColors.purpleText),
-          child: const Text('Forgot password?'),
-        ),
-      ),
-      const SizedBox(height: AppSpacing.md),
-      ClButton(label: 'Log in', isLoading: auth.isLoading, onPressed: _submit),
-      const SizedBox(height: AppSpacing.lg),
-      AuthSwitchLink(
-        prompt: 'New to Cluvie?',
-        action: 'Create an account',
-        onTap: () => context.pushReplacementNamed(RouteNames.signup),
-      ),
-    ]);
+    );
   }
 }
