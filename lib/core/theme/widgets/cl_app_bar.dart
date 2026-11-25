@@ -19,10 +19,16 @@ class ClAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.transparent = false,
     this.frosted = false,
     this.bottom,
+    this.fallbackRoute,
   });
 
   final String title;
   final bool showBackButton;
+
+  /// Where back goes when there's nothing to pop (a deep link). With it set,
+  /// the back button always shows; without it, only when there's a page to
+  /// pop.
+  final String? fallbackRoute;
   final List<Widget>? actions;
   final bool centerTitle;
   final bool transparent;
@@ -39,7 +45,7 @@ class ClAppBar extends StatelessWidget implements PreferredSizeWidget {
           : frosted
               ? AppColors.surfaceGlass
               : AppColors.bg,
-      leading: showBackButton && canPop ? const ClBackButton() : null,
+      leading: showBackButton && (canPop || fallbackRoute != null) ? ClBackButton(fallbackRoute: fallbackRoute) : null,
       title: Text(title, style: AppTextStyles.h3, overflow: TextOverflow.ellipsis),
       centerTitle: centerTitle,
       actions: actions == null ? null : [...actions!, const SizedBox(width: 8)],
@@ -61,9 +67,12 @@ class ClAppBar extends StatelessWidget implements PreferredSizeWidget {
 
 /// Circular glass back button (44 visual / 48 hit).
 class ClBackButton extends StatelessWidget {
-  const ClBackButton({super.key, this.onPressed});
+  const ClBackButton({super.key, this.onPressed, this.fallbackRoute});
 
   final VoidCallback? onPressed;
+
+  /// Where to go when there's nothing to pop (a deep link).
+  final String? fallbackRoute;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +85,8 @@ class ClBackButton extends StatelessWidget {
               final router = GoRouter.maybeOf(context);
               if (router != null && router.canPop()) {
                 router.pop();
+              } else if (router != null && fallbackRoute != null) {
+                router.go(fallbackRoute!);
               } else {
                 Navigator.maybePop(context);
               }

@@ -137,7 +137,12 @@ class _DiscussionThreadScreenState extends ConsumerState<DiscussionThreadScreen>
   Widget build(BuildContext context) {
     final movieId = widget.movieId;
     return Scaffold(
-      appBar: ClAppBar(title: _heading, frosted: true),
+      appBar: ClAppBar(
+        // The film's title is in the header below; the bar says what this is.
+        title: movieId == null ? _heading : 'Discussion',
+        frosted: true,
+        fallbackRoute: widget.tmdbId != null ? '/movie/${widget.tmdbId}' : '/home',
+      ),
       body: movieId == null ? _notOpen(context) : _thread(context, movieId),
     );
   }

@@ -61,7 +61,7 @@ class ClubDiscussionsScreen extends ConsumerWidget {
         );
 
     return Scaffold(
-      appBar: const ClAppBar(title: 'Discussions', frosted: true),
+      appBar: ClAppBar(title: 'Discussions', frosted: true, fallbackRoute: '/communities/$communityId'),
       body: films.when(
         skipLoadingOnRefresh: false,
         loading: () => Semantics(

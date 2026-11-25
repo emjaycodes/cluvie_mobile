@@ -110,6 +110,7 @@ Widget _app(
       return VoteSummaryScreen(communityId: st.pathParameters['id']!, clubName: x['club'] as String?);
     }),
     GoRoute(path: '/communities/:id/discussion', builder: (_, st) => ClubDiscussionsScreen(communityId: st.pathParameters['id']!)),
+    GoRoute(path: '/communities/:id', builder: (_, st) => Scaffold(body: Text('club ${st.pathParameters['id']}'))),
     GoRoute(path: '/communities/:id/suggest', builder: (_, st) => Scaffold(body: Text('suggest ${st.pathParameters['id']}'))),
   ]);
   return ProviderScope(
@@ -208,11 +209,11 @@ void main() {
       expect(find.text('A young man comes of age in Miami.'), findsOneWidget);
     });
 
-    testWidgets('the back button works on a deep link with no back stack', (t) async {
+    testWidgets('on a deep link with no back stack, back goes to Discover', (t) async {
       await _pump(t, _app(_detailApi(), initial: '/movie/376867'));
       await t.tap(find.byTooltip('Back'));
       await t.pumpAndSettle();
-      expect(t.takeException(), isNull);
+      expect(find.text('discover tab'), findsOneWidget);
     });
 
     testWidgets('a film no club has suggested says how to start its discussion', (t) async {
@@ -362,6 +363,13 @@ void main() {
       expect(t.widget<MovieDetailScreen>(find.byType(MovieDetailScreen)).movieId, '12');
     });
 
+    testWidgets('on a deep link, back goes to the club', (t) async {
+      await _pump(t, _app(pollsApi(), initial: '/communities/$_club/vote'));
+      await t.tap(find.byTooltip('Back'));
+      await t.pumpAndSettle();
+      expect(find.text('club $_club'), findsOneWidget);
+    });
+
     test('Poll.ranked: votes desc, ties to the lower index', () {
       final p = Poll.fromJson(_poll())!;
       expect([for (final o in p.ranked) o.title], ['Oppenheimer', 'Poor Things', 'Past Lives']);
@@ -485,6 +493,14 @@ void main() {
       expect(send.height, greaterThanOrEqualTo(48));
       final like = t.getSize(_pressable(find.bySemanticsLabel('Like, 1 like')));
       expect(like.height, greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('on a deep link, back goes to the film', (t) async {
+      await _pump(t, _app(threadApi(), initial: '/discussionThread', extra: extra()));
+      expect(find.text('Discussion'), findsOneWidget, reason: 'the bar names the screen; the header names the film');
+      await t.tap(find.byTooltip('Back'));
+      await t.pumpAndSettle();
+      expect(find.byType(MovieDetailScreen), findsOneWidget);
     });
 
     test('pinned first, then newest', () {

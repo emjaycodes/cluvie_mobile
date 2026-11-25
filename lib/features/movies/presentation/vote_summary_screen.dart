@@ -136,7 +136,7 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
         );
 
     return Scaffold(
-      appBar: ClAppBar(title: title, frosted: true),
+      appBar: ClAppBar(title: title, frosted: true, fallbackRoute: '/communities/${widget.communityId}'),
       body: polls.when(
         skipLoadingOnRefresh: false,
         loading: () => Semantics(

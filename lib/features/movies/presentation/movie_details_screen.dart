@@ -70,7 +70,7 @@ class _Loaded extends ConsumerWidget {
             backgroundColor: AppColors.bg,
             scrolledUnderElevation: 0,
             automaticallyImplyLeading: false,
-            leading: const ClBackButton(),
+            leading: const ClBackButton(fallbackRoute: '/discover'),
             // The title shows only once the hero has scrolled away.
             title: _CollapsedTitle(title: film.title, expandedHeight: heroHeight),
             flexibleSpace: FlexibleSpaceBar(
@@ -325,7 +325,7 @@ class _Loading extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     return Scaffold(
-      appBar: const ClAppBar(title: '', transparent: true),
+      appBar: const ClAppBar(title: '', transparent: true, fallbackRoute: '/discover'),
       extendBodyBehindAppBar: true,
       body: Semantics(
         label: 'Loading film',
@@ -364,7 +364,7 @@ class _Failed extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const ClAppBar(title: ''),
+      appBar: const ClAppBar(title: '', fallbackRoute: '/discover'),
       body: Center(
         child: SingleChildScrollView(
           padding: AppSpacing.screen,
@@ -381,7 +381,7 @@ class _NotFound extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const ClAppBar(title: ''),
+      appBar: const ClAppBar(title: '', fallbackRoute: '/discover'),
       body: Center(
         child: SingleChildScrollView(
           padding: AppSpacing.screen,
