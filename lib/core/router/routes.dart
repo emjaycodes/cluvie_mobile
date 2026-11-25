@@ -281,14 +281,16 @@ final router = GoRouter(
           path: 'vote',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            // Optional: {'club': String, 'options': [{title, posterUrl, votes, order}]},
-            // the poll the user was looking at.
+            // Optional: {'club': String, 'closesInMinutes': int,
+            // 'options': [{id, title, posterUrl, votes, order}]}, the poll the
+            // user was looking at.
             final extra = state.extra is Map ? state.extra as Map : const {};
             final options = extra['options'];
             return VoteSummaryScreen(
               communityId: id,
               clubName: extra['club'] is String ? extra['club'] as String : null,
               options: options is List ? [for (final o in options) if (o is Map) Map<String, dynamic>.from(o)] : null,
+              closesIn: extra['closesInMinutes'] is int ? Duration(minutes: extra['closesInMinutes'] as int) : null,
             );
           },
         ),

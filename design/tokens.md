@@ -149,7 +149,7 @@ Principles: (1) motion explains — something moves only because it came from / 
 ## Iconography
 - **Phosphor** (`phosphor_icons` fork, Flutter 3.43+ compatible). Regular at rest, **Fill** when active/selected. Duotone for empty-state glyphs. **Pin exact version** (`3.0.1`); all icons go through one `AppIcons` map so a swap to bundled SVGs is a one-file change if the fork goes stale.
 - Inactive nav tabs keep their label (small, `textSecondary`) — not icon-only.
-- Sizes: 20 (inline), 24 (nav/actions), 32 (feature), 56 (empty state).
+- Sizes: 16 (meta, beside `caption`/`bodySm` text), 20 (inline), 24 (nav/actions), 32 (feature), 56 (empty state).
 - Custom SVGs for brand-specific glyphs: popcorn, ticket, clapper, reel — same 1.5px stroke, round caps, 24 grid.
 
 ## Illustration

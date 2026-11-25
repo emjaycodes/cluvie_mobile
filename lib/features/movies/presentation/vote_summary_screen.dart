@@ -19,10 +19,13 @@ class VoteSummaryScreen extends StatefulWidget {
   /// Club name for the header; falls back to [communityId].
   final String? clubName;
 
-  /// The poll as the opening screen showed it: {title, posterUrl, votes,
+  /// The poll as the opening screen showed it: {id, title, posterUrl, votes,
   /// order}. Falls back to the built-in demo poll.
   final List<Map<String, dynamic>>? options;
-  const VoteSummaryScreen({super.key, this.communityId, this.clubName, this.options});
+
+  /// Time left as the opening screen showed it; defaults to 18 hours.
+  final Duration? closesIn;
+  const VoteSummaryScreen({super.key, this.communityId, this.clubName, this.options, this.closesIn});
   @override
   State<VoteSummaryScreen> createState() => _VoteSummaryScreenState();
 }
@@ -31,7 +34,8 @@ class _VoteSummaryScreenState extends State<VoteSummaryScreen> {
   final _api = ApiClient();
   late List<Map<String, dynamic>> _suggestions;
   String _status = 'open'; // open | closed | resolved
-  DateTime _expiresAt = DateTime.now().add(const Duration(hours: 18));
+  late final Duration _closesIn = widget.closesIn ?? const Duration(hours: 18);
+  late DateTime _expiresAt = DateTime.now().add(_closesIn);
 
   @override
   void initState() {
@@ -42,7 +46,7 @@ class _VoteSummaryScreenState extends State<VoteSummaryScreen> {
       _suggestions = [
         for (final o in given)
           {
-            'id': '${o['order']}',
+            'id': '${o['id'] ?? o['order']}',
             'title': o['title'],
             'year': '',
             'poster': o['posterUrl'],
@@ -142,7 +146,7 @@ class _VoteSummaryScreenState extends State<VoteSummaryScreen> {
         color: AppColors.accent,
         onRefresh: () async {
           await Future.delayed(const Duration(milliseconds: 600));
-          if (mounted) setState(() => _expiresAt = DateTime.now().add(const Duration(hours: 18)));
+          if (mounted) setState(() => _expiresAt = DateTime.now().add(_closesIn));
         },
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -218,7 +222,7 @@ class _VoteSummaryScreenState extends State<VoteSummaryScreen> {
                             child: Text('WINNER', style: AppTextStyles.caption.copyWith(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 9)),
                           ),
                       ]),
-                      Text('${s['year']} · ${s['votes']} votes', style: AppTextStyles.caption.copyWith(color: AppColors.darkTextSecondary)),
+                      Text('${(s['year'] as String).isEmpty ? '' : '${s['year']} · '}${s['votes']} votes', style: AppTextStyles.caption.copyWith(color: AppColors.darkTextSecondary)),
                       const SizedBox(height: 8),
                       Row(children: [
                         // voter avatars

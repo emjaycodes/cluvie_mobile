@@ -28,7 +28,9 @@ String _describe(Object? extra) {
   if (extra is! Map) return '';
   final focus = extra['focus'];
   if (focus is Map) return ' about ${focus['title']} (${focus['club']}, ${focus['when']})';
-  if (extra['club'] != null) return ' for ${extra['club']} (${(extra['options'] as List).length} options)';
+  if (extra['club'] != null) {
+    return ' for ${extra['club']} (${(extra['options'] as List).length} options, closes in ${extra['closesInMinutes']}m)';
+  }
   if (extra['minutesLeft'] != null) return ' about ${extra['title']} (${extra['minutesLeft']}m left)';
   return ' about ${extra['title']}';
 }
@@ -130,7 +132,9 @@ List<String> _goldViolations(WidgetTester t) {
   final allowed = <Element>{
     ...heroCta.evaluate(),
     ...find.byType(ClLogo).evaluate(),
-    ...find.byType(ClBottomNavBar).evaluate(),
+    // Only the floating nav itself (the active tab), not the whole shell:
+    // Home is a descendant of ClBottomNavBar.
+    ...find.byWidgetPredicate((w) => w.runtimeType.toString() == '_FloatingNav').evaluate(),
   };
   bool underAllowed(Element e) {
     var ok = false;
@@ -167,26 +171,64 @@ void main() {
   });
 
   group('Layout', () {
+    // Names that must never be cut: clubs, the short film titles, counts.
+    const names = ['Action Heads', 'Nolan Nerds', 'Cinema Sundays', 'Oppenheimer', 'Past Lives', '9 going', '14 going'];
+    const controls = ['Cast your vote', 'Join live', 'RSVP', 'Discuss', 'See all'];
+
+    void expectNotCut(WidgetTester t, String label) {
+      for (final e in find.text(label).evaluate()) {
+        final p = e.findRenderObject()! as RenderParagraph;
+        expect(p.didExceedMaxLines, isFalse, reason: '"$label" truncated');
+      }
+    }
+
+    // Any wrapping text whose single word is wider than its box has been
+    // broken mid-word ("Oppen/heimer"): a layout that's too narrow.
+    void expectNoBrokenWords(WidgetTester t) {
+      for (final e in find.byType(RichText).evaluate()) {
+        final p = e.renderObject;
+        if (p is! RenderParagraph || !p.hasSize || !p.softWrap || p.maxLines == 1) continue;
+        final style = p.text.style;
+        final plain = p.text.toPlainText();
+        for (final word in plain.split(RegExp(r'\s+')).where((w) => w.isNotEmpty)) {
+          final tp = TextPainter(
+            text: TextSpan(text: word, style: style),
+            textScaler: p.textScaler,
+            textDirection: TextDirection.ltr,
+          )..layout();
+          expect(tp.width, lessThanOrEqualTo(p.size.width + 0.5), reason: '"$word" is broken mid-word in "$plain"');
+          tp.dispose();
+        }
+      }
+    }
+
     for (final size in const [Size(320, 568), Size(375, 667), Size(390, 844)]) {
       for (final scale in const [1.0, 1.3, 2.0]) {
-        testWidgets('no overflow or truncated control top to bottom at ${size.width.toInt()}x${size.height.toInt()} @${scale}x', (t) async {
-          await _pump(t, size: size, scale: scale, padding: const EdgeInsets.only(top: 20, bottom: 34));
+        testWidgets('no overflow or cut text top to bottom at ${size.width.toInt()}x${size.height.toInt()} @${scale}x', (t) async {
+          final top = size.height > 800 ? 47.0 : 20.0;
+          await _pump(t, size: size, scale: scale, shell: true, padding: EdgeInsets.only(top: top, bottom: 34));
           expect(t.takeException(), isNull);
-          // Control labels and the poll footer never ellipsize.
-          for (final label in ['Cast your vote', 'Join live', 'RSVP', 'Discuss', 'See all']) {
+          for (final label in controls) {
             await _scrollTo(t, find.text(label));
-            for (final e in find.text(label).evaluate()) {
-              final p = e.findRenderObject()! as RenderParagraph;
-              expect(p.didExceedMaxLines, isFalse, reason: '"$label" truncated');
-            }
+            expectNotCut(t, label);
+            expectNoBrokenWords(t);
+          }
+          for (final n in names) {
+            expectNotCut(t, n);
           }
           // The party list scrolls sideways; every card must fit its height.
           await t.drag(find.byType(ListView).first, const Offset(-900, 0));
           await t.pumpAndSettle();
           expect(t.takeException(), isNull);
+          for (final n in names) {
+            expectNotCut(t, n);
+          }
           await t.drag(find.byType(Scrollable).first, const Offset(0, -4000));
           await t.pumpAndSettle();
           expect(t.takeException(), isNull);
+          for (final n in names) {
+            expectNotCut(t, n);
+          }
         });
       }
     }
@@ -206,7 +248,7 @@ void main() {
   group('Hero legibility', () {
     final panelColor = AppColors.bg.withValues(alpha: AppColors.scrimSolid);
     for (final size in const [Size(320, 568), Size(375, 667), Size(390, 844)]) {
-      for (final scale in const [1.0, 1.3]) {
+      for (final scale in const [1.0, 1.3, 2.0]) {
         for (final inset in const [20.0, 47.0]) {
           testWidgets('${size.width.toInt()}x${size.height.toInt()} @${scale}x, top inset $inset', (t) async {
             await _pump(t, size: size, scale: scale, padding: EdgeInsets.only(top: inset, bottom: 34));
@@ -219,8 +261,12 @@ void main() {
 
             // B1: every hero line sits on the solid panel.
             final panel = t.getRect(find.byWidgetPredicate((w) => w is ColoredBox && w.color == panelColor));
-            for (final f in [find.textContaining("WEEK'S PICK"), find.text('DRAMA · 2023'), find.text('Past Lives')]) {
-              expect(t.getRect(f.first).top, greaterThanOrEqualTo(panel.top), reason: '$f above the panel');
+            // Round 5 B1: and every line is below the toolbar, so nothing
+            // runs under the logo or off the screen.
+            for (final f in [find.textContaining("WEEK'S PICK"), find.text('DRAMA · 2023'), _inHero(find.text('Past Lives'))]) {
+              final r = t.getRect(f.first);
+              expect(r.top, greaterThanOrEqualTo(panel.top), reason: '$f above the panel');
+              expect(r.top, greaterThanOrEqualTo(inset + kToolbarHeight), reason: '$f under the toolbar');
             }
 
             // B2: the solid part of the top scrim covers the logo and the bell.
@@ -242,6 +288,24 @@ void main() {
   });
 
   group('Gold budget', () {
+    testWidgets('the scan flags gold outside the allowed owners (negative control)', (t) async {
+      await t.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Column(children: [
+                const Icon(Icons.star, color: AppColors.gold),
+                const Text('x', style: TextStyle(color: AppColors.gold)),
+                Container(decoration: BoxDecoration(border: Border.all(color: AppColors.goldDeep)), width: 10, height: 10),
+              ]),
+            ),
+          ),
+        ),
+      );
+      expect(_goldViolations(t), containsAll(['Icon', 'Text', 'Container']));
+    });
+
+
     testWidgets('nothing is gold except the hero CTA, logo, active tab and pull-to-refresh is purple', (t) async {
       await _pump(t, shell: true, padding: const EdgeInsets.only(top: 47, bottom: 34));
       expect(_inHero(find.ancestor(of: find.text('RSVP'), matching: find.byType(ClButton))), findsOneWidget);
@@ -299,7 +363,7 @@ void main() {
         (t) => tapAndExpect(t, _inHero(find.text('RSVP')), 'at /watch-parties about Past Lives (Cinema Sundays, Sun 8:00 PM)'));
     testWidgets('hero Discuss → the pick\'s thread', (t) => tapAndExpect(t, _inHero(find.text('Discuss')), 'at /discussionThread about Past Lives'));
     testWidgets('Cast your vote → the same poll',
-        (t) => tapAndExpect(t, find.text('Cast your vote'), 'at /communities/friday-film-club/vote for Friday Film Club (3 options)'));
+        (t) => tapAndExpect(t, find.text('Cast your vote'), 'at /communities/friday-film-club/vote for Friday Film Club (3 options, closes in 2880m)'));
     testWidgets('Join live → that party\'s room',
         (t) => tapAndExpect(t, find.text('Join live'), 'at /watchParty about Mission: Impossible — Fallout (41m left)'));
     testWidgets('party RSVP → that party',
@@ -345,6 +409,24 @@ void main() {
       await t.tap(_control(find.text('Try again')));
       await t.pumpAndSettle();
       expect(calls, 2);
+      expect(find.text('Active poll'), findsOneWidget);
+    });
+
+    testWidgets('while a retry is in flight the skeleton replaces the error', (t) async {
+      var calls = 0;
+      final retry = Completer<HomeFeed>();
+      await _pump(t, feed: () {
+        calls++;
+        if (calls == 1) throw Exception('offline');
+        return retry.future;
+      });
+      await t.tap(_control(find.text('Try again')));
+      await t.pump();
+      await t.pump();
+      expect(find.text("Couldn't load your feed"), findsNothing);
+      expect(find.bySemanticsLabel('Loading your feed'), findsOneWidget);
+      retry.complete(demoHomeFeed);
+      await t.pumpAndSettle();
       expect(find.text('Active poll'), findsOneWidget);
     });
 
@@ -432,6 +514,7 @@ void main() {
       await _scrollTo(t, find.text('9 going'));
       expect(find.bySemanticsLabel('9 going'), findsNothing);
       expect(find.bySemanticsLabel(RegExp(r'Ada, Tunde \+7 going')), findsOneWidget);
+      expect(find.bySemanticsLabel('RSVP, Oppenheimer'), findsOneWidget, reason: 'party RSVP names its film');
       handle.dispose();
     });
   });

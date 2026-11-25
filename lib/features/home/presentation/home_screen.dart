@@ -50,7 +50,9 @@ class HomeScreen extends ConsumerWidget {
         padding: EdgeInsets.fromLTRB(0, AppSpacing.xl, 0, ClBottomNavBar.contentPadding(context)),
         sliver: SliverList.list(children: _sections(context, feed)),
       );
-    } else if (async.hasError) {
+    } else if (async.hasError && !async.isLoading) {
+      // While a retry is in flight Riverpod still carries the old error, so
+      // check isLoading first: the skeleton is the retry's feedback.
       body = SliverFillRemaining(
         hasScrollBody: false,
         child: Padding(
@@ -80,7 +82,7 @@ class HomeScreen extends ConsumerWidget {
             SliverAppBar(
               pinned: true,
               stretch: !reduced && pick != null,
-              expandedHeight: pick == null ? null : _heroHeight(context),
+              expandedHeight: pick == null ? null : _heroHeight(context, pick),
               backgroundColor: AppColors.bg,
               scrolledUnderElevation: 0,
               automaticallyImplyLeading: false,
@@ -112,18 +114,22 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  /// The text block's cover is tied to its content (see _Hero), so a taller
-  /// block would eat the poster. Grow the hero with text scale, and by one
-  /// button row when the CTAs stack, but keep the next section peeking above
-  /// the fold.
-  static double _heroHeight(BuildContext context) {
+  /// The hero's text block is bottom-anchored on a content-tied panel (see
+  /// _Hero). By default the hero is about 58% of the screen, growing with
+  /// text scale, so the next section peeks above the fold. Legibility wins
+  /// over the peek: the hero is never shorter than the toolbar plus the
+  /// whole text block, so no line can slide under the logo or off screen.
+  static double _heroHeight(BuildContext context, FeaturedPick pick) {
     final size = MediaQuery.sizeOf(context);
     final scale = MediaQuery.textScalerOf(context).scale(1);
     final stacked = _HeroActions.stacks(context, size.width - AppSpacing.gutter * 2);
-    return math.min(
+    final peek = math.min(
       (size.height * 0.58).clamp(420.0, 540.0) + (scale - 1) * 300 + (stacked ? 56 : 0),
       size.height - MediaQuery.paddingOf(context).top - 96,
     );
+    // expandedHeight excludes the status bar, which the toolbar sits below.
+    final fits = kToolbarHeight + AppSpacing.lg + _Hero.fade + _Hero.blockHeight(context, pick);
+    return math.max(peek, fits);
   }
 
   List<Widget> _sections(BuildContext context, HomeFeed feed) {
@@ -136,7 +142,7 @@ class HomeScreen extends ConsumerWidget {
         index: i++,
         child: _Section(
           title: 'Active poll',
-          subtitle: poll == null ? null : '${poll.club} · closes in ${poll.closesIn}',
+          subtitle: poll == null ? null : '${poll.club} · closes in ${poll.closesInLabel}',
           child:
               poll == null
                   ? ClCard(
@@ -312,7 +318,47 @@ class _Hero extends StatelessWidget {
   final FeaturedPick pick;
 
   /// Height of the fade between bare poster and the text panel.
-  static const double _fade = 48;
+  static const double fade = 48;
+
+  static const _pickBadge = "This week's pick";
+
+  /// Height of the text panel (badges, title, when, buttons, padding) at the
+  /// current text scale. Mirrors the layout in [build]; a small margin covers
+  /// rounding. The hero test checks the rendered block against the toolbar.
+  static double blockHeight(BuildContext context, FeaturedPick pick) {
+    final width = MediaQuery.sizeOf(context).width - AppSpacing.gutter * 2;
+    final scaler = MediaQuery.textScalerOf(context);
+    double measure(String text, TextStyle style, {int? maxLines, bool wide = false}) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textScaler: scaler,
+        textDirection: TextDirection.ltr,
+        maxLines: maxLines,
+      )..layout(maxWidth: wide ? double.infinity : width);
+      final v = wide ? painter.width : painter.height;
+      painter.dispose();
+      return v;
+    }
+
+    // Badges: overline text + 4dp vertical / 9dp horizontal padding + border.
+    final badge = AppTextStyles.overline;
+    final badgeH = measure('A', badge) + 8 + 2;
+    final badgesW = [_pickBadge, pick.meta].map((t) => measure(t.toUpperCase(), badge, wide: true) + 20).toList();
+    final badgeRows = badgesW[0] + AppSpacing.sm + badgesW[1] > width ? 2 : 1;
+    final badges = badgeH * badgeRows + (badgeRows - 1) * AppSpacing.sm;
+    final title = measure(pick.title, AppTextStyles.display, maxLines: 2);
+    final when = measure(pick.when, AppTextStyles.body);
+    final actions = _HeroActions.stacks(context, width) ? 48 * 2 + AppSpacing.sm : 48.0;
+    return badges +
+        AppSpacing.md +
+        title +
+        AppSpacing.sm +
+        when +
+        AppSpacing.lg +
+        actions +
+        AppSpacing.xl +
+        AppSpacing.sm; // margin
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -360,7 +406,7 @@ class _Hero extends StatelessWidget {
             children: [
               IgnorePointer(
                 child: Container(
-                  height: _fade,
+                  height: fade,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
@@ -381,7 +427,7 @@ class _Hero extends StatelessWidget {
                       Wrap(
                         spacing: AppSpacing.sm,
                         runSpacing: AppSpacing.sm,
-                        children: [const ClBadge("This week's pick"), ClBadge(pick.meta, tone: ClBadgeTone.glass)],
+                        children: [const ClBadge(_pickBadge), ClBadge(pick.meta, tone: ClBadgeTone.glass)],
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Semantics(
@@ -419,13 +465,14 @@ class _HeroActions extends StatelessWidget {
   /// Whether either label would truncate at half of [width].
   static bool stacks(BuildContext context, double width) {
     final half = (width - AppSpacing.md) / 2;
-    return [_ctaLabel, _discussLabel].any((l) => _buttonWidth(context, l) > half);
+    return [_ctaLabel, _discussLabel].any((l) => ClButton.intrinsicWidth(context, l, hasIcon: true) > half);
   }
 
   @override
   Widget build(BuildContext context) {
     final cta = ClButton(
       label: _ctaLabel,
+      semanticLabel: 'RSVP to the ${pick.title} watch party',
       icon: AppIcons.ticket,
       variant: ClButtonVariant.primary,
       onPressed: () => context.push('/watch-parties', extra: pick.party.focusExtra),
@@ -450,19 +497,16 @@ class _HeroActions extends StatelessWidget {
   }
 }
 
-/// Width a [ClButton] with an icon needs to show [label] without truncating,
-/// at the current text scale. Mirrors ClButton's padding, icon and gap.
-double _buttonWidth(BuildContext context, String label, {bool small = false}) {
-  final painter = TextPainter(
-    text: TextSpan(text: label, style: AppTextStyles.button.copyWith(fontSize: small ? 14 : 15)),
-    textScaler: MediaQuery.textScalerOf(context),
-    textDirection: TextDirection.ltr,
-    maxLines: 1,
-  )..layout();
-  final width = painter.width + (small ? AppSpacing.lg : AppSpacing.xl) * 2 + (small ? 18 : 20) + AppSpacing.sm;
-  painter.dispose();
-  return width + 1; // rounding headroom
-}
+/// Two lines for names (films, clubs) above 1.3× text, so the name isn't the
+/// part that gets cut.
+int _nameLines(BuildContext context) => MediaQuery.textScalerOf(context).scale(1) > 1.3 ? 2 : 1;
+
+/// At very large text (above 1.6×), rows drop side-by-side extras (thumbnails,
+/// right-hand figures) so words get the full width instead of breaking mid-word.
+bool _compact(BuildContext context) => MediaQuery.textScalerOf(context).scale(1) > 1.6;
+
+/// Inline meta icons (beside caption / bodySm text). tokens.md: 16.
+const double _metaIcon = 16;
 
 // ── Poll ─────────────────────────────────────────────────────────────────────
 
@@ -470,6 +514,8 @@ class _PollCard extends StatelessWidget {
   const _PollCard({required this.poll});
 
   final Poll poll;
+
+  static const _voteLabel = 'Cast your vote';
 
   @override
   Widget build(BuildContext context) {
@@ -489,18 +535,27 @@ class _PollCard extends StatelessWidget {
             if (i < ranked.length - 1) const SizedBox(height: AppSpacing.sm),
           ],
           const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(child: Text('$total of ${poll.members} members voted', style: AppTextStyles.caption)),
-              ClButton(
-                label: 'Cast your vote',
+          LayoutBuilder(
+            builder: (context, c) {
+              final footer = Text('$total of ${poll.members} members voted', style: AppTextStyles.caption);
+              final vote = ClButton(
+                label: _voteLabel,
                 variant: ClButtonVariant.inverse,
                 size: ClButtonSize.sm,
                 expand: false,
                 // Pass the poll so the vote screen shows these same options.
                 onPressed: () => context.push('/communities/${poll.communityId}/vote', extra: poll.voteExtra),
-              ),
-            ],
+              );
+              // Side by side while the button takes at most half the width;
+              // otherwise the count goes above a full-width button.
+              if (ClButton.intrinsicWidth(context, _voteLabel, size: ClButtonSize.sm) <= c.maxWidth / 2) {
+                return Row(children: [Expanded(child: footer), vote]);
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [footer, const SizedBox(height: AppSpacing.sm), vote],
+              );
+            },
           ),
         ],
       ),
@@ -522,6 +577,13 @@ class _PollRow extends StatelessWidget {
     final pct = (share * 100).round();
     // Long titles get a second line at larger text instead of losing the film.
     final titleLines = MediaQuery.textScalerOf(context).scale(1) > 1.15 ? 2 : 1;
+    // Very large text: no thumbnail or right-hand %, so the title gets the
+    // row's full width; rank and share move into the votes line.
+    final compact = _compact(context);
+    final pctStyle = AppTextStyles.caption.copyWith(
+      color: leading ? AppColors.purpleText : AppColors.textPrimary,
+      fontWeight: FontWeight.w700,
+    );
     return Semantics(
       label: '${option.title}, ${option.votes} votes, $pct percent${leading ? ', leading' : ''}',
       excludeSemantics: true,
@@ -550,6 +612,7 @@ class _PollRow extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.sm),
               child: Row(
                 children: [
+                  if (!compact) ...[
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -585,6 +648,7 @@ class _PollRow extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(width: AppSpacing.md),
+                  ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -601,12 +665,14 @@ class _PollRow extends StatelessWidget {
                         Text.rich(
                           TextSpan(
                             children: [
+                              if (compact) TextSpan(text: '#$rank  ·  '),
                               TextSpan(text: '${option.votes} votes'),
+                              if (compact) ...[const TextSpan(text: '  ·  '), TextSpan(text: '$pct%', style: pctStyle)],
                               if (leading) ...[
                                 const TextSpan(text: '  ·  '),
                                 const WidgetSpan(
                                   alignment: PlaceholderAlignment.middle,
-                                  child: Icon(AppIcons.crown, size: 12, color: AppColors.purpleText),
+                                  child: Icon(AppIcons.crown, size: _metaIcon, color: AppColors.purpleText),
                                 ),
                                 TextSpan(
                                   text: ' Leading',
@@ -623,7 +689,8 @@ class _PollRow extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
+                  if (!compact) const SizedBox(width: AppSpacing.sm),
+                  if (!compact)
                   Text(
                     '$pct%',
                     style: AppTextStyles.title.copyWith(
@@ -661,50 +728,82 @@ class _LiveCard extends StatelessWidget {
       expand: false,
       onPressed: () => context.push('/watchParty', extra: party.roomExtra),
     );
+    final ring = ClProgressRing(
+      value: party.progress,
+      size: _ring,
+      strokeWidth: 6,
+      // The fill is time watched; the countdown says it all.
+      semanticLabel: '${party.minutesLeft} minutes left',
+      semanticValue: '',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('${party.minutesLeft}m', style: AppTextStyles.title),
+          Text('left', style: AppTextStyles.caption),
+        ],
+      ),
+    );
+    final title = Text(party.title, style: AppTextStyles.title, maxLines: 2, overflow: TextOverflow.ellipsis);
+    // Club on its own line so it never gets cut for the count.
+    final club = Text(party.club, style: AppTextStyles.bodySm, maxLines: _nameLines(context), overflow: TextOverflow.ellipsis);
+    final watching = Text('${party.attending} watching', style: AppTextStyles.caption);
     return ClCard(
       child: LayoutBuilder(
         builder: (context, c) {
-          // The button sits under the text; when that column is too narrow for
-          // its label (narrow phones, large text) it moves below the ring.
-          final inline = _buttonWidth(context, _joinLabel, small: true) <= c.maxWidth - _ring - AppSpacing.lg;
-          final info = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const ClBadge('Live', tone: ClBadgeTone.error),
-              const SizedBox(height: AppSpacing.sm),
-              Text(party.title, style: AppTextStyles.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: AppSpacing.xxs),
-              // Club on its own line so it never gets cut for the count.
-              Text(party.club, style: AppTextStyles.bodySm, maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text('${party.attending} watching', style: AppTextStyles.caption),
-              if (inline) ...[const SizedBox(height: AppSpacing.sm), join],
-            ],
-          );
+          // Wide enough: ring left, text and button right. Otherwise (narrow
+          // phones, large text) the ring sits beside the badge and count, and
+          // the title, club and button take the card's full width.
+          final inline =
+              ClButton.intrinsicWidth(context, _joinLabel, size: ClButtonSize.sm, hasIcon: true) <=
+              c.maxWidth - _ring - AppSpacing.lg;
+          if (inline) {
+            return Row(
+              children: [
+                ring,
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const ClBadge('Live', tone: ClBadgeTone.error),
+                      const SizedBox(height: AppSpacing.sm),
+                      title,
+                      const SizedBox(height: AppSpacing.xxs),
+                      club,
+                      watching,
+                      const SizedBox(height: AppSpacing.sm),
+                      join,
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  ClProgressRing(
-                    value: party.progress,
-                    size: _ring,
-                    strokeWidth: 6,
-                    // The fill is time watched; the countdown says it all.
-                    semanticLabel: '${party.minutesLeft} minutes left',
-                    semanticValue: '',
+                  ring,
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('${party.minutesLeft}m', style: AppTextStyles.title),
-                        Text('left', style: AppTextStyles.caption),
+                        const ClBadge('Live', tone: ClBadgeTone.error),
+                        const SizedBox(height: AppSpacing.sm),
+                        watching,
                       ],
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.lg),
-                  Expanded(child: info),
                 ],
               ),
-              if (!inline) ...[const SizedBox(height: AppSpacing.md), SizedBox(width: double.infinity, child: join)],
+              const SizedBox(height: AppSpacing.md),
+              title,
+              const SizedBox(height: AppSpacing.xxs),
+              club,
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(width: double.infinity, child: join),
             ],
           );
         },
@@ -722,11 +821,28 @@ class _PartyCard extends StatelessWidget {
 
   static const double _poster = 128;
 
+  /// Above 1.3× text the title moves off the poster (two lines wouldn't fit
+  /// under the badge) into the text area below it.
+  static bool _titleBelow(BuildContext context) => MediaQuery.textScalerOf(context).scale(1) > 1.3;
+
   /// List height: the poster is fixed, the text below grows with text scale.
-  static double height(BuildContext context) => _poster + 160 * MediaQuery.textScalerOf(context).scale(1);
+  static double height(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    return _poster + 160 * scale + (_titleBelow(context) ? 48 * scale : 0);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final titleBelow = _titleBelow(context);
+    final title = Text(
+      party.title,
+      // Off the poster at large text, the body title style keeps whole words
+      // on a line within the fixed card width.
+      style: titleBelow ? AppTextStyles.title : AppTextStyles.h3,
+      maxLines: _nameLines(context),
+      overflow: TextOverflow.ellipsis,
+    );
     return SizedBox(
       width: 264,
       child: ClCard(
@@ -748,12 +864,8 @@ class _PartyCard extends StatelessWidget {
                       left: AppSpacing.md,
                       child: ClBadge(party.badge!, tone: ClBadgeTone.purpleSolid),
                     ),
-                  Positioned(
-                    left: AppSpacing.md,
-                    right: AppSpacing.md,
-                    bottom: AppSpacing.sm,
-                    child: Text(party.title, style: AppTextStyles.h3, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
+                  if (!titleBelow)
+                    Positioned(left: AppSpacing.md, right: AppSpacing.md, bottom: AppSpacing.sm, child: title),
                 ],
               ),
             ),
@@ -762,6 +874,7 @@ class _PartyCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (titleBelow) ...[title, const SizedBox(height: AppSpacing.xs)],
                   // When and where on separate lines, so neither is cut.
                   _MetaLine(icon: AppIcons.calendar, text: party.when),
                   const SizedBox(height: AppSpacing.xxs),
@@ -778,18 +891,24 @@ class _PartyCard extends StatelessWidget {
                   // The stack's semantics already say who and how many.
                   ClAvatarStack(people: party.people, total: party.attending, showCaption: false),
                   const SizedBox(width: AppSpacing.sm),
+                  // At very large text the count would be cut next to RSVP;
+                  // the avatars (and their spoken label) carry it then.
                   Expanded(
-                    child: ExcludeSemantics(
-                      child: Text(
-                        '${party.attending} going',
-                        style: AppTextStyles.bodySm,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                    child:
+                        scale >= 1.6
+                            ? const SizedBox.shrink()
+                            : ExcludeSemantics(
+                              child: Text(
+                                '${party.attending} going',
+                                style: AppTextStyles.bodySm,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                   ),
                   ClButton(
                     label: 'RSVP',
+                    semanticLabel: 'RSVP, ${party.title}',
                     variant: ClButtonVariant.inverse,
                     size: ClButtonSize.sm,
                     expand: false,
@@ -815,10 +934,13 @@ class _MetaLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: AppColors.textSecondary),
+        Icon(icon, size: _metaIcon, color: AppColors.textSecondary),
         const SizedBox(width: AppSpacing.sm),
-        Expanded(child: Text(text, style: AppTextStyles.bodySm, maxLines: 1, overflow: TextOverflow.ellipsis)),
+        Expanded(
+          child: Text(text, style: AppTextStyles.bodySm, maxLines: _nameLines(context), overflow: TextOverflow.ellipsis),
+        ),
       ],
     );
   }
@@ -834,7 +956,7 @@ class _DiscussionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = discussion;
-    const meta = TextStyle(color: AppColors.textMuted);
+    final meta = AppTextStyles.caption.copyWith(color: AppColors.textMuted);
     return ClCard(
       onTap: () => context.push('/discussionThread', extra: d.threadExtra),
       child: Row(
@@ -846,29 +968,38 @@ class _DiscussionCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(d.title, style: AppTextStyles.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                    if (d.pinned) ...[
-                      const SizedBox(width: AppSpacing.sm),
-                      const ClBadge('Pinned', icon: AppIcons.pin),
-                    ],
-                  ],
+                // Full width for the film; the Pinned badge sits on the meta row.
+                Text(
+                  d.title,
+                  style: AppTextStyles.title,
+                  maxLines: MediaQuery.textScalerOf(context).scale(1) > 1.15 ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(d.prompt, style: AppTextStyles.bodySm, maxLines: 2, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: AppSpacing.sm),
-                Row(
+                Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Icon(AppIcons.chat, size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text('${d.replies} replies', style: AppTextStyles.caption.merge(meta)),
-                    const SizedBox(width: AppSpacing.md),
-                    const Icon(AppIcons.clock, size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text(d.ago, style: AppTextStyles.caption.merge(meta)),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(AppIcons.chat, size: _metaIcon, color: AppColors.textMuted),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text('${d.replies} replies', style: meta),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(AppIcons.clock, size: _metaIcon, color: AppColors.textMuted),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(d.ago, style: meta),
+                      ],
+                    ),
+                    if (d.pinned) const ClBadge('Pinned', icon: AppIcons.pin),
                   ],
                 ),
               ],

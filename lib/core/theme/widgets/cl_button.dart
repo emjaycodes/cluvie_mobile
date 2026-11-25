@@ -39,6 +39,7 @@ class ClButton extends StatelessWidget {
     this.icon,
     this.isLoading = false,
     this.expand = true,
+    this.semanticLabel,
     @Deprecated('Use variant: ClButtonVariant.secondary') this.isSecondary = false,
   });
 
@@ -54,6 +55,31 @@ class ClButton extends StatelessWidget {
   /// Fill the available width when it is bounded.
   final bool expand;
   final bool isSecondary;
+
+  /// Spoken instead of [label] when the label alone is ambiguous, e.g.
+  /// 'RSVP, Oppenheimer' for one of several RSVP buttons.
+  final String? semanticLabel;
+
+  /// Width this button needs to show [label] on one line at the current text
+  /// scale. Lets layouts stack or move buttons instead of truncating them.
+  static double intrinsicWidth(
+    BuildContext context,
+    String label, {
+    ClButtonSize size = ClButtonSize.md,
+    bool hasIcon = false,
+  }) {
+    final small = size == ClButtonSize.sm;
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: AppTextStyles.button.copyWith(fontSize: small ? 14 : 15)),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final icon = hasIcon ? (small ? 18 : 20) + AppSpacing.sm : 0.0;
+    final width = painter.width + (small ? AppSpacing.lg : AppSpacing.xl) * 2 + icon;
+    painter.dispose();
+    return width + 1; // rounding headroom
+  }
 
   ClButtonVariant get resolvedVariant =>
       variant ?? (isSecondary ? ClButtonVariant.secondary : ClButtonVariant.primary);
@@ -104,6 +130,7 @@ class ClButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
+                // Keep in sync with intrinsicWidth.
                 Icon(icon, size: size == ClButtonSize.sm ? 18 : 20, color: fg),
                 const SizedBox(width: AppSpacing.sm),
               ],
@@ -138,7 +165,8 @@ class ClButton extends StatelessWidget {
     final pressable = ClPressable(
       onTap: enabled ? onPressed : null,
       borderRadius: AppRadius.pillAll,
-      semanticLabel: isLoading ? '$label, loading' : null,
+      semanticLabel: isLoading ? '${semanticLabel ?? label}, loading' : semanticLabel,
+      excludeChildSemantics: semanticLabel != null,
       hitPadding: hitPad > 0 ? EdgeInsets.symmetric(vertical: hitPad) : null,
       child: shape,
     );

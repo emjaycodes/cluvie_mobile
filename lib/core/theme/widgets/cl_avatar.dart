@@ -44,8 +44,13 @@ class ClAvatar extends StatelessWidget {
     final fallback = Container(
       color: _tint,
       alignment: Alignment.center,
+      // Initials are part of the picture, sized to the fixed circle; the name
+      // is in semantics, so they don't scale with text size.
       child: Text(
         _initials,
+        textScaler: TextScaler.noScaling,
+        maxLines: 1,
+        softWrap: false,
         style: AppTextStyles.label.copyWith(fontSize: radius * 0.7, color: AppColors.textPrimary),
       ),
     );

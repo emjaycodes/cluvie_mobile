@@ -47,7 +47,10 @@ class FeaturedPick {
 }
 
 class PollOption {
-  const PollOption(this.title, this.votes, this.posterUrl, this.order);
+  const PollOption(this.id, this.title, this.votes, this.posterUrl, this.order);
+
+  /// Film id (TMDB), used when voting.
+  final String id;
   final String title;
   final int votes;
   final String posterUrl;
@@ -66,7 +69,7 @@ class Poll {
   });
   final String communityId;
   final String club;
-  final String closesIn;
+  final Duration closesIn;
   final List<PollOption> options;
   final int members;
 
@@ -77,11 +80,21 @@ class Poll {
   List<PollOption> get ranked =>
       [...options]..sort((a, b) => b.votes != a.votes ? b.votes.compareTo(a.votes) : a.order.compareTo(b.order));
 
+  /// "2 days", "5 hours", "40 minutes".
+  String get closesInLabel {
+    String unit(int n, String u) => '$n $u${n == 1 ? '' : 's'}';
+    if (closesIn.inDays >= 1) return unit(closesIn.inDays, 'day');
+    if (closesIn.inHours >= 1) return unit(closesIn.inHours, 'hour');
+    return unit(closesIn.inMinutes, 'minute');
+  }
+
   /// Route extra for the vote screen, so it shows this same poll.
   Map<String, Object> get voteExtra => {
         'club': club,
+        'closesInMinutes': closesIn.inMinutes,
         'options': [
-          for (final o in options) {'title': o.title, 'posterUrl': o.posterUrl, 'votes': o.votes, 'order': o.order},
+          for (final o in options)
+            {'id': o.id, 'title': o.title, 'posterUrl': o.posterUrl, 'votes': o.votes, 'order': o.order},
         ],
       };
 }
@@ -174,12 +187,12 @@ const demoHomeFeed = HomeFeed(
   poll: Poll(
     communityId: 'friday-film-club',
     club: 'Friday Film Club',
-    closesIn: '2 days',
+    closesIn: Duration(days: 2),
     members: 31,
     options: [
-      PollOption('Oppenheimer', 8, _oppenheimerPoster, 1),
-      PollOption('Everything Everywhere All at Once', 11, _eeaaoPoster, 0),
-      PollOption('Mission: Impossible — Fallout', 5, _falloutPoster, 2),
+      PollOption('872585', 'Oppenheimer', 8, _oppenheimerPoster, 1),
+      PollOption('545611', 'Everything Everywhere All at Once', 11, _eeaaoPoster, 0),
+      PollOption('353081', 'Mission: Impossible — Fallout', 5, _falloutPoster, 2),
     ],
   ),
   live: Party(
