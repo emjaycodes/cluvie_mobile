@@ -66,7 +66,7 @@ class JoinedCommunityNotifier extends AsyncNotifier<List<Community>> {
       overrides.state = {...overrides.state, id: true};
     }
     ref.invalidate(allCommunitiesProvider);
-    ref.invalidate(homeFeedProvider);
+    if (ref.exists(homeFeedProvider)) ref.invalidate(homeFeedProvider);
     return created;
   }
 }
@@ -143,7 +143,7 @@ Future<bool> _refreshClub(WidgetRef ref, String id) async {
   ref.invalidate(joinedCommunitiesProvider);
   ref.invalidate(allCommunitiesProvider);
   ref.invalidate(communityProvider(id));
-  ref.invalidate(homeFeedProvider);
+  if (ref.exists(homeFeedProvider)) ref.invalidate(homeFeedProvider);
   // The club provider auto-disposes: keep it alive while waiting on it.
   final keep = ref.listenManual(communityProvider(id), (_, __) {});
   try {

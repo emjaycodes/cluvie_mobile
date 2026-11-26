@@ -14,9 +14,10 @@ import '../../home/data/home_feed.dart';
 /// resets the auth state and drops every user-scoped cache so the next
 /// person to log in on this device never sees the previous user's data.
 Future<void> signOut(BuildContext context, WidgetRef ref) async {
+  // Leave first, so mounted tabs don't refetch without a token (R11-N11).
+  if (context.mounted) context.goNamed(RouteNames.welcome);
   await ref.read(authNotifierProvider.notifier).logout();
   clearUserState(ref.invalidate);
-  if (context.mounted) context.goNamed(RouteNames.welcome);
 }
 
 /// Drops every user-scoped cache. Takes `invalidate` so it works from a

@@ -164,7 +164,7 @@ enum VoteRefusal {
 Future<VoteRefusal?> castVote(WidgetRef ref, {required String pollId, required String optionId}) async {
   try {
     await ref.read(apiClientProvider).post('/polls/$pollId/vote', data: {'optionId': optionId});
-    ref.invalidate(homeFeedProvider);
+    if (ref.exists(homeFeedProvider)) ref.invalidate(homeFeedProvider);
     return null;
   } on ApiException catch (e) {
     final body = e.responseBody;

@@ -1,5 +1,6 @@
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
+import 'package:cluvie_mobile/features/home/data/home_feed.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The longest post the composer accepts.
@@ -123,6 +124,7 @@ class DiscussionNotifier extends AutoDisposeFamilyAsyncNotifier<List<DiscussionP
           authorName: authorName,
         );
     state = AsyncData([...?state.valueOrNull, post]..sort(comparePosts));
+    if (ref.exists(homeFeedProvider)) ref.invalidate(homeFeedProvider); // Recent discussions
   }
 
   /// Likes a post as [userId], optimistically. Rolls back and rethrows on

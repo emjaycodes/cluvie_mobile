@@ -9,6 +9,7 @@ import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
 import 'package:cluvie_mobile/features/movies/data/polls.dart' show isMongoId;
 import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
+import 'package:cluvie_mobile/features/home/data/home_feed.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -83,6 +84,7 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
           .post('/communities/${club.id}/suggest', data: {'tmdbId': widget.movie.id, 'note': _note.text.trim()});
       // The catalog (Discover, Movie Detail's discussion) now has the film.
       container.invalidate(catalogProvider);
+      if (container.exists(homeFeedProvider)) container.invalidate(homeFeedProvider); // "New in your clubs"
       if (mounted) {
         Navigator.of(context).pop(club);
       } else {

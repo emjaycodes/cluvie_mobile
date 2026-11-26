@@ -275,7 +275,7 @@ void main() {
       await _pump(t, shell: true, padding: const EdgeInsets.only(top: 47, bottom: 34));
       await t.drag(find.byType(Scrollable).first, const Offset(0, -4000));
       await t.pumpAndSettle();
-      final last = t.getRect(_card(find.text('5 comments')));
+      final last = t.getRect(_card(find.text('5 comments on the film')));
       final nav = t.getRect(find.bySemanticsLabel('Home').first);
       expect(last.bottom, lessThan(nav.top), reason: 'last card is under the nav');
     });
@@ -301,7 +301,7 @@ void main() {
             final panel = t.getRect(find.byWidgetPredicate((w) => w is ColoredBox && w.color == panelColor));
             // Round 5 B1: and every line is below the toolbar, so nothing
             // runs under the logo or off the screen.
-            for (final f in [find.text('NEXT WATCH PARTY'), _inHero(find.text('2023')), _inHero(find.text('Past Lives'))]) {
+            for (final f in [find.text('NEXT WATCH PARTY'), _inHero(find.text('2023')), _inHero(find.text('Sunday screening'))]) {
               final r = t.getRect(f.first);
               expect(r.top, greaterThanOrEqualTo(panel.top), reason: '$f above the panel');
               expect(r.top, greaterThanOrEqualTo(inset + kToolbarHeight), reason: '$f under the toolbar');
@@ -423,7 +423,7 @@ void main() {
         (t) => tapAndExpect(t, find.descendant(of: find.byType(ListView), matching: find.text('View')), 'at /watch-parties/$_laterParty'));
     testWidgets('See all → watch parties', (t) => tapAndExpect(t, find.text('See all'), 'at /watch-parties'));
     testWidgets('discussion card → its own film',
-        (t) => tapAndExpect(t, find.text('5 comments'), 'at /discussionThread about Mission: Impossible — Fallout (680000000000000000000004, tmdb 353081)'));
+        (t) => tapAndExpect(t, find.text('5 comments on the film'), 'at /discussionThread about Mission: Impossible — Fallout (680000000000000000000004, tmdb 353081)'));
     testWidgets('a new film → its page', (t) async {
       await _pump(t);
       final tile = find.byType(MoviePosterTile);
@@ -460,7 +460,7 @@ void main() {
       expect(find.byType(ClLogo), findsOneWidget, reason: 'the app bar stays while loading');
       c.complete(_feed());
       await t.pumpAndSettle();
-      expect(find.text('Past Lives'), findsWidgets);
+      expect(find.text('Sunday screening'), findsWidgets);
       expect(find.byType(ClSkeleton), findsNothing);
     });
 
@@ -514,7 +514,7 @@ void main() {
       await _pump(t, feed: () => _feed(_feedJson(poll: false, parties: false, discussions: false)));
       expect(find.byType(FlexibleSpaceBar), findsNothing, reason: 'no party, no hero');
       expect(find.text('No open votes in your clubs. Suggest a film to get one going.'), findsOneWidget);
-      expect(find.text('Live now'), findsNothing);
+      expect(find.text('Happening now'), findsNothing);
       await _scrollTo(t, find.text('No watch parties planned yet.'));
       await _scrollTo(t, find.textContaining('Be the first to start a thread'));
       expect(find.textContaining('Discuss'), findsNothing, reason: 'no party film to discuss');
@@ -555,14 +555,40 @@ void main() {
       final f = _feed();
       expect(f.clubCount, 2);
       expect(f.pick!.party.id, _nextParty);
-      expect(f.pick!.title, 'Past Lives');
-      expect(f.live!.id, _liveParty);
+      expect(f.pick!.title, 'Sunday screening');
+      expect(f.pick!.filmTitle, 'Past Lives');
+      expect(f.happening.single.id, _liveParty);
       expect(f.parties.map((p) => p.id), [_laterParty]);
       expect(f.parties.single.hosting, isTrue);
       expect(f.poll!.ranked.first.title, 'Everything Everywhere All at Once');
       expect(f.poll!.totalVotes, 24);
       expect(f.discussions.single.replies, 5);
       expect(f.suggestions.map((s) => s.film.id), [666277, 872585]);
+    });
+
+    test('R11-S3: a party past its start but not live is happening, not "next"', () {
+      final json = _feedJson(live: false);
+      final parties = (json['data'] as Map)['watchParties'] as List;
+      (parties.first as Map)['scheduledAt'] = DateTime.now().subtract(const Duration(minutes: 10)).toUtc().toIso8601String();
+      final f = HomeFeed.fromJson(json, me: _me);
+      expect(f.happening.single.id, _nextParty);
+      expect(f.pick!.party.id, _laterParty);
+      expect(f.parties, isEmpty);
+    });
+
+    test('R11-S2: a poll past its close time is gone; nextChange is the soonest deadline', () {
+      final json = _feedJson();
+      final poll = ((json['data'] as Map)['polls'] as List).first as Map;
+      poll['expiresAt'] = DateTime.now().subtract(const Duration(minutes: 1)).toUtc().toIso8601String();
+      final f = HomeFeed.fromJson(json, me: _me);
+      expect(f.poll, isNull);
+      expect(f.nextChange(), f.pick!.party.scheduledAt);
+    });
+
+    test('R11-N9: the poll total is the server\'s', () {
+      final json = _feedJson();
+      (((json['data'] as Map)['polls'] as List).first as Map)['totalVotes'] = 30;
+      expect(HomeFeed.fromJson(json).poll!.totalVotes, 30);
     });
 
     test('malformed items are skipped, not fatal', () {
@@ -583,7 +609,7 @@ void main() {
     testWidgets('section headings are their own header node, not merged into a button', (t) async {
       final handle = t.ensureSemantics();
       await _pump(t);
-      for (final heading in ['Active poll', 'Live now']) {
+      for (final heading in ['Active poll', 'Happening now']) {
         await _scrollTo(t, find.text(heading));
         final data = t.getSemantics(find.text(heading)).getSemanticsData();
         expect(data.flagsCollection.isHeader, isTrue, reason: heading);
@@ -596,15 +622,17 @@ void main() {
     testWidgets('the hero title is a header', (t) async {
       final handle = t.ensureSemantics();
       await _pump(t);
-      expect(t.getSemantics(_inHero(find.text('Past Lives'))).getSemanticsData().flagsCollection.isHeader, isTrue);
+      expect(t.getSemantics(_inHero(find.text('Sunday screening'))).getSemanticsData().flagsCollection.isHeader, isTrue);
       handle.dispose();
     });
 
-    testWidgets('the live card says who and since when, and its button names the party', (t) async {
+    testWidgets('the live card says who is going, with a purple Live badge, and its button names the party', (t) async {
       final handle = t.ensureSemantics();
       await _pump(t);
       await _scrollTo(t, find.text('See party'));
-      expect(find.textContaining('6 going · started'), findsOneWidget);
+      expect(find.text('6 going'), findsOneWidget);
+      final badge = t.widget<ClBadge>(find.ancestor(of: find.text('LIVE'), matching: find.byType(ClBadge)));
+      expect(badge.tone, ClBadgeTone.purpleSolid);
       expect(find.bySemanticsLabel('See the Fallout marathon watch party'), findsOneWidget);
       handle.dispose();
     });

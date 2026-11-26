@@ -12,7 +12,7 @@ class HomeFeed {
     this.clubCount = 0,
     this.pick,
     this.poll,
-    this.live,
+    this.happening = const [],
     this.parties = const [],
     this.discussions = const [],
     this.suggestions = const [],
@@ -22,14 +22,16 @@ class HomeFeed {
   /// empty sections.
   final int clubCount;
 
-  /// The hero: the next watch party in your clubs. Null hides the hero.
+  /// The hero: the next watch party that hasn't started. Null hides it.
   final FeaturedPick? pick;
 
   /// The open poll that closes soonest. Null shows the "suggest" state.
   final HomePoll? poll;
 
-  /// A party happening now. Null hides "Live now".
-  final HomeParty? live;
+  /// Parties under way: live, or past their start time (only the host's
+  /// button makes a party live, so a party can be due but not "live").
+  /// Empty hides "Happening now".
+  final List<HomeParty> happening;
 
   /// Upcoming parties after the hero's, soonest first.
   final List<HomeParty> parties;
@@ -40,6 +42,18 @@ class HomeFeed {
 
   bool get hasClubs => clubCount > 0;
 
+  /// The next moment this feed goes stale: a poll closing or a party
+  /// starting. Home refreshes then.
+  DateTime? nextChange() {
+    final times = [
+      if (poll != null) poll!.closesAt,
+      if (pick != null) pick!.party.scheduledAt,
+      for (final p in parties) p.scheduledAt,
+    ];
+    if (times.isEmpty) return null;
+    return times.reduce((a, b) => a.isBefore(b) ? a : b);
+  }
+
   /// Parses `{success, data}` or the bare `data`. [me] decides "hosting".
   factory HomeFeed.fromJson(Object? json, {String? me, DateTime? now}) {
     final body = json is Map && json['data'] is Map ? json['data'] as Map : json;
@@ -49,13 +63,16 @@ class HomeFeed {
     final polls = [for (final p in list('polls')) if (HomePoll.fromJson(p, now: now) case final v?) v];
     final all = [for (final p in list('watchParties')) if (HomeParty.fromJson(p, me: me) case final v?) v]
       ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-    final live = all.where((p) => p.isLive).firstOrNull;
-    final upcoming = [for (final p in all) if (!p.isLive) p];
+    final at = now ?? DateTime.now();
+    bool started(HomeParty p) => p.isLive || !p.scheduledAt.isAfter(at);
+    final happening = [for (final p in all) if (started(p)) p];
+    final upcoming = [for (final p in all) if (!started(p)) p];
     final pickParty = upcoming.firstOrNull;
     return HomeFeed(
       clubCount: list('communities').length,
-      poll: polls.firstOrNull,
-      live: live,
+      // A poll past its close time is over, whatever the cached feed says.
+      poll: polls.where((p) => p.closesAt.isAfter(at)).firstOrNull,
+      happening: happening,
       pick: pickParty == null ? null : FeaturedPick(pickParty),
       parties: upcoming.skip(1).toList(),
       discussions: [for (final d in list('discussions')) if (HomeDiscussion.fromJson(d) case final v?) v],
@@ -81,8 +98,11 @@ class FeaturedPick {
   const FeaturedPick(this.party);
   final HomeParty party;
 
-  /// The film's title when known, else the party's.
-  String get title => party.film?.title ?? party.title;
+  /// The party's own title (R11-N12).
+  String get title => party.title;
+
+  /// The film, when it differs from the party's title.
+  String? get filmTitle => party.film?.title == party.title ? null : party.film?.title;
 
   /// Release year, or null.
   String? get year => party.film?.year;
@@ -113,6 +133,7 @@ class HomePoll {
     required this.closesAt,
     required this.options,
     this.hasVoted = false,
+    this.serverTotal,
     this.now,
   });
 
@@ -124,6 +145,10 @@ class HomePoll {
   final List<HomePollOption> options;
   final bool hasVoted;
 
+  /// The server's total, which counts votes for options whose film is
+  /// gone (R11-N9).
+  final int? serverTotal;
+
   /// For tests; null means the real clock.
   final DateTime? now;
 
@@ -132,7 +157,7 @@ class HomePoll {
     return d.isNegative ? Duration.zero : d;
   }
 
-  int get totalVotes => options.fold(0, (a, o) => a + o.votes);
+  int get totalVotes => serverTotal ?? options.fold(0, (a, o) => a + o.votes);
 
   /// Most votes first; ties go to the earliest option.
   List<HomePollOption> get ranked =>
@@ -169,6 +194,7 @@ class HomePoll {
       closesAt: closes,
       options: options,
       hasVoted: json['hasVoted'] == true,
+      serverTotal: json['totalVotes'] is num ? (json['totalVotes'] as num).toInt() : null,
       now: now,
     );
   }
@@ -244,7 +270,7 @@ class HomeDiscussion {
     required this.movieId,
     required this.film,
     required this.text,
-    required this.createdAt,
+    this.createdAt,
     this.author,
     this.club,
     this.replies = 0,
@@ -257,11 +283,13 @@ class HomeDiscussion {
   final String movieId;
   final TmdbMovie film;
   final String text;
-  final DateTime createdAt;
+
+  /// Null when the server sent none.
+  final DateTime? createdAt;
   final String? author;
   final String? club;
 
-  /// The film's comment count.
+  /// The film's comment count (all comments on the film, not replies).
   final int replies;
   final int likes;
 
@@ -279,7 +307,7 @@ class HomeDiscussion {
       movieId: movieId,
       film: film,
       text: text,
-      createdAt: DateTime.tryParse('${json['createdAt']}')?.toLocal() ?? DateTime.now(),
+      createdAt: DateTime.tryParse('${json['createdAt']}')?.toLocal(),
       author: json['author'] is Map ? _str((json['author'] as Map)['username']) : null,
       club: _str(json['communityName']),
       replies: movie is Map ? _int(movie['commentCount']) : 0,
@@ -304,8 +332,9 @@ class HomeSuggestion {
 }
 
 /// Loads the Home feed (`GET /feed`). Refresh by invalidating it and
-/// awaiting `.future`. Invalidate it after anything that changes what Home
-/// shows: RSVPs, votes, joining or leaving a club, signing out.
+/// awaiting `.future`. Invalidate it (when it exists, so nothing fetches it
+/// just for that) after anything that changes what Home shows: RSVPs,
+/// votes, suggestions, posts, joining or leaving a club, signing out.
 final homeFeedProvider = FutureProvider<HomeFeed>((ref) async {
   final me = await ref.watch(currentUserIdProvider.future);
   final res = await ref.read(apiClientProvider).get('/feed', params: {'limit': 10});

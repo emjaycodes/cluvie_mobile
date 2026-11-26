@@ -200,7 +200,7 @@ typedef PartyResult = (PartyActionDone?, PartyRefusal?);
 /// Reloads the party (kept alive while waiting) and the list.
 Future<bool> _reload(WidgetRef ref, String id) async {
   ref.invalidate(watchPartiesProvider);
-  ref.invalidate(homeFeedProvider);
+  if (ref.exists(homeFeedProvider)) ref.invalidate(homeFeedProvider);
   final keep = ref.listenManual(watchPartyProvider(id), (_, __) {});
   try {
     final _ = await ref.refresh(watchPartyProvider(id).future);
