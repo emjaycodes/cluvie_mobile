@@ -15,6 +15,9 @@ abstract final class AppColors {
   /// Tinted glass base for the blurred nav bar / app bar (88% surface).
   static const Color surfaceGlass = Color(0xE014101F);
 
+  /// 96% bg panel: solid enough for copy over any poster colour.
+  static const Color bgPanel = Color(0xF50A0812);
+
   /// Flat glass for chips / secondary buttons over known dark surfaces (no blur).
   static const Color glassFlat = Color(0x14FFFFFF);
 
@@ -91,32 +94,14 @@ abstract final class AppColors {
   static const RadialGradient brandGlow = RadialGradient(
     colors: [Color(0x597C5CFF), Color(0x007C5CFF)],
   );
-
-  // ── Legacy aliases (remapped to new tokens; removed in Phase 6) ────────────
-  @Deprecated('Use AppColors.gold') static const Color accent = gold;
-  @Deprecated('Use AppColors.gold') static const Color goldenPopcorn = gold;
-  @Deprecated('Use AppColors.purpleContainer') static const Color cinematicPurple = purpleContainer;
-  @Deprecated('Use AppColors.success') static const Color popTeal = success;
-  @Deprecated('Use AppColors.error') static const Color softRed = error;
-  @Deprecated('Use AppColors.warning') static const Color amberWarning = warning;
-  @Deprecated('Use AppColors.textPrimary') static const Color white = textPrimary;
-  @Deprecated('Use AppColors.bg') static const Color black = bg;
-  @Deprecated('Use AppColors.bg') static const Color darkBackground = bg;
-  @Deprecated('Use AppColors.bg') static const Color backgroundDark = bg;
-  @Deprecated('Use AppColors.surface') static const Color darkSurface = surface;
-  @Deprecated('Use AppColors.border') static const Color darkBorder = border;
-  @Deprecated('Use AppColors.textPrimary') static const Color darkTextPrimary = textPrimary;
-  @Deprecated('Use AppColors.textSecondary') static const Color darkTextSecondary = textSecondary;
-  // App is dark-only: light aliases map to their dark equivalents.
-  @Deprecated('Use AppColors.bg') static const Color lightBackground = surfaceRaised;
-  @Deprecated('Use AppColors.surface') static const Color lightSurface = surface;
-  @Deprecated('Use AppColors.border') static const Color lightBorder = border;
-  @Deprecated('Use AppColors.textPrimary') static const Color lightTextPrimary = textPrimary;
-  @Deprecated('Use AppColors.textSecondary') static const Color lightTextSecondary = textSecondary;
-  @Deprecated('Use AppColors.goldGradient or brandGlow')
-  static const LinearGradient cinematicGradient = LinearGradient(
-    colors: [purpleContainer, purpleBadge],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  // ── Avatar palette ────────────────────────────────────────────────────────
+  /// Deterministic tints for initials avatars (R12-N6). Indexed by the
+  /// person's name hash so the same member keeps the same colour.
+  static const List<Color> avatarTints = [
+    Color(0xFF3A2D5C),
+    Color(0xFF2B3D55),
+    Color(0xFF4A2F3F),
+    Color(0xFF2F4A43),
+    Color(0xFF4A402A),
+  ];
 }

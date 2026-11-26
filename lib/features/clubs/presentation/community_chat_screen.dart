@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:cluvie_mobile/core/models/community.dart';
+import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/models/message.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -165,7 +167,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(AppIcons.add),
                     onPressed: showAttachmentOptions,
                   ),
                   Expanded(
@@ -189,7 +191,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.send),
+                    icon: const Icon(AppIcons.send),
                     onPressed: sendMessage,
                   ),
                 ],
@@ -225,9 +227,9 @@ class SliverAppBarSection extends StatelessWidget {
           ],
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
+          IconButton(icon: const Icon(AppIcons.search), onPressed: () {}),
           IconButton(
-            icon: const Icon(Icons.more_vert),
+            icon: const Icon(AppIcons.more),
             onPressed: () {
               _showMoreOptions(context, isAdmin: true);
             },
@@ -247,7 +249,7 @@ class SliverAppBarSection extends StatelessWidget {
           (_) => Wrap(
             children: [
               ListTile(
-                leading: const Icon(Icons.info_outline),
+                leading: const Icon(AppIcons.info),
                 title: const Text('View Community Info'),
                 onTap: () {
                   // Navigator.pop(context);
@@ -256,7 +258,7 @@ class SliverAppBarSection extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.search),
+                leading: const Icon(AppIcons.search),
                 title: const Text('Search Messages'),
                 onTap: () {
                   Navigator.pop(context);
@@ -264,7 +266,7 @@ class SliverAppBarSection extends StatelessWidget {
               ),
               if (isAdmin)
                 ListTile(
-                  leading: const Icon(Icons.group),
+                  leading: const Icon(AppIcons.clubs),
                   title: const Text('Manage Members'),
                   onTap: () {
                     Navigator.pop(context);
@@ -272,14 +274,14 @@ class SliverAppBarSection extends StatelessWidget {
                 ),
               if (isAdmin)
                 ListTile(
-                  leading: const Icon(Icons.settings),
+                  leading: const Icon(AppIcons.settings),
                   title: const Text('Edit Community Settings'),
                   onTap: () {
                     Navigator.pop(context);
                   },
                 ),
               ListTile(
-                leading: const Icon(Icons.exit_to_app),
+                leading: const Icon(AppIcons.signOut),
                 title: const Text('Leave Community'),
                 onTap: () {
                   Navigator.pop(context);
@@ -312,7 +314,7 @@ class ChatBubble extends StatelessWidget {
         isMe
             ? theme.colorScheme.primary.withOpacity(0.9)
             : theme.colorScheme.surfaceContainerHighest;
-    final textColor = isMe ? Colors.white : Colors.black87;
+    final textColor = AppColors.textPrimary;
 
     return GestureDetector(
       onTap: onTap,
@@ -460,7 +462,7 @@ class _ThreadBottomSheetState extends State<ThreadBottomSheet> {
                 height: 5,
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  color: Colors.grey[400],
+                  color: AppColors.borderStrong,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -506,7 +508,7 @@ class _ThreadBottomSheetState extends State<ThreadBottomSheet> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.send),
+                      icon: const Icon(AppIcons.send),
                       onPressed: _handleSend,
                     ),
                   ],
@@ -549,14 +551,14 @@ class _ReplyBubble extends StatelessWidget {
           children: [
             Text(
               message.content!,
-              style: TextStyle(color: isMe ? Colors.white : Colors.black87),
+              style: TextStyle(color: AppColors.textPrimary),
             ),
             const SizedBox(height: 4),
             Text(
               DateFormat.Hm().format(message.timestamp),
               style: TextStyle(
                 fontSize: 10,
-                color: isMe ? Colors.white70 : Colors.black54,
+                color: AppColors.textSecondary,
               ),
             ),
           ],
@@ -583,7 +585,7 @@ class _ParentMessageCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.reply, size: 18),
+          const Icon(AppIcons.reply, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Column(

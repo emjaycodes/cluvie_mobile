@@ -13,9 +13,6 @@ import 'package:go_router/go_router.dart';
 /// work (UX audit P0-4: no controls that do nothing).
 const bool kSocialAuthEnabled = false;
 
-/// 96% bg — solid enough that copy meets AA over any poster colour.
-const _panel = Color(0xF50A0812);
-
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
@@ -56,14 +53,14 @@ class WelcomeScreen extends StatelessWidget {
                                     gradient: LinearGradient(
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
-                                      colors: [Color(0x000A0812), _panel],
+                                      colors: [Colors.transparent, AppColors.bgPanel],
                                     ),
                                   ),
                                 ),
                               ),
                               ColoredBox(
                                 key: const ValueKey('welcome-panel'),
-                                color: _panel,
+                                color: AppColors.bgPanel,
                                 child: Padding(
                                   padding: const EdgeInsets.only(top: AppSpacing.sm),
                                   child: Column(
@@ -170,7 +167,7 @@ class _PosterWall extends StatelessWidget {
               (r) => const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.white, Colors.white, Colors.transparent],
+                colors: [AppColors.textPrimary, AppColors.textPrimary, Colors.transparent],
                 stops: [0, 0.32, 0.56],
               ).createShader(r),
           blendMode: BlendMode.dstIn,

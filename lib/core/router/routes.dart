@@ -128,27 +128,13 @@ final router = GoRouter(
         // room let cancelled, ended or too-early parties connect (R11-N5).
         return id is String && id.isNotEmpty ? '/watch-parties/$id' : null;
       },
-      builder: (context, state) {
-        // Optional: {'title': String, 'minutesLeft': int} from the card that opened it.
-        final extra = state.extra is Map ? state.extra as Map : const {};
-        return WatchPartyScreen(
-          title: extra['title'] is String ? extra['title'] as String : null,
-          minutesLeft: extra['minutesLeft'] is int ? extra['minutesLeft'] as int : null,
-          partyId: extra['id'] is String ? extra['id'] as String : null,
-        );
-      },
+      builder: (context, state) => const WatchPartyScreen(),
     ),
     GoRoute(
       path: '/watch-parties',
       name: RouteNames.watchPartyList,
       parentNavigatorKey: rootNavigatorKey,
-      builder: (context, state) {
-        // Optional: {'focus': {title, when, club, posterUrl, attending}}, the
-        // party the user tapped; it's listed first and highlighted.
-        final extra = state.extra is Map ? state.extra as Map : const {};
-        final focus = extra['focus'];
-        return WatchPartyListScreen(focus: focus is Map ? Map<String, dynamic>.from(focus) : null);
-      },
+      builder: (context, state) => const WatchPartyListScreen(),
     ),
     GoRoute(
       path: '/watch-parties/:id',

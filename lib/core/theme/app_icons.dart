@@ -26,6 +26,7 @@ abstract final class AppIcons {
   static const IconData share = PhosphorIconsRegular.shareNetwork;
   static const IconData more = PhosphorIconsRegular.dotsThree;
   static const IconData send = PhosphorIconsFill.paperPlaneRight;
+  static const IconData reply = PhosphorIconsRegular.arrowBendUpLeft;
   static const IconData attach = PhosphorIconsRegular.paperclip;
   static const IconData emoji = PhosphorIconsRegular.smiley;
   static const IconData settings = PhosphorIconsRegular.gear;

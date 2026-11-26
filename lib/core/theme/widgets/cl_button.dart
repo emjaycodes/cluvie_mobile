@@ -40,7 +40,6 @@ class ClButton extends StatelessWidget {
     this.isLoading = false,
     this.expand = true,
     this.semanticLabel,
-    @Deprecated('Use variant: ClButtonVariant.secondary') this.isSecondary = false,
   });
 
   final String label;
@@ -54,7 +53,6 @@ class ClButton extends StatelessWidget {
 
   /// Fill the available width when it is bounded.
   final bool expand;
-  final bool isSecondary;
 
   /// Spoken instead of [label] when the label alone is ambiguous, e.g.
   /// 'RSVP, Oppenheimer' for one of several RSVP buttons.
@@ -81,8 +79,7 @@ class ClButton extends StatelessWidget {
     return width + 1; // rounding headroom
   }
 
-  ClButtonVariant get resolvedVariant =>
-      variant ?? (isSecondary ? ClButtonVariant.secondary : ClButtonVariant.primary);
+  ClButtonVariant get resolvedVariant => variant ?? ClButtonVariant.primary;
 
   double get _height => switch (size) {
         ClButtonSize.sm => 40,

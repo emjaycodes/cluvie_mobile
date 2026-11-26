@@ -15,11 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// No "create" yet: parties are scheduled from a club's films, which isn't
 /// built. Gold budget: none.
 class WatchPartyListScreen extends ConsumerWidget {
-  const WatchPartyListScreen({super.key, this.focus});
-
-  /// Ignored. Home's demo cards passed a party here before Home read the
-  /// real feed; kept so old callers still compile.
-  final Map<String, dynamic>? focus;
+  const WatchPartyListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

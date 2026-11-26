@@ -7,14 +7,7 @@ import 'package:go_router/go_router.dart';
 /// `extra` the route redirects to that party's live room; without one
 /// there's no room to open, so this points to the list.
 class WatchPartyScreen extends StatelessWidget {
-  const WatchPartyScreen({super.key, this.title, this.minutesLeft, this.partyId});
-
-  /// Kept for old callers (Home's demo cards); unused.
-  final String? title;
-  final int? minutesLeft;
-
-  /// Unused: the route redirects when there's an id.
-  final String? partyId;
+  const WatchPartyScreen({super.key});
 
   @override
   Widget build(BuildContext context) => Scaffold(

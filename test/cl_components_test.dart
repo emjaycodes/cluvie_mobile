@@ -55,15 +55,6 @@ void main() {
       expect(taps, 0);
     });
 
-    testWidgets('legacy isSecondary maps to the secondary variant', (tester) async {
-      // ignore: deprecated_member_use_from_same_package
-      final button = ClButton(label: 'Later', onPressed: () {}, isSecondary: true);
-      expect(button.resolvedVariant, ClButtonVariant.secondary);
-      await tester.pumpWidget(_host(button));
-      final deco = _buttonBox(tester).decoration as BoxDecoration;
-      expect(deco.color, AppColors.glassFlat);
-    });
-
     testWidgets('inverse variant is white with dark text', (tester) async {
       await tester.pumpWidget(_host(ClButton(label: 'RSVP', variant: ClButtonVariant.inverse, onPressed: () {})));
       final deco = _buttonBox(tester).decoration as BoxDecoration;

@@ -337,11 +337,6 @@ abstract final class AppTheme {
       ),
     );
   }
-
-  @Deprecated('App is dark-only. Use AppTheme.theme')
-  static ThemeData get darkTheme => theme;
-  @Deprecated('App is dark-only. Use AppTheme.theme')
-  static ThemeData get lightTheme => theme;
 }
 
 /// Delegates to [inner] unless the OS asks for reduced motion, in which case

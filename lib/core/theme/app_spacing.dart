@@ -24,9 +24,6 @@ abstract final class AppSpacing {
   static const double minTouch = 48;
 
   static const EdgeInsets screen = EdgeInsets.symmetric(horizontal: gutter);
-
-  @Deprecated('Use AppSpacing.screen or EdgeInsets.all(AppSpacing.lg)')
-  static const EdgeInsetsGeometry clPadding = EdgeInsets.all(lg);
 }
 
 abstract final class AppRadius {

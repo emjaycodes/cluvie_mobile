@@ -54,10 +54,7 @@ abstract final class AppTextStyles {
     letterSpacing: 0.1,
   );
 
-  // ── Legacy aliases (removed in Phase 6) ────────────────────────────────────
-  @Deprecated('Use AppTextStyles.display or h1') static const TextStyle heading1 = h1;
-  @Deprecated('Use AppTextStyles.h2 / h3') static const TextStyle heading2 = h2;
-  @Deprecated('Use AppTextStyles.h3') static const TextStyle appBarTitle = h3;
+  // ── Type scale ────────────────────────────────────────────────────────────
 
   static TextTheme get textTheme => const TextTheme(
         displayLarge: display,
