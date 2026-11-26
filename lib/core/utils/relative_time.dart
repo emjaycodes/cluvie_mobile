@@ -41,13 +41,18 @@ String? timeLeft(DateTime end, {DateTime? now}) {
   return 'under a minute';
 }
 
-/// When [end] is, in words: "today at 20:00", "tomorrow at 09:30",
+/// When [end] is, in words: "today at 20:00", "tomorrow at 9:30 AM",
 /// "Fri 28 Nov at 20:00".
-String dayAndTime(DateTime end, {DateTime? now}) {
+///
+/// [use24h] follows the device (`MediaQuery.alwaysUse24HourFormatOf`);
+/// false gives the locale's 12-hour form.
+String dayAndTime(DateTime end, {DateTime? now, bool use24h = true}) {
   final n = now ?? DateTime.now();
-  final today = DateTime(n.year, n.month, n.day);
-  final day = DateTime(end.year, end.month, end.day);
-  final time = DateFormat.Hm().format(end);
+  // Calendar days compared as UTC dates, so a DST change (a 23h or 25h
+  // day) can't turn "tomorrow" into "today".
+  final today = DateTime.utc(n.year, n.month, n.day);
+  final day = DateTime.utc(end.year, end.month, end.day);
+  final time = (use24h ? DateFormat.Hm() : DateFormat.jm()).format(end);
   final diff = day.difference(today).inDays;
   if (diff == 0) return 'today at $time';
   if (diff == 1) return 'tomorrow at $time';

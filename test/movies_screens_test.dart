@@ -374,6 +374,17 @@ void main() {
       expect(find.text('Voted for Past Lives'), findsOneWidget);
     });
 
+    testWidgets('signed out: voting asks the user to sign in and sends nothing', (t) async {
+      final api = pollsApi();
+      await _pump(t, _app(api, initial: '/communities/$_club/vote', me: null));
+      await _scrollTo(t, find.bySemanticsLabel('Vote for Past Lives'));
+      await t.tap(find.bySemanticsLabel('Vote for Past Lives'));
+      await t.pumpAndSettle();
+      expect(find.text('Sign in to vote'), findsOneWidget);
+      expect(api.calls.where((c) => c.method == 'POST'), isEmpty);
+      expect(find.text('3 votes'), findsOneWidget);
+    });
+
     testWidgets('a non-member is told to join, not to retry (403)', (t) async {
       final api = pollsApi(onPost: (_, __) => throw _apiError(403, {'success': false, 'message': 'You must be a member of this community to vote'}));
       await _pump(t, _app(api, initial: '/communities/$_club/vote', extra: {'club': 'Cinema Sundays'}));

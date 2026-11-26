@@ -287,7 +287,7 @@ class _PollSection extends StatelessWidget {
       if (open) ...[
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'Ends ${dayAndTime(poll.expiresAt, now: now)}',
+          'Ends ${dayAndTime(poll.expiresAt, now: now, use24h: MediaQuery.alwaysUse24HourFormatOf(context))}',
           style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
         ),
       ],
