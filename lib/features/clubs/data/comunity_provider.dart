@@ -228,18 +228,33 @@ Future<PromoteResult> makeClubAdmin(WidgetRef ref, String clubId, String userId)
     await CommunityRepository(apiClient: ref.read(apiClientProvider)).makeAdmin(clubId, userId);
   } on ApiException catch (e) {
     final body = e.responseBody;
-    final message = body is Map ? '${body['message'] ?? ''}'.toLowerCase() : '';
     final code = body is Map ? body['code'] : null;
-    result = switch (e.statusCode) {
-      401 || 403 => PromoteResult.notAllowed,
-      404 => PromoteResult.notFound,
-      400 when code == 'ALREADY_ADMIN' || message.contains('already an admin') => PromoteResult.done,
-      400 when code == 'NOT_A_MEMBER' || message.contains('not a member') => PromoteResult.noLongerMember,
-      _ => PromoteResult.failed,
+    final message = body is Map ? '${body['message'] ?? ''}'.toLowerCase() : '';
+    // The server's code is authoritative. Status and message are a fallback for
+    // older responses that don't carry one.
+    result = switch (code) {
+      'NOT_ADMIN' => PromoteResult.notAllowed,
+      // The client sent a bad target id: not the same as the club being gone.
+      'INVALID_TARGET' => PromoteResult.failed,
+      'ALREADY_ADMIN' => PromoteResult.done,
+      'NOT_A_MEMBER' => PromoteResult.noLongerMember,
+      _ => switch (e.statusCode) {
+        401 || 403 => PromoteResult.notAllowed,
+        404 => PromoteResult.notFound,
+        400 when message.contains('already an admin') => PromoteResult.done,
+        400 when message.contains('not a member') => PromoteResult.noLongerMember,
+        _ => PromoteResult.failed,
+      },
     };
   } catch (_) {
     result = PromoteResult.failed;
   }
-  if (result != PromoteResult.failed && result != PromoteResult.notAllowed) ref.invalidate(communityProvider(clubId));
+  // Only a change or a vanished club needs a refetch; a refusal or bad target
+  // leaves the club as it is.
+  if (result == PromoteResult.done ||
+      result == PromoteResult.noLongerMember ||
+      result == PromoteResult.notFound) {
+    ref.invalidate(communityProvider(clubId));
+  }
   return result;
 }

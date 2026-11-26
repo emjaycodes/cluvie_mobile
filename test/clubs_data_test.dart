@@ -224,6 +224,100 @@ void main() {
     });
   });
 
+  group('makeClubAdmin', () {
+    int gets(FakeApiClient api, String clubId) =>
+        api.calls.where((c) => c.method == 'GET' && c.path == '/communities/$clubId').length;
+
+    /// Runs [makeClubAdmin] against [api] and reports the result plus how many
+    /// times the club was refetched (0 = not invalidated).
+    Future<(PromoteResult, int)> promote(
+      WidgetTester tester,
+      FakeApiClient api, {
+      String clubId = _id,
+      String userId = 'u2',
+    }) async {
+      late WidgetRef captured;
+      await tester.pumpWidget(ProviderScope(
+        overrides: [apiClientProvider.overrideWithValue(api)],
+        child: Consumer(builder: (context, ref, _) {
+          captured = ref;
+          // Keep the club provider alive so an invalidation actually refetches.
+          ref.listen(communityProvider(clubId), (_, __) {});
+          return const SizedBox();
+        }),
+      ));
+      await tester.runAsync(() => captured.read(communityProvider(clubId).future));
+      final before = gets(api, clubId);
+      late PromoteResult result;
+      await tester.runAsync(() async {
+        result = await makeClubAdmin(captured, clubId, userId);
+        // Let an invalidation's refetch run to completion.
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pump();
+      return (result, gets(api, clubId) - before);
+    }
+
+    FakeApiClient api(Object? Function() onPost) => FakeApiClient(
+          onGet: (path, _) {
+            if (path == '/communities/$_id') return {'success': true, 'data': clubJson()};
+            return {'success': true, 'communities': [clubJson()]};
+          },
+          onPost: (_, __) => onPost(),
+        );
+
+    testWidgets('NOT_ADMIN -> notAllowed, no refetch', (tester) async {
+      final a = api(() => throw apiError(403, {'code': 'NOT_ADMIN', 'message': 'Not an admin'}));
+      final (result, refetches) = await promote(tester, a);
+      expect(result, PromoteResult.notAllowed);
+      expect(refetches, 0);
+      expect(a.calls.firstWhere((c) => c.method == 'POST').path, '/communities/$_id/make-admin');
+    });
+
+    testWidgets('INVALID_TARGET -> failed, no refetch (not "club gone")', (tester) async {
+      final a = api(() => throw apiError(400, {'code': 'INVALID_TARGET', 'message': 'Invalid target user id'}));
+      final (result, refetches) = await promote(tester, a);
+      expect(result, PromoteResult.failed);
+      expect(refetches, 0);
+    });
+
+    testWidgets('ALREADY_ADMIN -> done, refetches the club', (tester) async {
+      final a = api(() => throw apiError(400, {'code': 'ALREADY_ADMIN', 'message': 'Target is already an admin'}));
+      final (result, refetches) = await promote(tester, a);
+      expect(result, PromoteResult.done);
+      expect(refetches, 1);
+    });
+
+    testWidgets('NOT_A_MEMBER -> noLongerMember, refetches the club', (tester) async {
+      final a = api(() => throw apiError(400, {'code': 'NOT_A_MEMBER', 'message': 'Target is not a member'}));
+      final (result, refetches) = await promote(tester, a);
+      expect(result, PromoteResult.noLongerMember);
+      expect(refetches, 1);
+    });
+
+    testWidgets('404 -> notFound, refetches (the club may have gone)', (tester) async {
+      final a = api(() => throw apiError(404));
+      final (result, refetches) = await promote(tester, a);
+      expect(result, PromoteResult.notFound);
+      expect(refetches, 1);
+    });
+
+    testWidgets('an unknown 500 -> failed, no refetch', (tester) async {
+      final a = api(() => throw apiError(500, {'message': 'Internal error'}));
+      final (result, refetches) = await promote(tester, a);
+      expect(result, PromoteResult.failed);
+      expect(refetches, 0);
+    });
+
+    testWidgets('the code wins over the status fallback', (tester) async {
+      // 403 would heuristically be notAllowed, but the server says ALREADY_ADMIN.
+      final a = api(() => throw apiError(403, {'code': 'ALREADY_ADMIN'}));
+      final (result, refetches) = await promote(tester, a);
+      expect(result, PromoteResult.done);
+      expect(refetches, 1);
+    });
+  });
+
   group('membership by the backend rule', () {
     test('owner-only and raw-id members count, though /joined misses them', () async {
       final ownerOnly = clubJson(members: const [])..['owner'] = 'me';
