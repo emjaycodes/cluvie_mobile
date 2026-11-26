@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/core/router/routes.dart' show resetPasswordRedirect;
@@ -6,6 +7,7 @@ import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/forgot_password_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/reset_password_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -153,6 +155,43 @@ void main() {
       await _press(t, 'Update password');
       expect(find.text('Password must be at least 8 characters'), findsOneWidget);
     });
+  });
+
+  test('a 401 ends the session only on signed-in, session-using routes', () {
+    ApiException e(String path, [int status = 401]) => ApiException(message: 'x', statusCode: status, path: path);
+    expect(ApiClient.endsSession(e('/auth/me'), signedIn: true), isTrue);
+    expect(ApiClient.endsSession(e('/auth/profile'), signedIn: true), isTrue);
+    expect(ApiClient.endsSession(e('/communities/joined'), signedIn: true), isTrue);
+    for (final p in ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password']) {
+      expect(ApiClient.endsSession(e(p), signedIn: true), isFalse, reason: p);
+    }
+    expect(ApiClient.endsSession(e('/auth/me'), signedIn: false), isFalse);
+    expect(ApiClient.endsSession(e('/auth/me', 403), signedIn: true), isFalse);
+  });
+
+  testWidgets('the real router opens the reset screen from the platform link', (t) async {
+    final router = GoRouter(
+      initialLocation: '/login',
+      redirect: (_, st) => resetPasswordRedirect(st.uri),
+      routes: [
+        GoRoute(path: '/login', builder: (_, __) => const Scaffold(body: Text('login screen'))),
+        GoRoute(path: '/', builder: (_, __) => const Scaffold(body: Text('root'))),
+        GoRoute(path: '/reset-password', builder: (_, st) => ResetPasswordScreen(token: st.uri.queryParameters['token'])),
+      ],
+    );
+    await t.pumpWidget(ProviderScope(child: MaterialApp.router(theme: AppTheme.theme, routerConfig: router)));
+    await t.pumpAndSettle();
+    for (final link in ['cluvie://reset-password?token=$_token', '?token=$_token']) {
+      router.go('/login');
+      await t.pumpAndSettle();
+      final message = const JSONMethodCodec().encodeMethodCall(
+        MethodCall('pushRouteInformation', {'location': link, 'state': null}),
+      );
+      await t.binding.defaultBinaryMessenger.handlePlatformMessage('flutter/navigation', message, (_) {});
+      await t.pumpAndSettle();
+      final screen = t.widget<ResetPasswordScreen>(find.byType(ResetPasswordScreen));
+      expect(screen.token, _token, reason: link);
+    }
   });
 
   test('ApiException.fromDio keeps an already-mapped error (status survives re-wrapping)', () {

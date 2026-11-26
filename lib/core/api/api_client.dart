@@ -66,12 +66,18 @@ class ApiClient {
 
   ApiException _checked(Object error) {
     final e = ApiException.fromDio(error);
-    final path = e.path ?? '';
-    if (e.statusCode == 401 && _dio.options.headers.containsKey('Authorization') && !path.startsWith('/auth/')) {
-      onSessionEnded?.call(e);
-    }
+    if (endsSession(e, signedIn: _dio.options.headers.containsKey('Authorization'))) onSessionEnded?.call(e);
     return e;
   }
+
+  /// Routes that don't use the session: a 401 there is a wrong password or
+  /// a bad reset token, not an ended session.
+  static const _sessionlessPaths = {'/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'};
+
+  /// Whether [e] means the signed-in session is over (expired token, or
+  /// `SESSION_REVOKED` after a password reset).
+  static bool endsSession(ApiException e, {required bool signedIn}) =>
+      e.statusCode == 401 && signedIn && !_sessionlessPaths.contains(e.path);
 
   void setAuthToken(String token) {
     _dio.options.headers['Authorization'] = 'Bearer $token';
