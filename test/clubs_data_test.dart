@@ -55,6 +55,22 @@ void main() {
       expect(c.createdAt, isNull);
     });
 
+    test('memberProfiles: roles and names; a deleted account has no name; absent is empty', () {
+      final c = Community.fromJson(clubJson()
+        ..['memberProfiles'] = [
+          {'_id': _owner, 'username': 'olive', 'role': 'owner'},
+          {'_id': 'u2', 'username': null, 'role': 'member'},
+          {'_id': 'u3', 'username': 'mo', 'role': 'admin'},
+          'junk',
+        ]);
+      expect(c.memberProfiles.map((p) => (p.id, p.username, p.role)), [
+        (_owner, 'olive', ClubRole.owner),
+        ('u2', null, ClubRole.member),
+        ('u3', 'mo', ClubRole.admin),
+      ]);
+      expect(Community.fromJson(clubJson()).memberProfiles, isEmpty);
+    });
+
     test('blank name and description read as null; displayName never empty', () {
       final c = Community.fromJson({'_id': _id, 'name': '  ', 'description': ''});
       expect(c.name, isNull);

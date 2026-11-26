@@ -2,7 +2,7 @@ import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/models/community.dart';
 
 /// The backend's `/communities` routes. The backend has no update, delete,
-/// invite-code or chat routes, so none are offered here.
+/// invite-code, ownership-transfer or chat routes, so none are offered here.
 class CommunityRepository {
   CommunityRepository({required ApiClient apiClient}) : _apiClient = apiClient;
   final ApiClient _apiClient;
@@ -44,4 +44,9 @@ class CommunityRepository {
 
   /// `POST /communities/:id/leave`
   Future<void> leave(String id) => _apiClient.post('/communities/$id/leave');
+
+  /// Makes a member an admin; owner and admins only
+  /// (`POST /communities/:id/make-admin`).
+  Future<void> makeAdmin(String id, String userId) =>
+      _apiClient.post('/communities/$id/make-admin', data: {'targetUserId': userId});
 }

@@ -1,3 +1,25 @@
+/// Someone in a club, from `memberProfiles` on `GET /communities/:id`.
+class ClubMemberProfile {
+  const ClubMemberProfile({required this.id, required this.username, required this.role});
+  final String id;
+
+  /// Null when the account was deleted.
+  final String? username;
+  final ClubRole role;
+
+  static ClubMemberProfile? fromJson(Object? json) {
+    if (json is! Map || json['_id'] is! String) return null;
+    final name = json['username'];
+    return ClubMemberProfile(
+      id: json['_id'] as String,
+      username: name is String && name.trim().isNotEmpty ? name.trim() : null,
+      role: switch (json['role']) { 'owner' => ClubRole.owner, 'admin' => ClubRole.admin, _ => ClubRole.member },
+    );
+  }
+}
+
+enum ClubRole { owner, admin, member }
+
 /// A film club (`Community` on the backend).
 ///
 /// Membership mirrors the backend's `utils/membership.js`: the owner always
@@ -19,6 +41,10 @@ class Community {
   final DateTime? createdAt;
   final String? ownerId;
 
+  /// Who is in the club, with names. Only `GET /communities/:id` sends
+  /// these; list endpoints leave it empty.
+  final List<ClubMemberProfile> memberProfiles;
+
   Community({
     required this.id,
     required this.name,
@@ -29,6 +55,7 @@ class Community {
     required this.movieSuggestions,
     required this.createdAt,
     this.ownerId,
+    this.memberProfiles = const [],
   });
 
   /// Reads an id that may be a plain string or a populated `{_id}` object.
@@ -79,6 +106,10 @@ class Community {
       movieSuggestions: ids(json['movie_suggestions']),
       createdAt: DateTime.tryParse('${json['createdAt']}')?.toLocal(),
       ownerId: ownerId,
+      memberProfiles: [
+        for (final p in json['memberProfiles'] is List ? json['memberProfiles'] as List : const [])
+          if (ClubMemberProfile.fromJson(p) case final profile?) profile,
+      ],
     );
   }
 

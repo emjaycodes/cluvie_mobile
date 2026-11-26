@@ -197,7 +197,8 @@ Future<(ClubActionDone?, ClubActionRefusal?)> leaveClub(WidgetRef ref, String id
     final body = e.responseBody;
     if (e.statusCode == 400 && body is Map) {
       // Prefer a code; the message check covers today's backend.
-      if (body['code'] == 'OWNER_CANNOT_LEAVE' || '${body['message']}'.toLowerCase().contains('owner')) {
+      if (body['code'] == 'OWNER_CANNOT_LEAVE' ||
+          (body['code'] == null && '${body['message']}'.toLowerCase().contains('owner'))) {
         return (null, ClubActionRefusal.ownerCannotLeave);
       }
     }
@@ -210,4 +211,20 @@ Future<(ClubActionDone?, ClubActionRefusal?)> leaveClub(WidgetRef ref, String id
   final overrides = ref.read(clubMembershipOverridesProvider.notifier);
   overrides.state = {...overrides.state, id: false};
   return (ClubActionDone(refreshed: await _refreshClub(ref, id)), null);
+}
+
+/// Makes [userId] an admin of club [clubId], then refetches the club.
+/// "Already an admin" counts as done. Returns the refusal, or null.
+Future<ClubActionRefusal?> makeClubAdmin(WidgetRef ref, String clubId, String userId) async {
+  try {
+    await CommunityRepository(apiClient: ref.read(apiClientProvider)).makeAdmin(clubId, userId);
+  } on ApiException catch (e) {
+    final refusal = _refusalFor(e);
+    if (refusal != null) return refusal;
+    // 400: already an admin, or no longer a member. Refetch either way.
+  } catch (_) {
+    return ClubActionRefusal.failed;
+  }
+  ref.invalidate(communityProvider(clubId));
+  return null;
 }

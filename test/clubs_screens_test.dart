@@ -36,10 +36,31 @@ Map<String, Object?> _club(String id, String name, {String owner = 'someone', Li
         {'user': owner, 'role': 'admin'},
         for (final m in members) {'user': m, 'role': 'member'},
       ],
-      'admins': const [],
+      'admins': <String>[],
       'movie_suggestions': const ['m1', 'm2'],
       'createdAt': '2026-03-01T10:00:00.000Z',
     };
+
+const _names = {_me: 'me_myself', 'u2': 'Maximiliana Featherstonehaugh-Worthington', 'u3': 'ola', 'u4': 'kemi', 'u5': 'tobi', 'someone': 'sam'};
+
+/// Like the server's `memberProfiles` (owner first, roles, null for unknown).
+List<Map<String, Object?>> _profiles(Map<String, Object?> c) {
+  final owner = c['owner'] as String;
+  final admins = c['admins'] as List;
+  final ids = <String>[owner];
+  for (final m in c['members'] as List) {
+    final id = m is Map ? m['user'] as String : m as String;
+    if (!ids.contains(id)) ids.add(id);
+  }
+  return [
+    for (final id in ids)
+      {
+        '_id': id,
+        'username': _names[id],
+        'role': id == owner ? 'owner' : (admins.contains(id) ? 'admin' : 'member'),
+      },
+  ];
+}
 
 Map<String, Object?> _poll() => {
       '_id': '650000000000000000000001',
@@ -104,11 +125,16 @@ class _Backend {
       if (one != null) {
         final c = clubs[one.group(1)];
         if (c == null) throw ApiException(message: 'x', statusCode: 404);
-        return {'success': true, 'data': c};
+        return {'success': true, 'data': {...c, 'memberProfiles': _profiles(c)}};
       }
       throw UnimplementedError(path);
     },
     onPost: (path, data) {
+      final promote = RegExp(r'^/communities/(\w+)/make-admin$').firstMatch(path);
+      if (promote != null) {
+        (clubs[promote.group(1)]!['admins'] as List).add(data!['targetUserId']);
+        return {'success': true};
+      }
       final m = RegExp(r'^/communities/(\w+)/(join|leave)$').firstMatch(path);
       if (m != null) {
         final id = m.group(1)!;
@@ -310,7 +336,38 @@ void main() {
       await t.tap(_button('About this club'));
       await t.pumpAndSettle();
       expect(find.text('About'), findsOneWidget);
-      expect(find.text('Members'), findsOneWidget);
+      expect(find.text('Members'), findsWidgets);
+    });
+  });
+
+  group('Members (About)', () {
+    testWidgets('lists everyone with roles; a plain member gets no Make admin', (t) async {
+      final b = _Backend();
+      await _pump(t, _app(b, initial: '/communities/$_member/about'));
+      await _scrollTo(t, find.text('ola'));
+      expect(find.text('sam'), findsOneWidget);
+      expect(find.text('OWNER'), findsOneWidget);
+      expect(find.text('me_myself'), findsOneWidget);
+      expect(find.text('YOU'), findsOneWidget);
+      expect(find.text('Make admin'), findsNothing);
+    });
+
+    testWidgets('the owner makes a member an admin after confirming', (t) async {
+      final b = _Backend();
+      await _pump(t, _app(b, initial: '/communities/$_owned/about'));
+      await _scrollTo(t, find.text('Make admin'));
+      expect(find.text('Make admin'), findsOneWidget); // not on the owner's own row
+      await t.tap(_button('Make admin'));
+      await t.pumpAndSettle();
+      expect(find.textContaining('Make Maximiliana'), findsOneWidget);
+      expect(b.api.calls.where((c) => c.path.endsWith('/make-admin')), isEmpty);
+      await t.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Make admin')));
+      await t.pumpAndSettle();
+      final post = b.api.calls.singleWhere((c) => c.path == '/communities/$_owned/make-admin');
+      expect(post.data, {'targetUserId': 'u2'});
+      expect(find.textContaining('is now an admin'), findsOneWidget);
+      expect(find.text('ADMIN'), findsOneWidget);
+      expect(find.text('Make admin'), findsNothing);
     });
   });
 
@@ -437,6 +494,7 @@ void main() {
       'detail (member)': ('/communities/$_member', const ['Suggest a film']),
       'detail (non-member, long name)': ('/communities/$_long', const ['Join club']),
       'about': ('/communities/$_long/about', const ['Join club']),
+      'about (owner, members)': ('/communities/$_owned/about', const []),
       'membership (owner)': ('/communities/$_owned/settings', const []),
       'membership (member)': ('/communities/$_member/settings', const []),
       'create': ('/createCommunity', const ['Create club']),
