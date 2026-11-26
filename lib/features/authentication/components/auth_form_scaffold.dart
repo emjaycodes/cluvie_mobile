@@ -33,10 +33,21 @@ class AuthFormScaffold extends StatelessWidget {
   }
 }
 
-/// No password-reset endpoint exists yet. Until it does, the "Forgot
-/// password?" link is hidden and the screen says so plainly instead of
-/// pretending an email was sent (review round 3, B4).
-const bool kPasswordResetAvailable = false;
+/// The reset API exists (`/auth/forgot-password`, `/auth/reset-password`),
+/// but the backend has no email provider yet: in production nothing is
+/// sent. Until one is added the "Forgot password?" link stays hidden and the
+/// screen says so plainly (review round 3, B4). For local testing, build
+/// with `--dart-define=PASSWORD_RESET=true`; the backend prints the link to
+/// its log outside production.
+const bool kPasswordResetAvailable = bool.fromEnvironment('PASSWORD_RESET');
+
+/// The backend's minimum for a new password (`/auth/reset-password`).
+const kResetPasswordMin = 8;
+
+String? validateNewPassword(String? v) {
+  if ((v ?? '').length < kResetPasswordMin) return 'Use at least $kResetPasswordMin characters.';
+  return null;
+}
 
 /// Simple email shape check (server is the source of truth).
 String? validateEmail(String? v) {

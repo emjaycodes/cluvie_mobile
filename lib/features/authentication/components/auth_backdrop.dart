@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/core/utils/fit_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
@@ -76,16 +77,31 @@ class AuthHeading extends StatelessWidget {
           header: true,
           label: '$line1 $line2',
           excludeSemantics: true,
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: '$line1\n'),
-                TextSpan(text: line2, style: const TextStyle(color: AppColors.purpleText)),
+          // Steps down at large text sizes so no word breaks mid-word. Not a
+          // LayoutBuilder: Welcome measures this inside an IntrinsicHeight.
+          // Auth screens sit inside the screen gutters.
+          child: Builder(builder: (context) {
+            final style = styleThatFits(
+              '$line1 $line2',
+              [
+                AppTextStyles.display.copyWith(fontSize: 34, height: 40 / 34),
+                AppTextStyles.display.copyWith(fontSize: 28, height: 34 / 28),
+                AppTextStyles.display.copyWith(fontSize: 22, height: 28 / 22),
               ],
-            ),
-            style: AppTextStyles.display.copyWith(fontSize: 34, height: 40 / 34),
-            textAlign: align,
-          ),
+              maxWidth: MediaQuery.sizeOf(context).width - 2 * AppSpacing.gutter,
+              textScaler: MediaQuery.textScalerOf(context),
+            );
+            return Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: '$line1\n'),
+                  TextSpan(text: line2, style: const TextStyle(color: AppColors.purpleText)),
+                ],
+              ),
+              style: style,
+              textAlign: align,
+            );
+          }),
         ),
         if (body != null) ...[
           const SizedBox(height: AppSpacing.md),

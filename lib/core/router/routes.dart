@@ -5,6 +5,7 @@ import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/forgot_password_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/login_screen.dart';
+import 'package:cluvie_mobile/features/authentication/presentation/reset_password_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/onboarding_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/sigup_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/splash_screen.dart';
@@ -29,8 +30,21 @@ import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_list
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+/// The emailed reset link is `cluvie://reset-password?token=…`. In a custom
+/// scheme `reset-password` is the URI's host, not its path, and platforms
+/// pass it on differently (whole URI, or only `?token=…`). Every form lands
+/// on `/reset-password?token=…`. Returns null for anything else.
+String? resetPasswordRedirect(Uri uri) {
+  final token = uri.queryParameters['token'];
+  final isReset = uri.host == 'reset-password' ||
+      (uri.path.isEmpty || uri.path == '/') && token != null && token.isNotEmpty;
+  if (!isReset) return null;
+  return Uri(path: '/reset-password', queryParameters: token == null ? null : {'token': token}).toString();
+}
+
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
-final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
+/// The root navigator, for app-level messages (e.g. "your session ended").
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// M1+M2: 5-tab ShellRoute that satisfies ROADMAP M1 exit criteria.
 /// Tab mapping (ROUTE spec):
@@ -41,10 +55,12 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 ///  Profile   -> /profile        (CF-02)
 /// Auth chain: splash (/splash) -> onboarding (/) -> welcome (/welcome) -> login/signup
 final router = GoRouter(
-  navigatorKey: _rootNavigatorKey,
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/splash',
   // ignore: unused_local_variable is intentional — guard wired for M3 hardening
   redirect: (context, state) {
+    final reset = resetPasswordRedirect(state.uri);
+    if (reset != null) return reset;
     // Auth guard: splash -> onboarding -> welcome -> login/signup -> Shell
     // For M1/M2 keep navigable; M3 will enforce: if (!loggedIn && !isAuthRoute) return '/welcome';
     // ignore: unused_local_variable
@@ -57,6 +73,7 @@ final router = GoRouter(
       '/login',
       '/signup',
       '/forgotPassword',
+      '/reset-password',
     ].contains(state.matchedLocation);
     return null;
   },
@@ -77,18 +94,23 @@ final router = GoRouter(
       path: '/forgotPassword',
       builder: (context, state) => const ForgotPasswordScreen(),
     ),
+    GoRoute(
+      name: RouteNames.resetPassword,
+      path: '/reset-password',
+      builder: (context, state) => ResetPasswordScreen(token: state.uri.queryParameters['token']),
+    ),
 
     // Deep-link targets that live outside Shell (notifications -> direct)
     GoRoute(
       name: RouteNames.notifications,
       path: '/notifications',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const NotificationsScreen(),
     ),
     GoRoute(
       path: '/watchParty',
       name: RouteNames.watchParty,
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) {
         // Optional: {'title': String, 'minutesLeft': int} from the card that opened it.
         final extra = state.extra is Map ? state.extra as Map : const {};
@@ -101,7 +123,7 @@ final router = GoRouter(
     GoRoute(
       path: '/watch-parties',
       name: RouteNames.watchPartyList,
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) {
         // Optional: {'focus': {title, when, club, posterUrl, attending}}, the
         // party the user tapped; it's listed first and highlighted.
@@ -113,7 +135,7 @@ final router = GoRouter(
     GoRoute(
       name: RouteNames.movieDetails,
       path: '/movie/:id',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return MovieDetailScreen(movieId: id);
@@ -123,7 +145,7 @@ final router = GoRouter(
     GoRoute(
       name: 'movieDetailsLegacy',
       path: '/MovieDetails',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const MovieDetailScreen(),
     ),
     GoRoute(
@@ -141,20 +163,20 @@ final router = GoRouter(
     GoRoute(
       name: RouteNames.createCommunity,
       path: '/createCommunity',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const CreateCommunityScreen(),
     ),
     GoRoute(
       name: RouteNames.discussionThread,
       path: '/discussionThread',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       // Film context in `extra`: DiscussionThreadScreen.extraFor(...).
       builder: (context, state) => DiscussionThreadScreen.fromExtra(state.extra),
     ),
     GoRoute(
       name: RouteNames.communityChat,
       path: '/communityChat',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) {
         final community = state.extra is Community ? state.extra as Community : null;
         // No chat backend yet: say so rather than show a local-only mock.
@@ -166,7 +188,7 @@ final router = GoRouter(
     GoRoute(
       name: RouteNames.communityInfo,
       path: '/communityInfo',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       // Legacy: takes `extra: Community`. Prefer /communities/:id/about.
       builder: (context, state) {
         final id = state.extra is Community ? (state.extra as Community).id : null;
@@ -177,7 +199,7 @@ final router = GoRouter(
     GoRoute(
       name: RouteNames.communitySettings,
       path: '/communitySettings',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       // Legacy: takes `extra: Community`. Prefer /communities/:id/settings.
       builder: (context, state) {
         final id = state.extra is Community ? (state.extra as Community).id : null;
@@ -189,7 +211,7 @@ final router = GoRouter(
     // ── 5-tab ShellRoute ────────────────────────────────────────────
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state, child) => ClBottomNavBar(child: child),
       routes: [
         // Home Feed — CF-03/CF-07 — route "/"  (also accessible via /home alias)
@@ -260,7 +282,7 @@ final router = GoRouter(
     GoRoute(
       name: RouteNames.communityDetail,
       path: '/communities/:id',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return CommunityDetailScreen(communityId: id);
@@ -311,7 +333,7 @@ final router = GoRouter(
     GoRoute(
       name: RouteNames.userProfile,
       path: '/users/:id',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return UserProfileScreen(userId: id);

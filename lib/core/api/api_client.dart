@@ -58,6 +58,21 @@ class ApiClient {
   ));
   }
 
+  /// Called when a signed-in request answers 401: the token expired, or a
+  /// password reset revoked it (`code: SESSION_REVOKED`). The app signs out
+  /// and opens Log in. Auth routes are excluded: a wrong password is not an
+  /// ended session.
+  static void Function(ApiException error)? onSessionEnded;
+
+  ApiException _checked(Object error) {
+    final e = ApiException.fromDio(error);
+    final path = e.path ?? '';
+    if (e.statusCode == 401 && _dio.options.headers.containsKey('Authorization') && !path.startsWith('/auth/')) {
+      onSessionEnded?.call(e);
+    }
+    return e;
+  }
+
   void setAuthToken(String token) {
     _dio.options.headers['Authorization'] = 'Bearer $token';
   }
@@ -70,7 +85,7 @@ class ApiClient {
     try {
       return await _dio.get(path, queryParameters: params);
     } catch (e) {
-      throw ApiException.fromDio(e);
+      throw _checked(e);
     }
   }
 
@@ -78,7 +93,7 @@ class ApiClient {
     try {
       return await _dio.post(path, data: data);
     } catch (e) {
-      throw ApiException.fromDio(e);
+      throw _checked(e);
     }
   }
 
@@ -86,7 +101,7 @@ class ApiClient {
     try {
       return await _dio.put(path, data: data);
     } catch (e) {
-      throw ApiException.fromDio(e);
+      throw _checked(e);
     }
   }
 
@@ -94,7 +109,7 @@ class ApiClient {
     try {
       return await _dio.delete(path);
     } catch (e) {
-      throw ApiException.fromDio(e);
+      throw _checked(e);
     }
   }
 }

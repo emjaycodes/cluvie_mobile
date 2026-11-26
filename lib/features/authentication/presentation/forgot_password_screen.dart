@@ -6,21 +6,32 @@ import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/authentication/components/auth_backdrop.dart';
 import 'package:cluvie_mobile/features/authentication/components/auth_form_scaffold.dart';
+import 'package:cluvie_mobile/core/api/api_client_provider.dart';
+import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
+import 'package:cluvie_mobile/core/repository/auth_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({super.key});
+/// Forgot password (`/forgotPassword`): asks `POST /auth/forgot-password`
+/// for a reset link. The backend replies the same whether or not the
+/// account exists, so the confirmation never says which.
+class ForgotPasswordScreen extends ConsumerStatefulWidget {
+  const ForgotPasswordScreen({super.key, this.resetAvailable = kPasswordResetAvailable});
+
+  /// Tests pass true; the app uses [kPasswordResetAvailable].
+  final bool resetAvailable;
 
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   bool _loading = false;
   String? _sentTo;
+  String? _error;
 
   @override
   void dispose() {
@@ -31,21 +42,38 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Future<void> _send() async {
     FocusScope.of(context).unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    setState(() => _loading = true);
-    // TODO(api): no reset endpoint exists yet — this still simulates the request.
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
+    if (_loading) return;
     setState(() {
-      _loading = false;
-      _sentTo = _email.text.trim();
+      _loading = true;
+      _error = null;
     });
+    final email = _email.text.trim();
+    try {
+      await AuthRepository(apiClient: ref.read(apiClientProvider)).forgotPassword(email);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _sentTo = email;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final status = e is ApiException ? e.statusCode : null;
+      setState(() {
+        _loading = false;
+        _error = switch (status) {
+          429 => "You've asked for several links. Wait 15 minutes, then try again.",
+          null => "Can't reach Cluvie right now. Check your connection and try again.",
+          _ => "Couldn't send the link. Try again in a moment.",
+        };
+      });
+    }
   }
 
   void _backToLogin() => context.canPop() ? context.pop() : context.goNamed(RouteNames.login);
 
   @override
   Widget build(BuildContext context) {
-    if (!kPasswordResetAvailable) {
+    if (!widget.resetAvailable) {
       // Reachable only by deep link while there is no reset endpoint.
       return AuthFormScaffold(
         children: [
@@ -94,7 +122,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   Text('Check your inbox', style: AppTextStyles.h1, textAlign: TextAlign.center),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'If an account exists for $_sentTo, you\'ll get a link to reset your password in a few minutes.',
+                    'If an account exists for $_sentTo, we\'ve sent a link to reset your password. It works for 30 minutes.',
                     style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
                     textAlign: TextAlign.center,
                   ),
@@ -139,7 +167,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
         ),
         const SizedBox(height: AppSpacing.xl),
-        ClButton(label: 'Send reset link', isLoading: _loading, onPressed: _send),
+        if (_error != null) ...[
+          ClStatusBanner(type: ClStatusType.error, message: _error!),
+          const SizedBox(height: AppSpacing.lg),
+        ],
+        ClButton(label: 'Send reset link', isLoading: _loading, onPressed: _loading ? null : _send),
         const SizedBox(height: AppSpacing.lg),
         AuthSwitchLink(prompt: 'Remembered it?', action: 'Log in', onTap: _backToLogin),
       ],

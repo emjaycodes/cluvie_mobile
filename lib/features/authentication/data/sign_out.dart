@@ -7,16 +7,24 @@ import '../../clubs/data/comunity_provider.dart';
 import '../../movies/data/comment_provider.dart';
 import '../../movies/data/movie_provider.dart';
 import 'auth_provider.dart';
+import 'current_user.dart';
 
 /// Ends the session everywhere: clears the stored token and auth header,
 /// resets the auth state and drops every user-scoped cache so the next
 /// person to log in on this device never sees the previous user's data.
 Future<void> signOut(BuildContext context, WidgetRef ref) async {
   await ref.read(authNotifierProvider.notifier).logout();
-  ref
-    ..invalidate(joinedCommunitiesProvider)
-    ..invalidate(allCommunitiesProvider)
-    ..invalidate(movieNotifierProvider)
-    ..invalidate(movieCommentsProvider);
+  clearUserState(ref.invalidate);
   if (context.mounted) context.goNamed(RouteNames.welcome);
+}
+
+/// Drops every user-scoped cache. Takes `invalidate` so it works from a
+/// [WidgetRef] or a [Ref].
+void clearUserState(void Function(ProviderOrFamily) invalidate) {
+  invalidate(joinedCommunitiesProvider);
+  invalidate(allCommunitiesProvider);
+  invalidate(clubMembershipOverridesProvider);
+  invalidate(currentUserIdProvider);
+  invalidate(movieNotifierProvider);
+  invalidate(movieCommentsProvider);
 }

@@ -8,7 +8,8 @@ import '../models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthRepository {
-  final ApiClient _apiClient = ApiClient();
+  AuthRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+  final ApiClient _apiClient;
 
   static const _tokenKey = 'auth_token';
 
@@ -98,4 +99,13 @@ class AuthRepository {
   Future<void> logout() async {
     await _clearToken();
   }
+
+  /// Asks for a reset link (`POST /auth/forgot-password`). The backend
+  /// answers the same whether or not the account exists.
+  Future<void> forgotPassword(String email) => _apiClient.post('/auth/forgot-password', data: {'email': email});
+
+  /// Sets a new password with the token from the emailed link
+  /// (`POST /auth/reset-password`). The token works once.
+  Future<void> resetPassword(String token, String password) =>
+      _apiClient.post('/auth/reset-password', data: {'token': token, 'password': password});
 }
