@@ -169,3 +169,32 @@ Severity: **B** = blocking, **S** = should-fix, **N** = nit.
   - The collapsed title is hidden from semantics until it's visible.
   - Error states are live regions.
 - **Design-system compliance:** tokens and `Cl*` widgets only. Every `ClButton` sets its variant explicitly. Refresh indicators are purple and `textMuted` appears only on `bg`.
+
+## Resolution (implementer, 2026-11-26)
+
+All findings except S9, N1 and N3 are fixed (`9f9715a`, `e1d1166`, `e41403c`, `f203099`, `a34d382`). 288/288 tests pass; the analyzer has 0 errors and 0 warnings (12 infos, unchanged, none in changed files).
+
+| ID | Fix | Test |
+|---|---|---|
+| B1 | Movie Detail awaits `showSuggestSheet` and shows "Suggested <film> to <club>." The sheet invalidates the shared `catalogProvider` on success, so the discussion preview switches from "No club has suggested…" to the discussion. | Submits through the sheet; asserts the snackbar, a second `/movies/list` fetch and the new preview copy |
+| B2 | The draft field's height is capped at min(5 lines, 35% of the body height from a `LayoutBuilder`) with `maxLines: null`, so it scrolls inside. (`MediaQuery` inside the Scaffold body has the keyboard inset removed, so the body height is measured directly.) | 3 sizes × 3 scales, keyboard up, 5-line draft: no exception, Post and field above the keyboard, list ≥ 48dp. It failed at 320 before the fix |
+| S1 | `skipLoadingOnRefresh: false` on the thread and on both Movie Detail preview states; the preview retry invalidates `catalogProvider`. | Held-`Completer` retry tests for the thread and the preview |
+| S2 | Vote and Club discussions use `skipLoadingOnRefresh: hasValue` with `skipError: true`. A failed refresh with data keeps it and shows "Couldn't refresh. Showing the earlier vote." / "…earlier discussions." Vote clears `_local` and `_order` only after fresh data arrives. | Failed pull-to-refresh and held retry, on both screens |
+| S3 | Row labels start with the title and drop the rank: "Past Lives, 4 votes, your vote. Open film details". | Exact labels via `getSemantics`, before and after a vote |
+| S4 | `VoteRefusal.notMember` for 403: "Join <club> to vote" with "Open club", rolled back, no Retry. | 403 test, including the Open club navigation |
+| S5 | The send fill is `purpleBadge`. | — |
+| S6 | `FitWordsText` for the title; the poster and the "Open" hint step aside above 1.6×. Club discussions is in the 3×3 layout matrix with the long title. | Matrix |
+| S7 | One kept-alive `catalogProvider` (`/movies/list`) serves Discover and `catalogFilmProvider`. The section is "Suggested in clubs: Films clubs have put forward to watch", capped at `kSuggestedInClubsLimit` (24). The backend `?limit=` and `GET /movies/tmdb/:tmdbId` asks remain for the backend. | Cap test |
+| S8 | `DiscoverFeed` carries `trendingFailed` / `suggestedFailed`. A failed section shows its own compact error with retry, and a skeleton while retrying. Suggest shows "Couldn't load trending films" instead of the empty state. | Section-failure and held section-retry tests |
+| S10 | Discover and Suggest fixtures use the real shapes (`{tmdbId, poster, releaseDate}`, Mongo docs). New `test/movies_units_test.dart`: `savedUserId`, the cold-start `currentUserIdProvider`, `timeLeft`, `dayAndTime`, `styleThatFits`, and the real router for `/movie/:id`, `/communities/:id/vote` and `/communities/:id/discussion`. Also: Retry on a failed vote is tapped, and the signed-out "Sign in to vote" path is tested. | — |
+| S11 | A 409 `DUPLICATE_SUGGESTION` says "<club> already has <film>." (plus "Pick another club…" when there are others), disables submit for that club, and refreshes the catalog. | 409 test, then a successful suggest to another club |
+| N2 | `dayAndTime` compares UTC calendar dates, and the Vote screen passes `MediaQuery.alwaysUse24HourFormatOf`. | Includes the EU spring-forward and fall-back nights |
+| N4 | Retry actions are guarded with `if (mounted)`. | — |
+| N5 | Voting is busy until `currentUserIdProvider` resolves. | — |
+| N6 | After posting with no known user name, the thread reloads quietly. | The post test's fake now stores posts; asserts the author's name |
+| N7 | Loading labels on Movie Detail, Vote and Club discussions are live regions. | — |
+
+**Still open:**
+- **S9 (needs a product decision):** Home's demo feed still sends Vote and Discuss CTAs to empty states. The options are to hide those CTAs while Home is demo data, or to wire Home to the real API.
+- **N1:** the watchlist toggle for catalog films (`/watchlist/add {movieId}`) is a feature addition, deferred.
+- **N3:** Community Detail is still the demo screen. Pass the club name when it is rebuilt in group 5.
