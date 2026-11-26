@@ -200,6 +200,20 @@ void main() {
     expect(find.text('CLUVIE'), findsNothing);
   });
 
+  testWidgets('R12-S1: pushing your own /users link shows your profile with a back', (t) async {
+    await _pump(t, _app(_Backend(), initial: '/home'));
+    final ctx = t.element(find.text('tab /home'));
+    GoRouter.of(ctx).push('/users/$_me');
+    await t.pumpAndSettle();
+    expect(find.text('Edit profile'), findsOneWidget, reason: 'own profile, not a Follow page');
+    expect(find.text('Follow'), findsNothing);
+    final back = find.byType(BackButton);
+    expect(back, findsOneWidget, reason: 'no dead end');
+    await t.tap(back);
+    await t.pumpAndSettle();
+    expect(find.text('tab /home'), findsOneWidget);
+  });
+
   testWidgets('a watchlist film opens by TMDB id', (t) async {
     await _pump(t, _app(_Backend()));
     await _scrollTo(t, find.text('Past Lives'));
@@ -404,6 +418,22 @@ void main() {
       expect(find.text('Watches films, writes notes.'), findsOneWidget);
       expect(b.username, 'ada_films');
       expect(b.bio, 'Watches films, writes notes.');
+    });
+
+    testWidgets('R12-N2: a whitespace-only bio is sent blank and renders no bio line', (t) async {
+      final b = _Backend();
+      await _pump(t, _app(b));
+      await _tapButton(t, 'Edit profile');
+      await t.enterText(_field(1), '   ');
+      await t.pump();
+      await _tapButton(t, 'Save');
+      expect(b.bio, '');
+      final patch = b.api.calls.singleWhere((c) => c.method == 'PATCH');
+      expect(patch.data?['bio'], '');
+      final whitespaceOnly = t
+          .widgetList<Text>(find.byType(Text))
+          .where((w) => (w.data ?? '').isNotEmpty && (w.data ?? '').trim().isEmpty);
+      expect(whitespaceOnly, isEmpty);
     });
   });
 

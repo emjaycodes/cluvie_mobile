@@ -39,7 +39,7 @@ class ClAvatar extends StatelessWidget {
 
   // Deterministic tint so the same person keeps the same colour.
   Color get _tint {
-    const tints = [Color(0xFF3A2D5C), Color(0xFF2B3D55), Color(0xFF4A2F3F), Color(0xFF2F4A43), Color(0xFF4A402A)];
+    final tints = AppColors.avatarTints;
     return tints[(name ?? '').hashCode.abs() % tints.length];
   }
 

@@ -246,6 +246,37 @@ void main() {
     expect(container.read(notificationsProvider).value!.first.isRead, isTrue);
   });
 
+  test('R12-N1: a notification that arrives during a failed mark-all stays unread', () async {
+    final b = _Backend();
+    final container = ProviderContainer(overrides: [apiClientProvider.overrideWithValue(b.api)]);
+    addTearDown(container.dispose);
+    final sub = container.listen(notificationsProvider, (_, __) {});
+    addTearDown(sub.close);
+    await container.read(notificationsProvider.future);
+    final gate = Completer<void>();
+    b.api.onPatch = (_, __) async {
+      await gate.future;
+      throw ApiException(message: 'x', statusCode: 503);
+    };
+    final notifier = container.read(notificationsProvider.notifier);
+    final marking = notifier.markAllRead();
+    // A fresh notification is pushed in while the request is in flight. The
+    // list is currently the optimistic all-read one.
+    final arrived = AppNotification.fromJson(
+      _n('6e00000000000000000000ff', 'VOTE', 'New vote', 'Fresh', '/movies/$_film'),
+    )!;
+    // ignore: invalid_use_of_protected_member
+    notifier.state = AsyncData([arrived, ...notifier.state.value!]);
+    gate.complete();
+    await expectLater(marking, throwsA(isA<ApiException>()));
+    final list = container.read(notificationsProvider).value!;
+    expect(list.first.id, '6e00000000000000000000ff');
+    expect(list.first.isRead, isFalse, reason: 'it arrived after the request began');
+    for (final id in ['6e0000000000000000000001', '6e0000000000000000000002']) {
+      expect(list.firstWhere((n) => n.id == id).isRead, isFalse, reason: 'was unread when the request began');
+    }
+  });
+
   test('populated targets open directly, without a lookup', () {
     AppNotification n(Map<String, Object?> extra, [String type = 'VOTE']) =>
         AppNotification.fromJson(_n('6e00000000000000000000aa', type, 't', 'm', '/movies/$_film')..addAll(extra))!;

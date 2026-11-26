@@ -142,7 +142,7 @@ class _EditProfileFormState extends ConsumerState<_EditProfileForm> {
     final refusal = await updateMyProfile(
       ref,
       username: _usernameValue,
-      bio: _bio.text,
+      bio: _bio.text.trim(),
       avatarUrl: _avatar.text.trim(),
     );
     if (!mounted) return;

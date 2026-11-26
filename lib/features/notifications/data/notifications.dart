@@ -158,12 +158,19 @@ class NotificationsNotifier extends AutoDisposeAsyncNotifier<List<AppNotificatio
   Future<void> markAllRead() async {
     final before = state.valueOrNull;
     if (before == null || before.every((n) => n.isRead)) return;
+    // Remember exactly which ids were unread when the request started, so a
+    // notification that arrives meanwhile keeps its own read state (R12-N1).
+    final unreadIds = {for (final n in before) if (!n.isRead) n.id};
     state = AsyncData([for (final n in before) n.isRead ? n : n.copyWith(isRead: true)]);
     try {
       await _api.patch('/notifications/read-all');
     } catch (_) {
-      // Only undo if nothing replaced the list meanwhile.
-      if (state.valueOrNull?.any((n) => !n.isRead) == false) state = AsyncData(before);
+      final now = state.valueOrNull;
+      if (now != null) {
+        state = AsyncData([
+          for (final n in now) unreadIds.contains(n.id) ? n.copyWith(isRead: false) : n,
+        ]);
+      }
       rethrow;
     } finally {
       ref.invalidate(unreadNotificationCountProvider);

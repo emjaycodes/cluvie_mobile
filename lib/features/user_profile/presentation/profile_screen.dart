@@ -33,7 +33,9 @@ class UserProfileScreen extends ConsumerWidget {
     final me = ref.watch(currentUserIdProvider).valueOrNull;
     final id = userId;
     if (id != null && id != me) return _OtherProfile(id: id);
-    return const _MyProfile();
+    // Your own /users/:id link: show the tab profile, but with a back button
+    // instead of stranding it on a root route without one (R12-S1).
+    return _MyProfile(showBack: id != null);
   }
 }
 
@@ -125,8 +127,9 @@ class _OtherProfileState extends ConsumerState<_OtherProfile> {
       ),
       data: (p) {
         // The backend is the authority: someone opening their own link sees
-        // their own profile (with Edit) rather than a Follow button.
-        if (p.isMe) return const _MyProfile();
+        // their own profile (with Edit) rather than a Follow button, and with
+        // a back affordance (R12-S1).
+        if (p.isMe) return const _MyProfile(showBack: true);
         return _buildProfile(context, p, bottom);
       },
     );
@@ -203,7 +206,11 @@ class _OtherProfileState extends ConsumerState<_OtherProfile> {
 }
 
 class _MyProfile extends ConsumerWidget {
-  const _MyProfile();
+  const _MyProfile({this.showBack = false});
+
+  /// True when rendered from a pushed `/users/:id` link, so it isn't a dead
+  /// end on a root route (R12-S1).
+  final bool showBack;
 
   Future<void> _refresh(BuildContext context, WidgetRef ref) async {
     final had = ref.read(myProfileProvider).hasValue;
@@ -268,6 +275,11 @@ class _MyProfile extends ConsumerWidget {
             SliverAppBar(
               pinned: true,
               automaticallyImplyLeading: false,
+              leading: showBack
+                  ? BackButton(
+                      onPressed: () => context.canPop() ? context.pop() : context.go('/profile'),
+                    )
+                  : null,
               backgroundColor: AppColors.bg,
               scrolledUnderElevation: 0,
               titleSpacing: AppSpacing.gutter,
