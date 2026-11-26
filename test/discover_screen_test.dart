@@ -419,6 +419,26 @@ void main() {
           expect(find.text("Couldn't load Discover — tap to retry"), findsOneWidget);
           await check();
         });
+
+        testWidgets('${size.width.toInt()}x${size.height.toInt()} @${scale}x: one failed section fits; no gold', (t) async {
+          final padding = EdgeInsets.only(top: size.height > 800 ? 47 : 20, bottom: 34);
+          for (final failing in ['/movies/trending', '/movies/list']) {
+            await t.pumpWidget(const SizedBox());
+            final api = FakeApiClient(onGet: (path, _) {
+              if (path == failing) throw Exception('down');
+              if (path == '/movies/trending') return {'success': true, 'data': _trending};
+              return _popular;
+            });
+            await _pump(t, _app(api, size: size, scale: scale, padding: padding), size: size);
+            final title = failing == '/movies/trending' ? "Couldn't load trending films" : "Couldn't load films suggested in clubs";
+            await t.scrollUntilVisible(find.text(title), 200, scrollable: find.byType(Scrollable).first);
+            await t.pumpAndSettle();
+            expect(t.takeException(), isNull, reason: failing);
+            expectNoBrokenWords(t);
+            expectNotTruncated(t, [title, 'Try again']);
+            expect(goldViolations(t), isEmpty, reason: failing);
+          }
+        });
       }
     }
   });

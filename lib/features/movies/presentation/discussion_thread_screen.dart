@@ -408,6 +408,7 @@ class _Composer extends StatelessWidget {
     // bar and keyboard leave); past that the field scrolls inside.
     const style = AppTextStyles.body;
     final line = MediaQuery.textScalerOf(context).scale(style.fontSize!) * (style.height ?? 1.2);
+    final largeText = MediaQuery.textScalerOf(context).scale(16) / 16 > 1.2;
     final fieldMax = math.max(AppSpacing.minTouch, math.min(5 * line + 2 * AppSpacing.md, bodyHeight * 0.35));
 
     return DecoratedBox(
@@ -435,7 +436,10 @@ class _Composer extends StatelessWidget {
                     inputFormatters: [LengthLimitingTextInputFormatter(kMaxPostLength)],
                     style: AppTextStyles.body,
                     decoration: InputDecoration(
-                      hintText: 'Add to the discussion',
+                      // The hint isn't inside the field's scroll view, so it
+                      // must stay one line; the short form fits at large text.
+                      hintText: largeText ? 'Write a post' : 'Add to the discussion',
+                      hintMaxLines: 1,
                       border: const OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.borderInput)),
                       enabledBorder: const OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.borderInput)),
                       focusedBorder: const OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.focusRing, width: 2)),

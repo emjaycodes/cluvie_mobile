@@ -399,6 +399,26 @@ void main() {
           await t.pumpAndSettle();
           expect(t.getRect(_submit).bottom, lessThanOrEqualTo(size.height));
         });
+
+        testWidgets('${size.width.toInt()}x${size.height.toInt()} @${scale}x: the duplicate notice fits', (t) async {
+          final padding = EdgeInsets.only(top: size.height > 800 ? 47 : 20, bottom: 34);
+          final api = _api(onPost: (_, __) => throw ApiException(
+                message: 'conflict',
+                statusCode: 409,
+                responseBody: {'success': false, 'code': 'DUPLICATE_SUGGESTION'},
+              ));
+          await _pump(t, _app(api, size: size, scale: scale, padding: padding), size: size);
+          await _openSheet(t, 'Aftersun');
+          await _tapInSheet(t, find.text(_longClub));
+          await _tapInSheet(t, find.text('Suggest'));
+          final notice = '$_longClub already has Aftersun. Pick another club to suggest it there.';
+          await t.ensureVisible(find.text(notice));
+          await t.pumpAndSettle();
+          expect(t.takeException(), isNull);
+          expectNoBrokenWords(t);
+          expectNotTruncated(t, [notice]);
+          expect(goldViolations(t, allowed: [_submit]), isEmpty);
+        });
       }
     }
   });

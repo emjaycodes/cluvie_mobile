@@ -662,6 +662,31 @@ void main() {
     // 20pt status bar.
     for (final (size, keyboard, top) in [(const Size(320, 568), 260.0, 20.0), (const Size(375, 667), 260.0, 20.0), (const Size(390, 844), 300.0, 47.0)]) {
       for (final scale in [1.0, 1.3, 2.0]) {
+        testWidgets('${size.width.toInt()}x${size.height.toInt()} @${scale}x, keyboard up, empty draft: the hint fits', (t) async {
+          await _pump(
+            t,
+            _app(
+              threadApi(),
+              initial: '/discussionThread',
+              extra: extra(),
+              size: size,
+              scale: scale,
+              padding: EdgeInsets.only(top: top),
+              viewInsets: EdgeInsets.only(bottom: keyboard),
+            ),
+            size: size,
+          );
+          expect(t.takeException(), isNull);
+          final field = t.getRect(find.byType(TextField));
+          final hintText = scale > 1.2 ? 'Write a post' : 'Add to the discussion';
+          final hint = t.getRect(find.text(hintText));
+          expect(hint.top, greaterThanOrEqualTo(field.top), reason: 'hint inside the field');
+          expect(hint.bottom, lessThanOrEqualTo(field.bottom), reason: 'hint not clipped');
+          expectNotTruncated(t, [hintText]);
+          expectNoBrokenWords(t);
+          expect(field.bottom, lessThanOrEqualTo(size.height - keyboard));
+        });
+
         testWidgets('${size.width.toInt()}x${size.height.toInt()} @${scale}x, keyboard up, 5-line draft: Post stays reachable', (t) async {
           await _pump(
             t,
