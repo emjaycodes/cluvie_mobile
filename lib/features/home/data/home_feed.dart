@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/features/notifications/data/notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The Home feed: everything the Home tab shows, loaded as one unit.
@@ -156,9 +157,9 @@ final homeFeedProvider = FutureProvider<HomeFeed>((ref) async {
 
 /// Unread notification count for every bell in the app, so the tabs agree.
 ///
-/// There is no notifications endpoint yet, so this is 0: the bells show no
-/// badge rather than a made-up count. Wire it to the API when one exists.
-final unreadCountProvider = Provider<int>((ref) => 0);
+/// From `GET /notifications?isRead=false`. 0 while loading or when it
+/// failed, so a bell never shows a made-up count.
+final unreadCountProvider = Provider.autoDispose<int>((ref) => ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0);
 
 // ── Demo data ────────────────────────────────────────────────────────────────
 

@@ -69,7 +69,8 @@ void expectNoBrokenWords(WidgetTester t) {
     if (p is! RenderParagraph || !p.hasSize || !p.softWrap || p.maxLines == 1) continue;
     final style = p.text.style;
     final plain = p.text.toPlainText();
-    for (final word in plain.split(RegExp(r'\s+')).where((w) => w.isNotEmpty)) {
+    // Zero-width spaces are deliberate break points (breakableTokens).
+    for (final word in plain.split(RegExp('[\\s\u200B]+')).where((w) => w.isNotEmpty)) {
       final tp = TextPainter(text: TextSpan(text: word, style: style), textScaler: p.textScaler, textDirection: TextDirection.ltr)
         ..layout();
       expect(tp.width, lessThanOrEqualTo(p.size.width + 0.5), reason: '"$word" is broken mid-word in "$plain"');

@@ -9,7 +9,7 @@ TextStyle styleThatFits(
   required double maxWidth,
   required TextScaler textScaler,
 }) {
-  final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  final words = text.split(RegExp('[\\s\u200B]+')).where((w) => w.isNotEmpty).toList();
   for (final style in styles) {
     var fits = true;
     for (final w in words) {
@@ -50,3 +50,11 @@ class FitWordsText extends StatelessWidget {
     });
   }
 }
+
+/// Lets long handles and links ("cinephile_supreme_2026") wrap after `_`,
+/// `-`, `.` or `/` instead of at an arbitrary letter, by adding zero-width
+/// spaces there. Only tokens longer than [minLength] are touched.
+String breakableTokens(String text, {int minLength = 14}) => text.replaceAllMapped(
+      RegExp('\\S{${minLength + 1},}'),
+      (m) => m[0]!.replaceAllMapped(RegExp(r'([_\-./])'), (p) => '${p[1]}\u200B'),
+    );

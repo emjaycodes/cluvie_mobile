@@ -283,8 +283,9 @@ final router = GoRouter(
         GoRoute(
           name: 'notificationsShell',
           path: '/notifications-shell',
-          parentNavigatorKey: _shellNavigatorKey,
-          builder: (context, state) => const NotificationsScreen(),
+          // Was a second copy inside the shell that lit up the Home tab
+          // (audit P1-1); there is one Notifications screen.
+          redirect: (context, state) => '/notifications',
         ),
       ],
     ),

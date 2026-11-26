@@ -21,6 +21,7 @@ abstract final class AppIcons {
   static const IconData back = PhosphorIconsRegular.caretLeft;
   static const IconData forward = PhosphorIconsRegular.caretRight;
   static const IconData close = PhosphorIconsRegular.x;
+  static const IconData trash = PhosphorIconsRegular.trash;
   static const IconData search = PhosphorIconsRegular.magnifyingGlass;
   static const IconData share = PhosphorIconsRegular.shareNetwork;
   static const IconData more = PhosphorIconsRegular.dotsThree;
