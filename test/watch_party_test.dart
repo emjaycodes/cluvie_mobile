@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/core/theme/app_theme.dart';
@@ -109,8 +110,13 @@ class _Backend {
 /// A room without a server: records what the app sends; the test plays
 /// the server's side with [serve].
 class _FakeRoom implements RoomLink {
-  _FakeRoom({this.joinResult = RoomJoinResult.ok});
-  final RoomJoinResult joinResult;
+  _FakeRoom({this.joinStatus = RoomJoinStatus.ok, this.roster = const [(userId: 'u2', username: 'ola')]});
+  RoomJoinStatus joinStatus;
+  List<RoomMember> roster;
+
+  /// When set, join() waits for it (a slow ack).
+  Completer<void>? joinGate;
+  String? sendError;
   final _events = StreamController<RoomEvent>.broadcast();
   final sent = <String>[];
   bool closed = false;
@@ -122,15 +128,27 @@ class _FakeRoom implements RoomLink {
   @override
   void connect() => scheduleMicrotask(() => serve(const RoomConnected()));
   @override
-  Future<RoomJoinResult> join() async {
+  Future<RoomJoin> join() async {
     sent.add('join');
-    return joinResult;
+    final status = joinStatus;
+    await joinGate?.future;
+    return (status: status, roster: status == RoomJoinStatus.ok ? [(userId: _me, username: 'me_myself'), ...roster] : const <RoomMember>[]);
   }
 
   @override
-  void here() => sent.add('here');
+  Future<RoomSendError> react(String key) async {
+    sent.add('react:$key');
+    return sendError;
+  }
+
   @override
-  void react(String key) => sent.add('react:$key');
+  Future<RoomSendError> send(String text) async {
+    sent.add('say:$text');
+    if (sendError != null) return sendError;
+    serve(RoomChat(RoomMessage(id: 'm${sent.length}', userId: _me, username: 'me_myself', text: text, sentAt: DateTime.now())));
+    return null;
+  }
+
   @override
   void close() {
     closed = true;
@@ -139,6 +157,10 @@ class _FakeRoom implements RoomLink {
 }
 
 _FakeRoom? _room;
+
+/// A chat or reaction line in the room, by its text (semantics skip
+/// lines scrolled out of view).
+Finder _chatLine(String plain) => find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText() == plain);
 
 Widget _app(_Backend b, String initial, {Size size = const Size(390, 844), double scale = 1, Future<String?> Function()? me}) {
   final router = GoRouter(initialLocation: initial, routes: [
@@ -234,21 +256,16 @@ void main() {
       expect(find.text('ENDED'), findsOneWidget);
     });
 
-    testWidgets('R10-S3: the list pages past old parties', (t) async {
+    testWidgets('R10-S3: the list asks for upcoming and recent past separately', (t) async {
       final b = _Backend();
-      final get = b.api.onGet!;
-      b.api.onGet = (path, params) {
-        if (path != '/watchparties') return get(path, params);
-        final page = params!['page'] as int;
-        return {
-          'success': true,
-          'data': page == 1 ? [b.parties[_ended]] : [b.parties[_open]],
-          'totalPages': 2,
-        };
-      };
       await _pump(t, _app(b, '/watch-parties'));
+      final asks = b.api.calls.where((c) => c.path == '/watchparties').map((c) => c.params).toList();
+      expect(asks, containsAll([
+        {'upcoming': 'true', 'limit': 100},
+        {'past': 'true', 'limit': 30},
+      ]));
       expect(find.text('Coming up'), findsOneWidget);
-      expect(b.api.calls.where((c) => c.path == '/watchparties'), hasLength(2));
+      expect(find.text('Sunday screening'), findsOneWidget, reason: 'the same party in both answers shows once');
     });
 
     testWidgets('R10-S4: busy until the party reloads; a failed reload says so', (t) async {
@@ -365,6 +382,7 @@ void main() {
 
     testWidgets('the host enters from the party page, joins, and starts the party', (t) async {
       final b = _Backend();
+      _room = _FakeRoom(roster: const []);
       await _pump(t, _app(b, '/watch-parties/$_hosting'));
       await _tap(t, 'Enter live room');
       expect(_room!.sent, ['join']);
@@ -374,57 +392,125 @@ void main() {
       expect(find.text('End party'), findsOneWidget);
     });
 
-    testWidgets('presence: newcomers are greeted, leavers drop off; reactions show with names', (t) async {
+    testWidgets('the roster names who is here; joins and leaves update it; reactions show with names', (t) async {
       await _pump(t, _app(_Backend(), '/watch-parties/$_going/live'));
-      _room!.serve(const RoomPresence('u2', 'joined'));
-      await t.pumpAndSettle();
-      expect(_room!.sent, contains('here'));
       expect(find.text('In the room (2)'), findsOneWidget);
-      expect(find.text('guest_u2'), findsOneWidget);
-      _room!.serve(const RoomPresence('u9', 'here'));
+      expect(find.text('ola'), findsOneWidget, reason: 'name from the roster');
+      _room!.serve(const RoomPresence('u9', 'joined', username: 'kemi'));
       await t.pumpAndSettle();
       expect(find.text('In the room (3)'), findsOneWidget);
-      expect(find.text('A club member'), findsOneWidget);
-      _room!.serve(const RoomPresence('u2', 'react:popcorn'));
+      expect(find.text('kemi'), findsOneWidget);
+      _room!.serve(const RoomReaction('u2', 'popcorn'));
       await t.pumpAndSettle();
-      expect(find.text('🍿  guest_u2'), findsOneWidget);
+      expect(_chatLine('ola  🍿'), findsOneWidget);
       _room!.serve(const RoomPresence('u2', 'left'));
       await t.pumpAndSettle();
       expect(find.text('In the room (2)'), findsOneWidget);
-      // Someone reconnecting (still listed here) is greeted again.
-      _room!.serve(const RoomPresence('u9', 'joined'));
-      await t.pumpAndSettle();
-      expect(_room!.sent.where((s) => s == 'here'), hasLength(2));
       await _tap(t, '👏');
       expect(_room!.sent, contains('react:clap'));
-      expect(find.text('👏  You'), findsOneWidget);
+      expect(_chatLine('You  👏'), findsOneWidget);
     });
 
-    testWidgets('reconnecting is shown, then the room is joined again', (t) async {
+    testWidgets('chat: send, see it, and a rate limit says so', (t) async {
+      await _pump(t, _app(_Backend(), '/watch-parties/$_going/live'));
+      await t.enterText(find.byType(TextField), 'Popcorn ready?');
+      await t.pump();
+      await t.tap(find.byTooltip('Send'));
+      await t.pumpAndSettle();
+      expect(_room!.sent, contains('say:Popcorn ready?'));
+      expect(_chatLine('You  Popcorn ready?'), findsOneWidget);
+      _room!.serve(RoomChat(RoomMessage(id: 'x1', userId: 'u2', username: 'ola', text: 'Yes!', sentAt: DateTime.now())));
+      await t.pumpAndSettle();
+      expect(_chatLine('ola  Yes!'), findsOneWidget);
+      _room!.sendError = 'rate_limited';
+      await t.enterText(find.byType(TextField), 'again');
+      await t.pump();
+      await t.tap(find.byTooltip('Send'));
+      await t.pumpAndSettle();
+      expect(find.textContaining("You're sending fast"), findsOneWidget);
+      expect(find.text('again'), findsOneWidget, reason: 'the text stays to retry');
+    });
+
+    testWidgets('R11-S1: failed reconnect attempts keep retrying instead of giving up', (t) async {
       await _pump(t, _app(_Backend(), '/watch-parties/$_going/live'));
       _room!.serve(const RoomDisconnected());
       await t.pump();
+      for (var i = 0; i < 3; i++) {
+        _room!.serve(const RoomConnectFailed(unauthorized: false));
+        await t.pump();
+      }
       await t.pump();
-      expect(find.text('Connection lost. Reconnecting…'), findsOneWidget);
+      expect(find.text("Can't reach the room. Retrying…"), findsOneWidget);
+      expect(find.text("Couldn't join the room"), findsNothing);
       _room!.serve(const RoomConnected());
       await t.pumpAndSettle();
       expect(_room!.sent.where((s) => s == 'join'), hasLength(2));
-      expect(find.text('Connection lost. Reconnecting…'), findsNothing);
+      expect(find.textContaining('Retrying'), findsNothing);
+    });
+
+    testWidgets('R11-N1: a slow join from before a reconnect does not undo the newer one', (t) async {
+      _room = _FakeRoom()..joinGate = Completer<void>();
+      final slow = _room!.joinGate!;
+      await _pump(t, _app(_Backend(), '/watch-parties/$_going/live'));
+      // Reconnect: the second join answers at once.
+      _room!.joinGate = null;
+      _room!.serve(const RoomConnected());
+      await t.pumpAndSettle();
+      expect(find.text('In the room (2)'), findsOneWidget);
+      // Then the first, stale join answers "failed".
+      _room!.joinStatus = RoomJoinStatus.failed;
+      slow.complete();
+      await t.pumpAndSettle();
+      expect(find.text('In the room (2)'), findsOneWidget);
+      expect(find.textContaining('Reconnecting'), findsNothing);
+    });
+
+    testWidgets('R11-N4: an unauthorized socket signs the app out', (t) async {
+      var ended = 0;
+      ApiClient.onSessionEnded = (_) => ended++;
+      addTearDown(() => ApiClient.onSessionEnded = null);
+      await _pump(t, _app(_Backend(), '/watch-parties/$_going/live'));
+      _room!.serve(const RoomConnectFailed(unauthorized: true));
+      await t.pumpAndSettle();
+      expect(ended, 1);
+      expect(find.text('Log in to join the room'), findsOneWidget);
+      expect(_room!.closed, isTrue);
+    });
+
+    testWidgets('R11-N5: an ended party has no room and never connects', (t) async {
+      _room = _FakeRoom();
+      await _pump(t, _app(_Backend(), '/watch-parties/$_ended/live'));
+      expect(find.text('This party has ended'), findsOneWidget);
+      expect(_room!.sent, isEmpty);
     });
 
     testWidgets('a refused room asks you to join the club', (t) async {
-      _room = _FakeRoom(joinResult: RoomJoinResult.forbidden);
+      _room = _FakeRoom(joinStatus: RoomJoinStatus.forbidden);
       await _pump(t, _app(_Backend(), '/watch-parties/$_foreign/live'));
       expect(find.text('Only club members can come in'), findsOneWidget);
     });
 
-    testWidgets('a deleted party says so; leaving the screen leaves the room', (t) async {
+    testWidgets('a deleted party says so and leaves the room', (t) async {
       await _pump(t, _app(_Backend(), '/watch-parties/$_going/live'));
       _room!.serve(const RoomPartyDeleted());
       await t.pumpAndSettle();
       expect(find.text('This party was deleted'), findsOneWidget);
-      await _tap(t, 'See watch parties');
       expect(_room!.closed, isTrue);
+    });
+
+    test('R11-N10: the socket endpoint keeps the origin and any path prefix', () {
+      expect(socketEndpoint('http://localhost:5000/api'), (origin: 'http://localhost:5000', path: '/socket.io'));
+      expect(socketEndpoint('https://api.cluvie.app/api/'), (origin: 'https://api.cluvie.app', path: '/socket.io'));
+      expect(socketEndpoint('https://x.com/cluvie/api'), (origin: 'https://x.com', path: '/cluvie/socket.io'));
+      expect(socketEndpoint('https://x.com'), (origin: 'https://x.com', path: '/socket.io'));
+    });
+
+    testWidgets('R11-N7: a live party offers the host End party, not Cancel', (t) async {
+      final b = _Backend();
+      b.parties[_hosting]!['status'] = 'live';
+      await _pump(t, _app(b, '/watch-parties/$_hosting'));
+      expect(find.text('End party'), findsOneWidget);
+      expect(find.text('Cancel party'), findsNothing);
     });
 
     test('the room opens 30 minutes before for guests, any time for the host', () {

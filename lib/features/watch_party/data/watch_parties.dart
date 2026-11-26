@@ -129,26 +129,30 @@ class PartyNotFound implements Exception {
   const PartyNotFound();
 }
 
-/// Parties the user can see (public ones, and private ones in their clubs).
-/// The server sorts oldest first with no date filter, so this pages
-/// through all of them (up to [_maxPages] × 100) rather than stopping at
-/// old ones. A date filter is a backend ask.
+/// Parties the user can see (public ones, and private ones in their clubs):
+/// everything not over yet, soonest first (`upcoming=true`), then the 30
+/// most recent past ones (`past=true`, newest first).
 final watchPartiesProvider = FutureProvider.autoDispose<List<WatchParty>>((ref) async {
   final api = ref.read(apiClientProvider);
-  final out = <WatchParty>[];
-  for (var page = 1; page <= _maxPages; page++) {
-    final body = (await api.get('/watchparties', params: {'limit': 100, 'page': page})).data;
+  List<WatchParty> parse(Object? body) {
     final list = body is Map && body['data'] is List ? body['data'] as List : (body is List ? body : const []);
-    for (final p in list) {
-      if (WatchParty.fromJson(p) case final party?) out.add(party);
-    }
-    final pages = body is Map && body['totalPages'] is int ? body['totalPages'] as int : 1;
-    if (page >= pages || list.isEmpty) break;
+    return [
+      for (final p in list)
+        if (WatchParty.fromJson(p) case final party?) party,
+    ];
   }
-  return out;
-});
 
-const _maxPages = 5;
+  final results = await Future.wait([
+    api.get('/watchparties', params: {'upcoming': 'true', 'limit': 100}),
+    api.get('/watchparties', params: {'past': 'true', 'limit': 30}),
+  ]);
+  final seen = <String>{};
+  return [
+    for (final r in results)
+      for (final p in parse(r.data))
+        if (seen.add(p.id)) p,
+  ];
+});
 
 /// One party (`GET /watchparties/:id`). A non-Mongo id (demo link) or 404
 /// is [PartyNotFound], without a request for the former.
@@ -216,9 +220,13 @@ Future<PartyResult> _act(WidgetRef ref, String id, Future<void> Function() call,
     final message = body is Map ? '${body['message'] ?? ''}'.toLowerCase() : '';
     final code = body is Map ? body['code'] : null;
     final refusal = switch (e.statusCode) {
+      403 when code == 'NOT_HOST' => PartyRefusal.notHost,
+      403 when code == 'NOT_A_MEMBER' => PartyRefusal.notMember,
       403 => hostAction ? PartyRefusal.notHost : PartyRefusal.notMember,
       404 => PartyRefusal.notFound,
+      // The goal is already met: you're going, or you're not.
       400 when code == 'ALREADY_PARTICIPANT' || message.contains('already a participant') => null,
+      400 when code == 'NOT_PARTICIPANT' => null,
       400 when code == 'HOST_CANNOT_LEAVE' || message.contains('host cannot leave') => PartyRefusal.hostCannotLeave,
       400 when code == 'PARTY_CLOSED' || message.contains('cannot join watch party with status') => PartyRefusal.closed,
       _ => PartyRefusal.failed,

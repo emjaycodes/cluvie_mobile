@@ -138,6 +138,16 @@ class _WatchPartyDetailScreenState extends ConsumerState<WatchPartyDetailScreen>
             onGoing: () => _run(() => joinParty(ref, p.id), "You're going. See you there!", p),
             onNotGoing: () => _run(() => leaveParty(ref, p.id), "Got it. You're not going.", p),
             onCancel: () => _confirmCancel(p),
+            onEnd: () => showClDialog(
+              context: context,
+              title: 'End ${p.title}?',
+              message: 'It will show as ended for everyone.',
+              confirmText: 'End party',
+              closeText: 'Keep going',
+              showConfirm: true,
+              destructive: true,
+              onConfirm: () => _run(() => setPartyStatus(ref, p.id, 'ended'), 'Party ended.', p),
+            ),
           ),
         ),
       ),
@@ -153,6 +163,7 @@ class _Body extends ConsumerWidget {
     required this.onGoing,
     required this.onNotGoing,
     required this.onCancel,
+    required this.onEnd,
   });
 
   final WatchParty party;
@@ -161,6 +172,7 @@ class _Body extends ConsumerWidget {
   final VoidCallback onGoing;
   final VoidCallback onNotGoing;
   final VoidCallback onCancel;
+  final VoidCallback onEnd;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -209,12 +221,16 @@ class _Body extends ConsumerWidget {
         Text("You're hosting this party.", style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: AppSpacing.md),
         if (enterRoom != null) ...[enterRoom, const SizedBox(height: AppSpacing.sm)],
-        ClButton(
-          label: 'Cancel party',
-          variant: ClButtonVariant.danger,
-          isLoading: busy,
-          onPressed: busy ? null : onCancel,
-        ),
+        // A party in progress is ended, not cancelled (R11-N7).
+        if (p.status == PartyStatus.live)
+          ClButton(label: 'End party', variant: ClButtonVariant.danger, isLoading: busy, onPressed: busy ? null : onEnd)
+        else
+          ClButton(
+            label: 'Cancel party',
+            variant: ClButtonVariant.danger,
+            isLoading: busy,
+            onPressed: busy ? null : onCancel,
+          ),
       ]);
     } else if (p.isGoing(me)) {
       final notGoing = ClButton(
