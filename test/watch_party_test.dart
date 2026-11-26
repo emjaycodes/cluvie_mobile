@@ -3,9 +3,14 @@ import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/core/theme/app_theme.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
+import 'package:cluvie_mobile/features/watch_party/data/party_room.dart';
+import 'package:cluvie_mobile/features/watch_party/data/watch_parties.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_detail_screen.dart';
+import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_room_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_list_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_screen.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,11 +100,46 @@ class _Backend {
   );
 }
 
+/// A room without a server: records what the app sends; the test plays
+/// the server's side with [serve].
+class _FakeRoom implements RoomLink {
+  _FakeRoom({this.joinResult = RoomJoinResult.ok});
+  final RoomJoinResult joinResult;
+  final _events = StreamController<RoomEvent>.broadcast();
+  final sent = <String>[];
+  bool closed = false;
+
+  void serve(RoomEvent e) => _events.add(e);
+
+  @override
+  Stream<RoomEvent> get events => _events.stream;
+  @override
+  void connect() => scheduleMicrotask(() => serve(const RoomConnected()));
+  @override
+  Future<RoomJoinResult> join() async {
+    sent.add('join');
+    return joinResult;
+  }
+
+  @override
+  void here() => sent.add('here');
+  @override
+  void react(String key) => sent.add('react:$key');
+  @override
+  void close() {
+    closed = true;
+    sent.add('leave');
+  }
+}
+
+_FakeRoom? _room;
+
 Widget _app(_Backend b, String initial, {Size size = const Size(390, 844), double scale = 1}) {
   final router = GoRouter(initialLocation: initial, routes: [
     GoRoute(path: '/home', builder: (_, __) => const Scaffold(body: Text('home'))),
     GoRoute(path: '/watch-parties', builder: (_, __) => const WatchPartyListScreen()),
     GoRoute(path: '/watch-parties/:id', builder: (_, st) => WatchPartyDetailScreen(partyId: st.pathParameters['id']!)),
+    GoRoute(path: '/watch-parties/:id/live', builder: (_, st) => WatchPartyRoomScreen(partyId: st.pathParameters['id']!)),
     GoRoute(path: '/watchParty', builder: (_, __) => const WatchPartyScreen()),
     GoRoute(path: '/communities/:id', builder: (_, st) => Scaffold(body: Text('club ${st.pathParameters['id']}'))),
   ]);
@@ -107,6 +147,7 @@ Widget _app(_Backend b, String initial, {Size size = const Size(390, 844), doubl
     overrides: [
       apiClientProvider.overrideWithValue(b.api),
       currentUserIdProvider.overrideWith((ref) async => _me),
+      roomLinkFactoryProvider.overrideWithValue((_) async => _room ??= _FakeRoom()),
     ],
     child: MediaQuery(
       data: MediaQueryData(size: size, textScaler: TextScaler.linear(scale), padding: const EdgeInsets.only(top: 47, bottom: 34)),
@@ -239,11 +280,86 @@ void main() {
       expect(b.api.calls.where((c) => c.path.contains('demo')), isEmpty);
     });
 
-    testWidgets('the live room says it is not open yet, with a way out', (t) async {
+    testWidgets('the old room link without a party points to the list', (t) async {
       await _pump(t, _app(_Backend(), '/watchParty'));
-      expect(find.text("Live rooms aren't open yet"), findsOneWidget);
+      expect(find.text('Pick a watch party'), findsOneWidget);
       await _tap(t, 'See watch parties');
       expect(find.byType(WatchPartyListScreen), findsOneWidget);
+    });
+  });
+
+  group('live room', () {
+    setUp(() => _room = null);
+
+    testWidgets('the host enters from the party page, joins, and starts the party', (t) async {
+      final b = _Backend();
+      await _pump(t, _app(b, '/watch-parties/$_hosting'));
+      await _tap(t, 'Enter live room');
+      expect(_room!.sent, ['join']);
+      expect(find.text('In the room (1)'), findsOneWidget);
+      await _tap(t, 'Start the party');
+      expect(b.api.calls.singleWhere((c) => c.method == 'PATCH').data, {'status': 'live'});
+      expect(find.text('End party'), findsOneWidget);
+    });
+
+    testWidgets('presence: newcomers are greeted, leavers drop off; reactions show with names', (t) async {
+      await _pump(t, _app(_Backend(), '/watch-parties/$_going/live'));
+      _room!.serve(const RoomPresence('u2', 'joined'));
+      await t.pumpAndSettle();
+      expect(_room!.sent, contains('here'));
+      expect(find.text('In the room (2)'), findsOneWidget);
+      expect(find.text('guest_u2'), findsOneWidget);
+      _room!.serve(const RoomPresence('u9', 'here'));
+      await t.pumpAndSettle();
+      expect(find.text('In the room (3)'), findsOneWidget);
+      expect(find.text('A club member'), findsOneWidget);
+      _room!.serve(const RoomPresence('u2', 'react:popcorn'));
+      await t.pumpAndSettle();
+      expect(find.text('🍿  guest_u2'), findsOneWidget);
+      _room!.serve(const RoomPresence('u2', 'left'));
+      await t.pumpAndSettle();
+      expect(find.text('In the room (2)'), findsOneWidget);
+      await _tap(t, '👏');
+      expect(_room!.sent, contains('react:clap'));
+      expect(find.text('👏  You'), findsOneWidget);
+    });
+
+    testWidgets('reconnecting is shown, then the room is joined again', (t) async {
+      await _pump(t, _app(_Backend(), '/watch-parties/$_going/live'));
+      _room!.serve(const RoomDisconnected());
+      await t.pump();
+      await t.pump();
+      expect(find.text('Connection lost. Reconnecting…'), findsOneWidget);
+      _room!.serve(const RoomConnected());
+      await t.pumpAndSettle();
+      expect(_room!.sent.where((s) => s == 'join'), hasLength(2));
+      expect(find.text('Connection lost. Reconnecting…'), findsNothing);
+    });
+
+    testWidgets('a refused room asks you to join the club', (t) async {
+      _room = _FakeRoom(joinResult: RoomJoinResult.forbidden);
+      await _pump(t, _app(_Backend(), '/watch-parties/$_foreign/live'));
+      expect(find.text('Only club members can come in'), findsOneWidget);
+    });
+
+    testWidgets('a deleted party says so; leaving the screen leaves the room', (t) async {
+      await _pump(t, _app(_Backend(), '/watch-parties/$_going/live'));
+      _room!.serve(const RoomPartyDeleted());
+      await t.pumpAndSettle();
+      expect(find.text('This party was deleted'), findsOneWidget);
+      await _tap(t, 'See watch parties');
+      expect(_room!.closed, isTrue);
+    });
+
+    test('the room opens 30 minutes before for guests, any time for the host', () {
+      WatchParty party({required Duration from, String host = 'h1', String status = 'scheduled'}) =>
+          WatchParty.fromJson(_party('6a00000000000000000000ff', 'p', host: host, participants: [_me], from: from, status: status))!;
+      expect(canEnterRoom(party(from: const Duration(minutes: 20)), _me), isTrue);
+      expect(canEnterRoom(party(from: const Duration(hours: 2)), _me), isFalse);
+      expect(canEnterRoom(party(from: const Duration(hours: 2), status: 'live'), _me), isTrue);
+      expect(canEnterRoom(party(from: const Duration(days: 3), host: _me), _me), isTrue);
+      expect(canEnterRoom(party(from: const Duration(minutes: 5), status: 'ended'), _me), isFalse);
+      expect(canEnterRoom(party(from: const Duration(minutes: 5)), 'stranger'), isFalse);
     });
   });
 
@@ -252,7 +368,9 @@ void main() {
       'list': ('/watch-parties', const []),
       'detail (open)': ('/watch-parties/$_open', const ["I'm going"]),
       'detail (going)': ('/watch-parties/$_going', const []),
-      'detail (hosting)': ('/watch-parties/$_hosting', const []),
+      'detail (hosting)': ('/watch-parties/$_hosting', const ['Enter live room']),
+      'room (host, scheduled)': ('/watch-parties/$_hosting/live', const ['Start the party']),
+      'room (guest)': ('/watch-parties/$_going/live', const []),
       'detail (ended)': ('/watch-parties/$_ended', const []),
       'room': ('/watchParty', const []),
     };

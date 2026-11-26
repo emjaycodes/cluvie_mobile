@@ -20,7 +20,10 @@ import 'package:go_router/go_router.dart';
 /// * The host can't leave; they can cancel the party instead.
 /// * Demo ids (not Mongo ids) say the party doesn't exist, without a request.
 ///
-/// Gold budget: "I'm going", when shown. Otherwise none.
+/// * Once the room is open ([canEnterRoom]: live, starting within 30
+///   minutes, or you're the host), people going get "Enter live room".
+///
+/// Gold budget: "I'm going" or "Enter live room", never both.
 class WatchPartyDetailScreen extends ConsumerStatefulWidget {
   const WatchPartyDetailScreen({super.key, required this.partyId});
   final String partyId;
@@ -172,6 +175,14 @@ class _Body extends ConsumerWidget {
     ];
     final unnamed = p.participantIds.length - names.length;
 
+    final Widget? enterRoom = canEnterRoom(p, me)
+        ? ClButton(
+            label: 'Enter live room',
+            icon: AppIcons.play,
+            variant: ClButtonVariant.primary,
+            onPressed: () => context.push('/watch-parties/${p.id}/live'),
+          )
+        : null;
     final Widget action;
     if (!p.isOpen) {
       action = ClStatusBanner(
@@ -182,6 +193,7 @@ class _Body extends ConsumerWidget {
       action = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text("You're hosting this party.", style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: AppSpacing.md),
+        if (enterRoom != null) ...[enterRoom, const SizedBox(height: AppSpacing.sm)],
         ClButton(
           label: 'Cancel party',
           variant: ClButtonVariant.danger,
@@ -190,12 +202,19 @@ class _Body extends ConsumerWidget {
         ),
       ]);
     } else if (p.isGoing(me)) {
-      action = ClButton(
+      final notGoing = ClButton(
         label: "Can't make it",
         variant: ClButtonVariant.secondary,
         isLoading: busy,
         onPressed: busy ? null : onNotGoing,
       );
+      action = enterRoom == null
+          ? notGoing
+          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              enterRoom,
+              const SizedBox(height: AppSpacing.sm),
+              notGoing,
+            ]);
     } else if (notMember && clubId != null) {
       action = ClCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

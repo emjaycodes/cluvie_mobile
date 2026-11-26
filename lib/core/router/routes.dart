@@ -29,6 +29,7 @@ import 'package:cluvie_mobile/features/user_profile/presentation/profile_screen.
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_list_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_detail_screen.dart';
+import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_room_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -113,6 +114,11 @@ final router = GoRouter(
       path: '/watchParty',
       name: RouteNames.watchParty,
       parentNavigatorKey: rootNavigatorKey,
+      redirect: (context, state) {
+        final extra = state.extra is Map ? state.extra as Map : const {};
+        final id = extra['id'];
+        return id is String && id.isNotEmpty ? '/watch-parties/$id/live' : null;
+      },
       builder: (context, state) {
         // Optional: {'title': String, 'minutesLeft': int} from the card that opened it.
         final extra = state.extra is Map ? state.extra as Map : const {};
@@ -140,6 +146,11 @@ final router = GoRouter(
       name: RouteNames.watchPartyDetail,
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => WatchPartyDetailScreen(partyId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/watch-parties/:id/live',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => WatchPartyRoomScreen(partyId: state.pathParameters['id']!),
     ),
     // Backend notification links (`/watchparty/:id`).
     GoRoute(path: '/watchparty/:id', redirect: (context, state) => '/watch-parties/${state.pathParameters['id']}'),

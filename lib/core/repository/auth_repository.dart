@@ -24,6 +24,9 @@ class AuthRepository {
     return prefs.getString(_tokenKey);
   }
 
+  /// The saved session token, for the live-room socket. Null when signed out.
+  Future<String?> savedToken() => _getToken();
+
   Future<void> _clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);

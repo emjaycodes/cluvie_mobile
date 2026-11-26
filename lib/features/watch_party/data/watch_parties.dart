@@ -4,10 +4,20 @@ import 'package:cluvie_mobile/features/movies/data/polls.dart' show isMongoId;
 import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The live co-watching room needs a socket client (`watchparty:join`,
-/// presence events); the app has none yet. While false, nothing opens the
-/// room and `/watchParty` says it isn't open yet.
-const kWatchPartyRoomAvailable = false;
+/// The live room (`/watch-parties/:id/live`) runs over the backend's
+/// socket: presence, reactions and host start/end. No shared video.
+const kWatchPartyRoomAvailable = true;
+
+/// How early before the start time people can go into the room.
+const kRoomOpensBefore = Duration(minutes: 30);
+
+/// Whether [p]'s room can be entered now by [me]: the party is open, you're
+/// going or hosting, and it's live, starting soon, or you're the host.
+bool canEnterRoom(WatchParty p, String? me, {DateTime? now}) {
+  if (!kWatchPartyRoomAvailable || !p.isOpen || !p.isGoing(me)) return false;
+  if (p.status == PartyStatus.live || p.isHost(me)) return true;
+  return !(now ?? DateTime.now()).isBefore(p.scheduledAt.subtract(kRoomOpensBefore));
+}
 
 enum PartyStatus { scheduled, live, ended, cancelled }
 
@@ -184,10 +194,11 @@ Future<PartyRefusal?> joinParty(WidgetRef ref, String id) =>
 Future<PartyRefusal?> leaveParty(WidgetRef ref, String id) =>
     _act(ref, id, () => ref.read(apiClientProvider).post('/watchparties/$id/leave'));
 
-/// Cancel a party; host only (`PATCH /watchparties/:id/update {status}`).
-/// Cancelling keeps it in members' lists as cancelled, unlike delete.
-Future<PartyRefusal?> cancelParty(WidgetRef ref, String id) => _act(
-      ref,
-      id,
-      () => ref.read(apiClientProvider).patch('/watchparties/$id/update', data: {'status': 'cancelled'}),
-    );
+/// Sets a party's status; host only (`PATCH /watchparties/:id/update`).
+/// `live` starts it, `ended` ends it, `cancelled` cancels it (kept in
+/// members' lists, unlike delete).
+Future<PartyRefusal?> setPartyStatus(WidgetRef ref, String id, String status) =>
+    _act(ref, id, () => ref.read(apiClientProvider).patch('/watchparties/$id/update', data: {'status': status}));
+
+/// Cancel a party; host only.
+Future<PartyRefusal?> cancelParty(WidgetRef ref, String id) => setPartyStatus(ref, id, 'cancelled');

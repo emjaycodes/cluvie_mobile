@@ -28,6 +28,13 @@ class ApiClient {
     defaultValue: 'http://localhost:5000/api',
   );
 
+  /// The server root for Socket.IO: the API base without its `/api` path.
+  static String get socketUrl {
+    final uri = Uri.parse(_apiBaseUrl);
+    final path = uri.path.endsWith('/api') ? uri.path.substring(0, uri.path.length - 4) : uri.path;
+    return uri.replace(path: path).toString();
+  }
+
   ApiClient._internal() {
     _dio = Dio(BaseOptions(
       baseUrl: _apiBaseUrl,
