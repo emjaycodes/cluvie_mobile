@@ -17,10 +17,9 @@ import 'package:go_router/go_router.dart';
 ///
 /// * Tapping one marks it read (`PATCH /:id/read`) and opens what it's
 ///   about, when the app has a screen for it. Others aren't tappable.
-/// * "Clear all" deletes them (`DELETE /clear`) after confirming. There is
-///   no "mark all read" endpoint, so there is no such button.
-/// * No settings gear: the backend has preferences but no route to change
-///   them.
+/// * "Mark all read" (`PATCH /read-all`), "Clear all" (`DELETE /clear`,
+///   after confirming), and the settings gear (push preferences and quiet
+///   hours, `/notifications/settings`).
 ///
 /// Gold budget: none.
 class NotificationsScreen extends ConsumerStatefulWidget {
@@ -35,7 +34,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   Future<void> _open(AppNotification n) async {
     ref.read(notificationsProvider.notifier).markRead(n.id);
-    final target = targetFor(n.link, me: ref.read(currentUserIdProvider).valueOrNull);
+    final target = targetOf(n, me: ref.read(currentUserIdProvider).valueOrNull);
     if (target == null || _opening != null) return;
     setState(() => _opening = n.id);
     String? route;
@@ -56,6 +55,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       return;
     }
     context.push(route);
+  }
+
+  Future<void> _markAllRead() async {
+    try {
+      await ref.read(notificationsProvider.notifier).markAllRead();
+    } catch (_) {
+      if (mounted) ClSnackbar.show(context, message: "Couldn't mark them read. Try again.", type: ClSnackbarType.error);
+    }
   }
 
   void _confirmClear() => showClDialog(
@@ -94,6 +101,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final me = ref.watch(currentUserIdProvider).valueOrNull;
     final bottom = MediaQuery.paddingOf(context).bottom;
     final hasItems = items.valueOrNull?.isNotEmpty ?? false;
+    final hasUnread = items.valueOrNull?.any((n) => !n.isRead) ?? false;
 
     Widget scroll(List<Widget> children) => RefreshIndicator(
           onRefresh: _refresh,
@@ -121,7 +129,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   _Row(
                     n: n,
                     opening: _opening == n.id,
-                    onTap: targetFor(n.link, me: me) != null || !n.isRead ? () => _open(n) : null,
+                    onTap: targetOf(n, me: me) != null || !n.isRead ? () => _open(n) : null,
                   ),
                 ],
               ]),
@@ -135,8 +143,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         frosted: true,
         fallbackRoute: '/home',
         actions: [
-          if (hasItems)
-            ClIconButton(icon: AppIcons.trash, tooltip: 'Clear all', onPressed: _confirmClear),
+          if (hasUnread) ClIconButton(icon: AppIcons.check, tooltip: 'Mark all read', onPressed: _markAllRead),
+          if (hasItems) ClIconButton(icon: AppIcons.trash, tooltip: 'Clear all', onPressed: _confirmClear),
+          ClIconButton(
+            icon: AppIcons.settings,
+            tooltip: 'Notification settings',
+            onPressed: () => context.push('/notifications/settings'),
+          ),
           const SizedBox(width: AppSpacing.sm),
         ],
       ),

@@ -7,6 +7,7 @@ import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
 import 'package:cluvie_mobile/features/home/data/home_feed.dart';
 import 'package:cluvie_mobile/features/notifications/data/notifications.dart';
+import 'package:cluvie_mobile/features/notifications/presentation/notification_settings_screen.dart';
 import 'package:cluvie_mobile/features/notifications/presentation/notifications_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,6 +35,12 @@ Map<String, Object?> _n(String id, String type, String title, String message, St
     };
 
 class _Backend {
+  bool failReadAll = false;
+  bool failPrefs = false;
+  final prefs = <String, Object?>{
+    'notificationPreferences': {'polls': true, 'discussions': true, 'watchparty': true, 'parties': true},
+    'quietHours': {'enabled': false, 'start': '22:00', 'end': '08:00'},
+  };
   final items = [
     _n('6e0000000000000000000001', 'VOTE', 'New vote', 'Someone voted for Past Lives', '/movies/$_film'),
     _n('6e0000000000000000000002', 'POLL', 'Poll closed', 'Cinema Sundays picked Perfect Days', '/polls/$_poll'),
@@ -50,11 +57,27 @@ class _Backend {
         final list = [for (final n in items) if (!unreadOnly || n['isRead'] != true) n];
         return {'success': true, 'notifications': list, 'total': list.length};
       }
+      if (path == '/notifications/preferences') return {'success': true, 'data': prefs};
       if (path == '/movies/$_film') return {'_id': _film, 'tmdbId': 666277, 'title': 'Past Lives'};
       if (path == '/polls/$_poll') return {'success': true, 'data': {'_id': _poll, 'community': _club}};
       throw ApiException(message: 'x', statusCode: 404);
     },
-    onPatch: (path, _) {
+    onPatch: (path, data) {
+      if (path == '/notifications/read-all') {
+        if (failReadAll) throw ApiException(message: 'x', statusCode: 500);
+        for (final n in items) {
+          n['isRead'] = true;
+        }
+        return {'success': true};
+      }
+      if (path == '/notifications/preferences') {
+        if (failPrefs) throw ApiException(message: 'x', statusCode: 400, responseBody: {'code': 'INVALID_PREFERENCES'});
+        final p = prefs['notificationPreferences'] as Map;
+        final q = prefs['quietHours'] as Map;
+        (data!['notificationPreferences'] as Map?)?.forEach((k, v) => p[k] = v);
+        (data['quietHours'] as Map?)?.forEach((k, v) => q[k] = v);
+        return {'success': true, 'data': prefs};
+      }
       final id = RegExp(r'^/notifications/(\w+)/read$').firstMatch(path)!.group(1);
       items.firstWhere((n) => n['_id'] == id)['isRead'] = true;
       return {'success': true};
@@ -70,6 +93,8 @@ Widget _app(_Backend b, {Size size = const Size(390, 844), double scale = 1}) {
   final router = GoRouter(initialLocation: '/home', routes: [
     GoRoute(path: '/home', builder: (_, __) => const _Bell()),
     GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
+    GoRoute(path: '/notifications/settings', builder: (_, __) => const NotificationSettingsScreen()),
+    GoRoute(path: '/users/:id', builder: (_, st) => Scaffold(body: Text('user ${st.pathParameters['id']}'))),
     GoRoute(path: '/movie/:id', builder: (_, st) => Scaffold(body: Text('film ${st.pathParameters['id']}'))),
     GoRoute(path: '/communities/:id/vote', builder: (_, st) => Scaffold(body: Text('vote ${st.pathParameters['id']}'))),
     GoRoute(path: '/watch-parties/:id', builder: (_, st) => Scaffold(body: Text('party ${st.pathParameters['id']}'))),
@@ -130,7 +155,7 @@ void main() {
       expect((targetFor('/movies/$_film') as FilmTarget).catalogId, _film);
       expect((targetFor('/polls/$_poll') as PollTarget).pollId, _poll);
       expect(targetFor('/users/$_me', me: _me), isA<DirectTarget>());
-      expect(targetFor('/users/$_film', me: _me), isNull); // others' profiles: no screen yet
+      expect((targetFor('/users/$_film', me: _me) as DirectTarget).route, '/users/$_film');
       expect(targetFor('/communities/demo-community/vote'), isNull);
       expect(targetFor(null), isNull);
       expect(targetFor('https://example.com'), isNull);
@@ -219,6 +244,56 @@ void main() {
     gate.complete();
     await marking;
     expect(container.read(notificationsProvider).value!.first.isRead, isTrue);
+  });
+
+  test('populated targets open directly, without a lookup', () {
+    AppNotification n(Map<String, Object?> extra, [String type = 'VOTE']) =>
+        AppNotification.fromJson(_n('6e00000000000000000000aa', type, 't', 'm', '/movies/$_film')..addAll(extra))!;
+    expect((targetOf(n({'movie': {'_id': _film, 'tmdbId': 42}})) as DirectTarget).route, '/movie/42');
+    expect((targetOf(n({'community': _club}, 'POLL')) as DirectTarget).route, '/communities/$_club/vote');
+    expect((targetOf(n({'watchParty': {'_id': _party}}, 'WATCHPARTY')) as DirectTarget).route, '/watch-parties/$_party');
+    expect(targetOf(n({})), isA<FilmTarget>(), reason: 'falls back to the link');
+  });
+
+  testWidgets('Mark all read marks everything and drops the button; a failure says so', (t) async {
+    final b = _Backend();
+    await _open(t, b);
+    await t.tap(find.byTooltip('Mark all read'));
+    await t.pumpAndSettle();
+    expect(b.api.calls.where((c) => c.path == '/notifications/read-all'), hasLength(1));
+    expect(find.text('New'), findsNothing);
+    expect(find.byTooltip('Mark all read'), findsNothing);
+  });
+
+  testWidgets('a failed Mark all read puts the unread back', (t) async {
+    final b = _Backend()..failReadAll = true;
+    await _open(t, b);
+    await t.tap(find.byTooltip('Mark all read'));
+    await t.pumpAndSettle();
+    expect(find.text('New'), findsOneWidget);
+    expect(find.textContaining("Couldn't mark them read"), findsOneWidget);
+  });
+
+  testWidgets('settings: toggles save at once; watch parties sets both backend keys; a refusal flips back', (t) async {
+    final b = _Backend();
+    await _open(t, b);
+    await t.tap(find.byTooltip('Notification settings'));
+    await t.pumpAndSettle();
+    expect(find.text('Push notifications'), findsOneWidget);
+    await t.tap(find.descendant(of: find.ancestor(of: find.text('Watch parties'), matching: find.byType(Row)).first, matching: find.byType(Switch)));
+    await t.pumpAndSettle();
+    final patch = b.api.calls.lastWhere((c) => c.path == '/notifications/preferences');
+    expect(patch.data, {'notificationPreferences': {'watchparty': false, 'parties': false}});
+    await t.tap(find.descendant(of: find.ancestor(of: find.text('Quiet hours').last, matching: find.byType(Row)).first, matching: find.byType(Switch)));
+    await t.pumpAndSettle();
+    expect(find.text('22:00'), findsOneWidget);
+    expect(find.text('08:00'), findsOneWidget);
+    b.failPrefs = true;
+    final votes = find.descendant(of: find.ancestor(of: find.text('Votes'), matching: find.byType(Row)).first, matching: find.byType(Switch));
+    await t.tap(votes);
+    await t.pumpAndSettle();
+    expect(t.widget<Switch>(votes).value, isTrue, reason: 'refused: back on');
+    expect(find.textContaining("Couldn't save that"), findsOneWidget);
   });
 
   testWidgets('a load failure offers retry', (t) async {

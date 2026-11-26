@@ -17,6 +17,10 @@ class AppNotification {
     required this.isRead,
     required this.createdAt,
     this.link,
+    this.tmdbId,
+    this.communityId,
+    this.pollId,
+    this.watchPartyId,
   });
 
   final String id;
@@ -30,6 +34,13 @@ class AppNotification {
   /// `/watchparty/:id`, `/users/:id`.
   final String? link;
 
+  /// From the populated `movie`, `community`, `poll` and `watchParty`: let
+  /// the app open the target without looking it up.
+  final int? tmdbId;
+  final String? communityId;
+  final String? pollId;
+  final String? watchPartyId;
+
   AppNotification copyWith({bool? isRead}) => AppNotification(
         id: id,
         kind: kind,
@@ -38,6 +49,10 @@ class AppNotification {
         isRead: isRead ?? this.isRead,
         createdAt: createdAt,
         link: link,
+        tmdbId: tmdbId,
+        communityId: communityId,
+        pollId: pollId,
+        watchPartyId: watchPartyId,
       );
 
   static AppNotification? fromJson(Object? json) {
@@ -63,6 +78,10 @@ class AppNotification {
       isRead: json['isRead'] == true,
       createdAt: DateTime.tryParse('${json['createdAt']}')?.toLocal() ?? DateTime.now(),
       link: str(json['relatedLink']),
+      tmdbId: _tmdbOf(json['movie']),
+      communityId: _idOf(json['community']),
+      pollId: _idOf(json['poll']),
+      watchPartyId: _idOf(json['watchParty']),
     );
   }
 }
@@ -78,6 +97,17 @@ String readableDates(String text) => text.replaceAllMapped(_isoDate, (m) {
       final local = when.toLocal();
       return '${DateFormat('EEE d MMM').format(local)} at ${DateFormat.Hm().format(local)}';
     });
+
+String? _idOf(Object? v) {
+  if (v is String && isMongoId(v)) return v;
+  if (v is Map && v['_id'] is String && isMongoId(v['_id'] as String)) return v['_id'] as String;
+  return null;
+}
+
+int? _tmdbOf(Object? movie) {
+  final t = movie is Map ? movie['tmdbId'] : null;
+  return t is int ? t : int.tryParse('${t ?? ''}');
+}
 
 /// The newest 100 notifications. Read state changes locally first
 /// ([NotificationsNotifier.markRead]).
@@ -118,6 +148,23 @@ class NotificationsNotifier extends AutoDisposeAsyncNotifier<List<AppNotificatio
       // the server's answer wins (R10-N5).
       final now = state.valueOrNull?.where((n) => n.id == id).firstOrNull;
       if (identical(now, optimistic)) _replace(id, current);
+    } finally {
+      ref.invalidate(unreadNotificationCountProvider);
+    }
+  }
+
+  /// Marks every notification read (`PATCH /notifications/read-all`): at
+  /// once on screen, restored if the request fails (and rethrows).
+  Future<void> markAllRead() async {
+    final before = state.valueOrNull;
+    if (before == null || before.every((n) => n.isRead)) return;
+    state = AsyncData([for (final n in before) n.isRead ? n : n.copyWith(isRead: true)]);
+    try {
+      await _api.patch('/notifications/read-all');
+    } catch (_) {
+      // Only undo if nothing replaced the list meanwhile.
+      if (state.valueOrNull?.any((n) => !n.isRead) == false) state = AsyncData(before);
+      rethrow;
     } finally {
       ref.invalidate(unreadNotificationCountProvider);
     }
@@ -165,6 +212,15 @@ class PollTarget extends NotificationTarget {
   final String pollId;
 }
 
+/// Where [n] leads: from its populated targets when the server sent them,
+/// else from its link.
+NotificationTarget? targetOf(AppNotification n, {String? me}) {
+  if (n.watchPartyId case final id?) return DirectTarget('/watch-parties/$id');
+  if (n.kind == NotificationKind.poll && n.communityId != null) return DirectTarget('/communities/${n.communityId}/vote');
+  if (n.tmdbId case final tmdb?) return DirectTarget('/movie/$tmdb');
+  return targetFor(n.link, me: me);
+}
+
 NotificationTarget? targetFor(String? link, {String? me}) {
   if (link == null) return null;
   final parts = Uri.tryParse(link)?.pathSegments ?? const <String>[];
@@ -175,8 +231,7 @@ NotificationTarget? targetFor(String? link, {String? me}) {
     'communities' => DirectTarget('/communities/$id'),
     'movies' => FilmTarget(id),
     'polls' => PollTarget(id),
-    // Other people's profiles aren't available yet (no GET /users/:id).
-    'users' => id == me ? const DirectTarget('/profile') : null,
+    'users' => DirectTarget(id == me ? '/profile' : '/users/$id'),
     _ => null,
   };
 }
@@ -200,5 +255,67 @@ Future<String?> resolve(ApiClient api, NotificationTarget target) async {
       final club = poll?['community'];
       final clubId = club is Map ? club['_id'] : club;
       return clubId is String && isMongoId(clubId) ? '/communities/$clubId/vote' : null;
+  }
+}
+
+
+/// Push settings (`GET`/`PATCH /notifications/preferences`). The backend
+/// applies them to push notifications; the in-app list keeps everything.
+class NotificationPrefs {
+  const NotificationPrefs({
+    this.polls = true,
+    this.discussions = true,
+    this.parties = true,
+    this.quietEnabled = false,
+    this.quietStart = '22:00',
+    this.quietEnd = '08:00',
+  });
+
+  final bool polls;
+  final bool discussions;
+
+  /// Both backend keys, `watchparty` and `parties`, mean watch parties.
+  final bool parties;
+  final bool quietEnabled;
+  final String quietStart;
+  final String quietEnd;
+
+  static NotificationPrefs fromJson(Object? json) {
+    final data = json is Map && json['data'] is Map ? json['data'] as Map : (json is Map ? json : const {});
+    final p = data['notificationPreferences'] is Map ? data['notificationPreferences'] as Map : const {};
+    final q = data['quietHours'] is Map ? data['quietHours'] as Map : const {};
+    String hhmm(Object? v, String d) => v is String && RegExp(r'^\d{2}:\d{2}$').hasMatch(v) ? v : d;
+    return NotificationPrefs(
+      polls: p['polls'] != false,
+      discussions: p['discussions'] != false,
+      parties: p['watchparty'] != false && p['parties'] != false,
+      quietEnabled: q['enabled'] == true,
+      quietStart: hhmm(q['start'], '22:00'),
+      quietEnd: hhmm(q['end'], '08:00'),
+    );
+  }
+}
+
+final notificationPrefsProvider =
+    AsyncNotifierProvider.autoDispose<NotificationPrefsNotifier, NotificationPrefs>(NotificationPrefsNotifier.new);
+
+class NotificationPrefsNotifier extends AutoDisposeAsyncNotifier<NotificationPrefs> {
+  ApiClient get _api => ref.read(apiClientProvider);
+
+  @override
+  Future<NotificationPrefs> build() async => NotificationPrefs.fromJson((await _api.get('/notifications/preferences')).data);
+
+  /// Saves one change. Shows it at once; puts back the old value and
+  /// rethrows if the server refuses.
+  Future<void> save(NotificationPrefs next, Map<String, Object?> body) async {
+    final before = state.valueOrNull;
+    state = AsyncData(next);
+    try {
+      final res = await _api.patch('/notifications/preferences', data: body);
+      state = AsyncData(NotificationPrefs.fromJson(res.data));
+    } catch (_) {
+      if (before != null) state = AsyncData(before);
+      rethrow;
+    }
   }
 }

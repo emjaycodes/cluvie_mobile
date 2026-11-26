@@ -23,6 +23,7 @@ import 'package:cluvie_mobile/features/movies/presentation/club_discussions_scre
 import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_details_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/vote_summary_screen.dart';
+import 'package:cluvie_mobile/features/notifications/presentation/notification_settings_screen.dart';
 import 'package:cluvie_mobile/features/notifications/presentation/notifications_screen.dart';
 import 'package:cluvie_mobile/features/suggest/presentation/suggestion_screen.dart';
 import 'package:cluvie_mobile/features/user_profile/presentation/profile_screen.dart';
@@ -109,6 +110,11 @@ final router = GoRouter(
       path: '/notifications',
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const NotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/notifications/settings',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const NotificationSettingsScreen(),
     ),
     GoRoute(
       path: '/watchParty',
