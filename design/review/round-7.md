@@ -172,12 +172,12 @@ Severity: **B** = blocking, **S** = should-fix, **N** = nit.
 
 ## Resolution (implementer, 2026-11-26)
 
-All findings except S9, N1 and N3 are fixed (`9f9715a`, `e1d1166`, `e41403c`, `f203099`, `a34d382`). 288/288 tests pass; the analyzer has 0 errors and 0 warnings (12 infos, unchanged, none in changed files).
+All findings except S9, N1 and N3 are fixed (`9f9715a`, `e1d1166`, `e41403c`, `f203099`, `a34d382`, `a6fa11b`). 315/315 tests pass; the analyzer has 0 errors and 0 warnings (12 infos, unchanged, none in changed files).
 
 | ID | Fix | Test |
 |---|---|---|
 | B1 | Movie Detail awaits `showSuggestSheet` and shows "Suggested <film> to <club>." The sheet invalidates the shared `catalogProvider` on success, so the discussion preview switches from "No club has suggested…" to the discussion. | Submits through the sheet; asserts the snackbar, a second `/movies/list` fetch and the new preview copy |
-| B2 | The draft field's height is capped at min(5 lines, 35% of the body height from a `LayoutBuilder`) with `maxLines: null`, so it scrolls inside. (`MediaQuery` inside the Scaffold body has the keyboard inset removed, so the body height is measured directly.) | 3 sizes × 3 scales, keyboard up, 5-line draft: no exception, Post and field above the keyboard, list ≥ 48dp. It failed at 320 before the fix |
+| B2 | The draft field's height is capped at min(5 lines, 35% of the body height from a `LayoutBuilder`) with `maxLines: null`, so it scrolls inside. (`MediaQuery` inside the Scaffold body has the keyboard inset removed, so the body height is measured directly.) | 3 sizes × 3 scales, keyboard up, 5-line draft: no exception, Post and field above the keyboard, list ≥ 48dp. It failed at 320 before the fix. Also an empty-draft case: the hint sits outside the field's scroll view, so above 1.2× it is the one-line "Write a post" (`a6fa11b`) |
 | S1 | `skipLoadingOnRefresh: false` on the thread and on both Movie Detail preview states; the preview retry invalidates `catalogProvider`. | Held-`Completer` retry tests for the thread and the preview |
 | S2 | Vote and Club discussions use `skipLoadingOnRefresh: hasValue` with `skipError: true`. A failed refresh with data keeps it and shows "Couldn't refresh. Showing the earlier vote." / "…earlier discussions." Vote clears `_local` and `_order` only after fresh data arrives. | Failed pull-to-refresh and held retry, on both screens |
 | S3 | Row labels start with the title and drop the rank: "Past Lives, 4 votes, your vote. Open film details". | Exact labels via `getSemantics`, before and after a vote |
