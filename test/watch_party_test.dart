@@ -391,6 +391,10 @@ void main() {
       _room!.serve(const RoomPresence('u2', 'left'));
       await t.pumpAndSettle();
       expect(find.text('In the room (2)'), findsOneWidget);
+      // Someone reconnecting (still listed here) is greeted again.
+      _room!.serve(const RoomPresence('u9', 'joined'));
+      await t.pumpAndSettle();
+      expect(_room!.sent.where((s) => s == 'here'), hasLength(2));
       await _tap(t, '👏');
       expect(_room!.sent, contains('react:clap'));
       expect(find.text('👏  You'), findsOneWidget);

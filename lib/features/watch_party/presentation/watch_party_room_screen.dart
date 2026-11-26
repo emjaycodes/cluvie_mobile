@@ -102,11 +102,11 @@ class _WatchPartyRoomScreenState extends ConsumerState<WatchPartyRoomScreen> {
         if (action == 'left') {
           setState(() => _here.remove(userId));
         } else {
-          final isNew = !_here.contains(userId);
           setState(() => _here.add(userId));
-          // Let a newcomer know we're here: the server only tells them
-          // about people who join after them.
-          if (action == 'joined' && isNew) link.here();
+          // Answer every join, even from someone already listed: after a
+          // reconnect they start with an empty list, and the server only
+          // tells them about people who join after them.
+          if (action == 'joined') link.here();
           if (action.startsWith(kReactPrefix)) _show(userId, action.substring(kReactPrefix.length));
         }
       case RoomPartyChanged():
