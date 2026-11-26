@@ -36,10 +36,12 @@ class _WatchPartyDetailScreenState extends ConsumerState<WatchPartyDetailScreen>
   bool _busy = false;
   bool _refusedNotMember = false;
 
-  Future<void> _run(Future<PartyRefusal?> Function() action, String success, WatchParty party) async {
+  /// Runs an RSVP or host action. Busy until the party has reloaded, so
+  /// the old action can't be tapped again in between (R10-S4).
+  Future<void> _run(Future<PartyResult> Function() action, String success, WatchParty party) async {
     if (_busy) return;
     setState(() => _busy = true);
-    final refusal = await action();
+    final (done, refusal) = await action();
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -47,12 +49,14 @@ class _WatchPartyDetailScreenState extends ConsumerState<WatchPartyDetailScreen>
     });
     final club = party.clubName ?? 'the club';
     final (message, type) = switch (refusal) {
+      null when done?.refreshed == false => ("$success Couldn't refresh the party yet.", ClSnackbarType.warning),
       null => (success, ClSnackbarType.success),
       PartyRefusal.notMember => ('Only members of $club can RSVP. Join the club first.', ClSnackbarType.warning),
+      PartyRefusal.notHost => ('Only the host can change this party.', ClSnackbarType.warning),
       PartyRefusal.hostCannotLeave => ("You're hosting, so you can't drop out. Cancel the party instead.", ClSnackbarType.warning),
       PartyRefusal.closed => ('This party has already ended or was cancelled.', ClSnackbarType.warning),
       PartyRefusal.notFound => ('This party no longer exists.', ClSnackbarType.error),
-      PartyRefusal.failed => ("Couldn't update your RSVP. Try again.", ClSnackbarType.error),
+      PartyRefusal.failed => ("Couldn't update the party. Try again.", ClSnackbarType.error),
     };
     ClSnackbar.show(context, message: message, type: type);
     if (refusal == PartyRefusal.closed || refusal == PartyRefusal.notFound) {
@@ -161,7 +165,8 @@ class _Body extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = party;
-    final me = ref.watch(currentUserIdProvider).valueOrNull;
+    final meAsync = ref.watch(currentUserIdProvider);
+    final me = meAsync.valueOrNull;
     final clubId = p.clubId;
     final membership = clubId == null ? ClubMembership.unknown : ref.watch(clubMembershipProvider(clubId));
     final notMember = refusedNotMember || membership == ClubMembership.notMember;
@@ -184,11 +189,21 @@ class _Body extends ConsumerWidget {
           )
         : null;
     final Widget action;
-    if (!p.isOpen) {
+    if (p.isOver()) {
       action = ClStatusBanner(
         type: ClStatusType.warning,
         message: p.status == PartyStatus.cancelled ? 'This party was cancelled.' : 'This party has ended.',
       );
+    } else if (me == null || me.isEmpty) {
+      // Without your id we can't tell host from guest: offer nothing
+      // rather than a wrong RSVP (R10-S6).
+      action = meAsync.isLoading
+          ? const ClSkeleton(height: 48)
+          : ClErrorState(
+              title: "Couldn't check your RSVP",
+              compact: true,
+              onRetry: () => ref.invalidate(currentUserIdProvider),
+            );
     } else if (p.isHost(me)) {
       action = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text("You're hosting this party.", style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),

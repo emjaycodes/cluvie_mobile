@@ -8,13 +8,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// socket: presence, reactions and host start/end. No shared video.
 const kWatchPartyRoomAvailable = true;
 
+/// A scheduled party this long past its start counts as over.
+const kPartyStaleAfter = Duration(hours: 4);
+
 /// How early before the start time people can go into the room.
 const kRoomOpensBefore = Duration(minutes: 30);
 
 /// Whether [p]'s room can be entered now by [me]: the party is open, you're
 /// going or hosting, and it's live, starting soon, or you're the host.
 bool canEnterRoom(WatchParty p, String? me, {DateTime? now}) {
-  if (!kWatchPartyRoomAvailable || !p.isOpen || !p.isGoing(me)) return false;
+  if (!kWatchPartyRoomAvailable || p.isOver(now) || !p.isGoing(me)) return false;
   if (p.status == PartyStatus.live || p.isHost(me)) return true;
   return !(now ?? DateTime.now()).isBefore(p.scheduledAt.subtract(kRoomOpensBefore));
 }
@@ -60,8 +63,15 @@ class WatchParty {
   bool isHost(String? me) => me != null && me == hostId;
   bool isGoing(String? me) => me != null && (participantIds.contains(me) || isHost(me));
 
-  /// Upcoming or happening now (not ended or cancelled).
+  /// Not ended or cancelled, by status alone. Prefer [isOver]: the backend
+  /// never ends a party by itself.
   bool get isOpen => status == PartyStatus.scheduled || status == PartyStatus.live;
+
+  /// Ended, cancelled, or a scheduled party more than [kPartyStaleAfter]
+  /// past its start that nobody started (the backend doesn't end those).
+  bool isOver([DateTime? now]) =>
+      !isOpen ||
+      (status == PartyStatus.scheduled && (now ?? DateTime.now()).isAfter(scheduledAt.add(kPartyStaleAfter)));
 
   static String? _id(Object? v) {
     if (v is String && v.isNotEmpty) return v;
@@ -118,17 +128,26 @@ class PartyNotFound implements Exception {
   const PartyNotFound();
 }
 
-/// Parties the user can see (public ones, and private ones in their clubs),
-/// soonest first (`GET /watchparties`). The first 100.
+/// Parties the user can see (public ones, and private ones in their clubs).
+/// The server sorts oldest first with no date filter, so this pages
+/// through all of them (up to [_maxPages] × 100) rather than stopping at
+/// old ones. A date filter is a backend ask.
 final watchPartiesProvider = FutureProvider.autoDispose<List<WatchParty>>((ref) async {
-  final res = await ref.read(apiClientProvider).get('/watchparties', params: {'limit': 100});
-  final body = res.data;
-  final list = body is Map && body['data'] is List ? body['data'] as List : (body is List ? body : const []);
-  return [
-    for (final p in list)
-      if (WatchParty.fromJson(p) case final party?) party,
-  ];
+  final api = ref.read(apiClientProvider);
+  final out = <WatchParty>[];
+  for (var page = 1; page <= _maxPages; page++) {
+    final body = (await api.get('/watchparties', params: {'limit': 100, 'page': page})).data;
+    final list = body is Map && body['data'] is List ? body['data'] as List : (body is List ? body : const []);
+    for (final p in list) {
+      if (WatchParty.fromJson(p) case final party?) out.add(party);
+    }
+    final pages = body is Map && body['totalPages'] is int ? body['totalPages'] as int : 1;
+    if (page >= pages || list.isEmpty) break;
+  }
+  return out;
 });
+
+const _maxPages = 5;
 
 /// One party (`GET /watchparties/:id`). A non-Mongo id (demo link) or 404
 /// is [PartyNotFound], without a request for the former.
@@ -148,8 +167,11 @@ final watchPartyProvider = FutureProvider.autoDispose.family<WatchParty, String>
 
 /// Why going or not going didn't happen.
 enum PartyRefusal {
-  /// Only club members can join (403).
+  /// Only club members can join (403 on join).
   notMember,
+
+  /// Only the host can change the party (403 on update).
+  notHost,
 
   /// The host can't leave their own party.
   hostCannotLeave,
@@ -160,45 +182,70 @@ enum PartyRefusal {
   failed,
 }
 
-Future<PartyRefusal?> _act(WidgetRef ref, String id, Future<void> Function() call) async {
+/// The outcome of an RSVP or host action that went through.
+class PartyActionDone {
+  const PartyActionDone({required this.refreshed});
+
+  /// False when the party couldn't be reloaded afterwards.
+  final bool refreshed;
+}
+
+typedef PartyResult = (PartyActionDone?, PartyRefusal?);
+
+/// Reloads the party (kept alive while waiting) and the list.
+Future<bool> _reload(WidgetRef ref, String id) async {
+  ref.invalidate(watchPartiesProvider);
+  final keep = ref.listenManual(watchPartyProvider(id), (_, __) {});
+  try {
+    final _ = await ref.refresh(watchPartyProvider(id).future);
+    return true;
+  } catch (_) {
+    return false;
+  } finally {
+    keep.close();
+  }
+}
+
+Future<PartyResult> _act(WidgetRef ref, String id, Future<void> Function() call, {bool hostAction = false}) async {
   try {
     await call();
   } on ApiException catch (e) {
     final body = e.responseBody;
     final message = body is Map ? '${body['message'] ?? ''}'.toLowerCase() : '';
-    switch (e.statusCode) {
-      case 403:
-        return PartyRefusal.notMember;
-      case 404:
-        return PartyRefusal.notFound;
-      case 400:
-        if (message.contains('host')) return PartyRefusal.hostCannotLeave;
-        if (message.contains('status')) return PartyRefusal.closed;
-      // "Already a participant": the goal is met.
-      default:
-        if (e.statusCode != 400) return PartyRefusal.failed;
-    }
+    final code = body is Map ? body['code'] : null;
+    final refusal = switch (e.statusCode) {
+      403 => hostAction ? PartyRefusal.notHost : PartyRefusal.notMember,
+      404 => PartyRefusal.notFound,
+      400 when code == 'ALREADY_PARTICIPANT' || message.contains('already a participant') => null,
+      400 when code == 'HOST_CANNOT_LEAVE' || message.contains('host cannot leave') => PartyRefusal.hostCannotLeave,
+      400 when code == 'PARTY_CLOSED' || message.contains('cannot join watch party with status') => PartyRefusal.closed,
+      _ => PartyRefusal.failed,
+    };
+    if (refusal != null) return (null, refusal);
   } catch (_) {
-    return PartyRefusal.failed;
+    return (null, PartyRefusal.failed);
   }
-  ref.invalidate(watchPartyProvider(id));
-  ref.invalidate(watchPartiesProvider);
-  return null;
+  return (PartyActionDone(refreshed: await _reload(ref, id)), null);
 }
 
-/// RSVP yes (`POST /watchparties/:id/join`). Club members only.
-Future<PartyRefusal?> joinParty(WidgetRef ref, String id) =>
+/// RSVP yes (`POST /watchparties/:id/join`). Club members only. Waits for
+/// the party to reload, so callers can stay busy until then.
+Future<PartyResult> joinParty(WidgetRef ref, String id) =>
     _act(ref, id, () => ref.read(apiClientProvider).post('/watchparties/$id/join'));
 
 /// Take back an RSVP (`POST /watchparties/:id/leave`). Not for the host.
-Future<PartyRefusal?> leaveParty(WidgetRef ref, String id) =>
+Future<PartyResult> leaveParty(WidgetRef ref, String id) =>
     _act(ref, id, () => ref.read(apiClientProvider).post('/watchparties/$id/leave'));
 
 /// Sets a party's status; host only (`PATCH /watchparties/:id/update`).
 /// `live` starts it, `ended` ends it, `cancelled` cancels it (kept in
 /// members' lists, unlike delete).
-Future<PartyRefusal?> setPartyStatus(WidgetRef ref, String id, String status) =>
-    _act(ref, id, () => ref.read(apiClientProvider).patch('/watchparties/$id/update', data: {'status': status}));
+Future<PartyResult> setPartyStatus(WidgetRef ref, String id, String status) => _act(
+      ref,
+      id,
+      () => ref.read(apiClientProvider).patch('/watchparties/$id/update', data: {'status': status}),
+      hostAction: true,
+    );
 
 /// Cancel a party; host only.
-Future<PartyRefusal?> cancelParty(WidgetRef ref, String id) => setPartyStatus(ref, id, 'cancelled');
+Future<PartyResult> cancelParty(WidgetRef ref, String id) => setPartyStatus(ref, id, 'cancelled');

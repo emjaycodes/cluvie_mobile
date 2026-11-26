@@ -213,18 +213,30 @@ Future<(ClubActionDone?, ClubActionRefusal?)> leaveClub(WidgetRef ref, String id
   return (ClubActionDone(refreshed: await _refreshClub(ref, id)), null);
 }
 
+/// What happened when making someone an admin.
+enum PromoteResult { done, noLongerMember, notAllowed, notFound, failed }
+
 /// Makes [userId] an admin of club [clubId], then refetches the club.
-/// "Already an admin" counts as done. Returns the refusal, or null.
-Future<ClubActionRefusal?> makeClubAdmin(WidgetRef ref, String clubId, String userId) async {
+/// "Already an admin" counts as done; "not a member" (they left since the
+/// list loaded) is reported as such.
+Future<PromoteResult> makeClubAdmin(WidgetRef ref, String clubId, String userId) async {
+  var result = PromoteResult.done;
   try {
     await CommunityRepository(apiClient: ref.read(apiClientProvider)).makeAdmin(clubId, userId);
   } on ApiException catch (e) {
-    final refusal = _refusalFor(e);
-    if (refusal != null) return refusal;
-    // 400: already an admin, or no longer a member. Refetch either way.
+    final body = e.responseBody;
+    final message = body is Map ? '${body['message'] ?? ''}'.toLowerCase() : '';
+    final code = body is Map ? body['code'] : null;
+    result = switch (e.statusCode) {
+      401 || 403 => PromoteResult.notAllowed,
+      404 => PromoteResult.notFound,
+      400 when code == 'ALREADY_ADMIN' || message.contains('already an admin') => PromoteResult.done,
+      400 when code == 'NOT_A_MEMBER' || message.contains('not a member') => PromoteResult.noLongerMember,
+      _ => PromoteResult.failed,
+    };
   } catch (_) {
-    return ClubActionRefusal.failed;
+    result = PromoteResult.failed;
   }
-  ref.invalidate(communityProvider(clubId));
-  return null;
+  if (result != PromoteResult.failed && result != PromoteResult.notAllowed) ref.invalidate(communityProvider(clubId));
+  return result;
 }

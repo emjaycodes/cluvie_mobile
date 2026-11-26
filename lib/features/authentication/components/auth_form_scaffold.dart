@@ -33,12 +33,12 @@ class AuthFormScaffold extends StatelessWidget {
   }
 }
 
-/// The reset API exists (`/auth/forgot-password`, `/auth/reset-password`),
-/// but the backend has no email provider yet: in production nothing is
-/// sent. Until one is added the "Forgot password?" link stays hidden and the
-/// screen says so plainly (review round 3, B4). For local testing, build
-/// with `--dart-define=PASSWORD_RESET=true`; the backend prints the link to
-/// its log outside production.
+/// The reset API exists (`/auth/forgot-password`, `/auth/reset-password`)
+/// and the backend can send email (Resend), but the emailed link is
+/// `cluvie://reset-password`, which mail apps don't make tappable (R10-S1).
+/// Keep this off until the backend sends an https link (App Links /
+/// Universal Links, or a redirect page) and the app registers that host.
+/// For local testing, build with `--dart-define=PASSWORD_RESET=true`.
 const bool kPasswordResetAvailable = bool.fromEnvironment('PASSWORD_RESET');
 
 /// The backend's minimum for a new password (`/auth/reset-password`).

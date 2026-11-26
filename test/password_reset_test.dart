@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/app.dart' show endSessionOnce;
 import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
@@ -24,6 +25,7 @@ ApiException _error(int? status, [Object? body]) => ApiException(message: 'x', s
 Widget _app(FakeApiClient api, String initial, {Size size = const Size(390, 844), double scale = 1}) {
   final router = GoRouter(initialLocation: initial, routes: [
     GoRoute(path: '/login', name: 'login', builder: (_, __) => const Scaffold(body: Text('login screen'))),
+    GoRoute(path: '/splash', builder: (_, __) => const Scaffold(body: Text('splash'))),
     GoRoute(path: '/forgotPassword', name: 'forgotPassword', builder: (_, __) => const ForgotPasswordScreen(resetAvailable: true)),
     GoRoute(path: '/reset-password', builder: (_, st) => ResetPasswordScreen(token: st.uri.queryParameters['token'])),
   ]);
@@ -192,6 +194,39 @@ void main() {
       final screen = t.widget<ResetPasswordScreen>(find.byType(ResetPasswordScreen));
       expect(screen.token, _token, reason: link);
     }
+  });
+
+  test('concurrent 401s sign out once, after going to Log in', () async {
+    var ending = false;
+    final log = <String>[];
+    Future<void> fire() => endSessionOnce(
+          isEnding: () => ending,
+          setEnding: (v) => ending = v,
+          goToLogin: () => log.add('login'),
+          signOut: () async {
+            log.add('signOut');
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          },
+          tellUser: () => log.add('message'),
+        );
+    await Future.wait([fire(), fire(), fire()]);
+    expect(log, ['login', 'signOut', 'message']);
+    await fire(); // a later, separate expiry still works
+    expect(log, hasLength(6));
+  });
+
+  test('a failing sign-out still leaves you on Log in, without an unhandled error', () async {
+    var ending = false;
+    final log = <String>[];
+    await endSessionOnce(
+      isEnding: () => ending,
+      setEnding: (v) => ending = v,
+      goToLogin: () => log.add('login'),
+      signOut: () async => throw StateError('prefs'),
+      tellUser: () => log.add('message'),
+    );
+    expect(log, ['login']);
+    expect(ending, isFalse);
   });
 
   test('ApiException.fromDio keeps an already-mapped error (status survives re-wrapping)', () {

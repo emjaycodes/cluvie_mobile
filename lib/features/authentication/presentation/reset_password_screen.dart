@@ -16,7 +16,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// Set a new password (`/reset-password?token=…`), opened from the emailed
-/// link `cluvie://reset-password?token=…`. Calls
+/// link `cluvie://reset-password?token=…`. A cold start from the link skips
+/// the splash, so "Log in" goes through `/splash`, which restores a saved
+/// session first (R10-N8). Calls
 /// `POST /auth/reset-password`; the token works once, for 30 minutes.
 ///
 /// A reset signs out every session (old tokens get `401 SESSION_REVOKED`),
@@ -130,12 +132,12 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           _outcome(
             icon: AppIcons.lock,
             title: 'This link is invalid or expired',
-            body: 'Reset links work once, for 30 minutes, and a newer link replaces an older one. Ask for a new link.',
+            body: 'Reset links work once and expire after a short time. A newer link replaces an older one. Ask for a new link.',
           ),
           const SizedBox(height: AppSpacing.xxl),
           ClButton(label: 'Get a new link', onPressed: _newLink),
           const SizedBox(height: AppSpacing.sm),
-          ClButton(label: 'Back to log in', variant: ClButtonVariant.ghost, onPressed: _toLogin),
+          ClButton(label: 'Back to log in', variant: ClButtonVariant.ghost, onPressed: () => context.go('/splash')),
         ]);
       case _Stage.form:
         return AuthFormScaffold(children: [
@@ -183,7 +185,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           ],
           ClButton(label: 'Update password', isLoading: _loading, onPressed: _loading ? null : _submit),
           const SizedBox(height: AppSpacing.lg),
-          AuthSwitchLink(prompt: 'Remembered it?', action: 'Log in', onTap: _toLogin),
+          AuthSwitchLink(prompt: 'Remembered it?', action: 'Log in', onTap: () => context.go('/splash')),
         ]);
     }
   }

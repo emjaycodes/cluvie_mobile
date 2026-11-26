@@ -122,7 +122,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   Text('Check your inbox', style: AppTextStyles.h1, textAlign: TextAlign.center),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'If an account exists for $_sentTo, we\'ve sent a link to reset your password. It works for 30 minutes.',
+                    'If an account exists for $_sentTo, we\'ve sent a link to reset your password. It expires soon, so use it today.',
                     style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
                     textAlign: TextAlign.center,
                   ),

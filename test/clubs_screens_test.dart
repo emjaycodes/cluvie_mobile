@@ -341,6 +341,51 @@ void main() {
   });
 
   group('Members (About)', () {
+    testWidgets('R10-N1: a member who left is reported as gone, not promoted; no action on deleted accounts', (t) async {
+      final b = _Backend();
+      (b.clubs[_owned]!['members'] as List).add({'user': 'ghost', 'role': 'member'}); // no username: deleted
+      final post = b.api.onPost!;
+      b.api.onPost = (path, data) {
+        if (path.endsWith('/make-admin')) {
+          throw ApiException(message: 'x', statusCode: 400, responseBody: {'message': 'Target user is not a member of this community'});
+        }
+        return post(path, data);
+      };
+      await _pump(t, _app(b, initial: '/communities/$_owned/about'));
+      await _scrollTo(t, find.text('Make admin'));
+      expect(find.text('Make admin'), findsOneWidget); // Maximiliana only; not the deleted account
+      await t.tap(_button('Make admin'));
+      await t.pumpAndSettle();
+      await t.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Make admin')));
+      await t.pumpAndSettle();
+      expect(find.textContaining('is no longer in the club'), findsOneWidget);
+      expect(find.textContaining('is now an admin'), findsNothing);
+    });
+
+    testWidgets('R10-N2: a role-only admin (per memberProfiles) can promote', (t) async {
+      final b = _Backend();
+      // I'm a plain {user, role: admin} member of Night Owls, not owner or in admins[].
+      final members = b.clubs[_member]!['members'] as List;
+      members[members.indexWhere((m) => (m as Map)['user'] == _me)] = {'user': _me, 'role': 'admin'};
+      final get = b.api.onGet!;
+      b.api.onGet = (path, params) {
+        final r = get(path, params);
+        if (path == '/communities/$_member' && r is Map) {
+          final data = Map<String, Object?>.from(r['data'] as Map);
+          data['memberProfiles'] = [
+            for (final p in data['memberProfiles'] as List)
+              (p as Map)['_id'] == _me ? {...p, 'role': 'admin'} : p,
+          ];
+          data['members'] = [for (final m in members) if ((m as Map)['user'] != _me) m, _me]; // raw id: model can't see the role
+          return {'success': true, 'data': data};
+        }
+        return r;
+      };
+      await _pump(t, _app(b, initial: '/communities/$_member/about'));
+      await _scrollTo(t, find.text('Make admin'));
+      expect(find.text('Make admin'), findsWidgets);
+    });
+
     testWidgets('lists everyone with roles; a plain member gets no Make admin', (t) async {
       final b = _Backend();
       await _pump(t, _app(b, initial: '/communities/$_member/about'));

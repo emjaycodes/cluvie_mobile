@@ -28,6 +28,7 @@ const _open = '6a0000000000000000000002'; // not going, my club
 const _hosting = '6a0000000000000000000003'; // I host
 const _ended = '6a0000000000000000000004';
 const _foreign = '6a0000000000000000000005'; // a club I'm not in
+const _stale = '6a0000000000000000000006'; // scheduled 21 days ago, never started
 
 Map<String, Object?> _party(String id, String title, {
   String host = 'h1',
@@ -61,12 +62,17 @@ class _Backend {
     _hosting: _party(_hosting, 'My party', host: _me, participants: ['u3']),
     _ended: _party(_ended, 'Last month', status: 'ended', from: const Duration(days: -20)),
     _foreign: _party(_foreign, 'Noir night', club: _otherClub, clubName: 'Noir Nights'),
+    _stale: _party(_stale, 'Forgotten one', from: const Duration(days: -21)),
   };
+  bool failRefetch = false;
+  int b0 = 0; // party GETs so far
 
   late final api = FakeApiClient(
     onGet: (path, params) {
       if (path == '/watchparties') return {'success': true, 'data': parties.values.toList()};
       final one = RegExp(r'^/watchparties/(\w+)$').firstMatch(path);
+      if (one != null && failRefetch && b0 > 0) throw ApiException(message: 'x', statusCode: 503);
+      if (one != null) b0++;
       if (one != null) {
         final p = parties[one.group(1)];
         if (p == null) throw ApiException(message: 'x', statusCode: 404);
@@ -134,7 +140,7 @@ class _FakeRoom implements RoomLink {
 
 _FakeRoom? _room;
 
-Widget _app(_Backend b, String initial, {Size size = const Size(390, 844), double scale = 1}) {
+Widget _app(_Backend b, String initial, {Size size = const Size(390, 844), double scale = 1, Future<String?> Function()? me}) {
   final router = GoRouter(initialLocation: initial, routes: [
     GoRoute(path: '/home', builder: (_, __) => const Scaffold(body: Text('home'))),
     GoRoute(path: '/watch-parties', builder: (_, __) => const WatchPartyListScreen()),
@@ -146,7 +152,7 @@ Widget _app(_Backend b, String initial, {Size size = const Size(390, 844), doubl
   return ProviderScope(
     overrides: [
       apiClientProvider.overrideWithValue(b.api),
-      currentUserIdProvider.overrideWith((ref) async => _me),
+      currentUserIdProvider.overrideWith((ref) => (me ?? () async => _me)()),
       roomLinkFactoryProvider.overrideWithValue((_) async => _room ??= _FakeRoom()),
     ],
     child: MediaQuery(
@@ -195,7 +201,8 @@ void main() {
       await t.drag(_vertical.first, const Offset(0, -2000));
       await t.pumpAndSettle();
       expect(find.text('Past'), findsOneWidget);
-      expect(find.text('ENDED'), findsOneWidget);
+      // 'Last month' (ended) and 'Forgotten one' (scheduled, never started).
+      expect(find.text('ENDED'), findsNWidgets(2));
       expect(find.text("I'm going"), findsNothing); // RSVP lives on each party's page
     });
 
@@ -216,6 +223,71 @@ void main() {
       b.api.onGet = (_, __) => throw ApiException(message: 'x', statusCode: 500);
       await _pump(t, _app(b, '/watch-parties'));
       expect(find.text("Couldn't load watch parties"), findsOneWidget);
+    });
+  });
+
+  group('round 10 regressions', () {
+    testWidgets('R10-S2: a scheduled party long past its start is over: no RSVP, badge Ended', (t) async {
+      await _pump(t, _app(_Backend(), '/watch-parties/$_stale'));
+      expect(find.text('This party has ended.'), findsOneWidget);
+      expect(find.text("I'm going"), findsNothing);
+      expect(find.text('ENDED'), findsOneWidget);
+    });
+
+    testWidgets('R10-S3: the list pages past old parties', (t) async {
+      final b = _Backend();
+      final get = b.api.onGet!;
+      b.api.onGet = (path, params) {
+        if (path != '/watchparties') return get(path, params);
+        final page = params!['page'] as int;
+        return {
+          'success': true,
+          'data': page == 1 ? [b.parties[_ended]] : [b.parties[_open]],
+          'totalPages': 2,
+        };
+      };
+      await _pump(t, _app(b, '/watch-parties'));
+      expect(find.text('Coming up'), findsOneWidget);
+      expect(b.api.calls.where((c) => c.path == '/watchparties'), hasLength(2));
+    });
+
+    testWidgets('R10-S4: busy until the party reloads; a failed reload says so', (t) async {
+      final b = _Backend()..failRefetch = true;
+      await _pump(t, _app(b, '/watch-parties/$_open'));
+      await _tap(t, "I'm going");
+      expect(find.textContaining("Couldn't refresh the party yet"), findsOneWidget);
+      expect(b.api.calls.where((c) => c.path.endsWith('/join')), hasLength(1));
+    });
+
+    testWidgets('R10-S5: the tile tells a screen reader the party state', (t) async {
+      await _pump(t, _app(_Backend(), '/watch-parties'));
+      expect(find.bySemanticsLabel(RegExp(r'^Hosting, My party')), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp(r'^Going, Sunday screening')), findsOneWidget);
+    });
+
+    testWidgets('R10-S6: no RSVP while your id is unknown, even on your own party', (t) async {
+      await _pump(t, _app(_Backend(), '/watch-parties/$_hosting', me: () async => null));
+      expect(find.text("I'm going"), findsNothing);
+      expect(find.text("Couldn't check your RSVP"), findsOneWidget);
+    });
+
+    testWidgets('R10-N4: a 403 on cancel is "only the host", not "join the club"', (t) async {
+      final b = _Backend();
+      b.api.onPatch = (_, __) => throw ApiException(message: 'x', statusCode: 403, responseBody: {'message': 'Only host can update watch party'});
+      await _pump(t, _app(b, '/watch-parties/$_hosting'));
+      await _tap(t, 'Cancel party');
+      await t.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Cancel party')));
+      await t.pumpAndSettle();
+      expect(find.text('Only the host can change this party.'), findsOneWidget);
+      expect(find.textContaining('can RSVP'), findsNothing);
+    });
+
+    testWidgets('R10-N4: an unexpected 400 is a failure, not "you\'re going"', (t) async {
+      final b = _Backend();
+      b.api.onPost = (_, __) => throw ApiException(message: 'x', statusCode: 400, responseBody: {'message': 'Cast to ObjectId failed'});
+      await _pump(t, _app(b, '/watch-parties/$_open'));
+      await _tap(t, "I'm going");
+      expect(find.text("Couldn't update the party. Try again."), findsOneWidget);
     });
   });
 

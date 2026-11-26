@@ -25,17 +25,29 @@ String partyWhen(DateTime when, {DateTime? now}) {
   return '$date · $time';
 }
 
-/// The badge for a party's state, or null for an ordinary upcoming one.
-Widget? partyBadge(WatchParty p, String? me) => switch (p.status) {
-      PartyStatus.live => const ClBadge('Live', tone: ClBadgeTone.purpleSolid),
-      PartyStatus.cancelled => const ClBadge('Cancelled', tone: ClBadgeTone.error),
-      PartyStatus.ended => const ClBadge('Ended', tone: ClBadgeTone.glass),
-      PartyStatus.scheduled => p.isHost(me)
-          ? const ClBadge('Hosting')
-          : p.isGoing(me)
-              ? const ClBadge('Going', tone: ClBadgeTone.success)
-              : null,
+/// The label for a party's state, or null for an ordinary upcoming one.
+/// A scheduled party long past its start reads as ended
+/// ([WatchParty.isOver]).
+String? partyStateLabel(WatchParty p, String? me) => switch (p.status) {
+      PartyStatus.live => 'Live',
+      PartyStatus.cancelled => 'Cancelled',
+      PartyStatus.ended => 'Ended',
+      PartyStatus.scheduled when p.isOver() => 'Ended',
+      PartyStatus.scheduled => p.isHost(me) ? 'Hosting' : (p.isGoing(me) ? 'Going' : null),
     };
+
+/// The badge for [partyStateLabel].
+Widget? partyBadge(WatchParty p, String? me) {
+  final label = partyStateLabel(p, me);
+  if (label == null) return null;
+  return ClBadge(label, tone: switch (label) {
+    'Live' => ClBadgeTone.purpleSolid,
+    'Cancelled' => ClBadgeTone.error,
+    'Ended' => ClBadgeTone.glass,
+    'Going' => ClBadgeTone.success,
+    _ => ClBadgeTone.purple,
+  });
+}
 
 /// A party in a list: poster, title, film, club and time. Opens the party.
 class PartyTile extends StatelessWidget {
@@ -57,6 +69,7 @@ class PartyTile extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: ClPressable(
         semanticLabel: [
+          if (partyStateLabel(p, me) case final state?) state,
           p.title,
           if (details.isNotEmpty) details,
           partyWhen(p.scheduledAt),

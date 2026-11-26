@@ -73,7 +73,11 @@ class ApiClient {
 
   ApiException _checked(Object error) {
     final e = ApiException.fromDio(error);
-    if (endsSession(e, signedIn: _dio.options.headers.containsKey('Authorization'))) onSessionEnded?.call(e);
+    // Only the current session can end: a slow request sent with an old
+    // token must not sign out a newer login (R10-N7).
+    final current = _dio.options.headers['Authorization'];
+    final sentWith = error is DioException ? error.requestOptions.headers['Authorization'] : current;
+    if (endsSession(e, signedIn: current != null && sentWith == current)) onSessionEnded?.call(e);
     return e;
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/core/theme/app_theme.dart';
@@ -195,6 +197,28 @@ void main() {
     expect(b.api.calls.where((c) => c.path == '/notifications/clear'), hasLength(1));
     expect(find.text("You're all caught up"), findsOneWidget);
     expect(find.byTooltip('Clear all'), findsNothing);
+  });
+
+  test('R10-N5: a failed mark-read does not undo a newer refresh', () async {
+    final b = _Backend();
+    final container = ProviderContainer(overrides: [apiClientProvider.overrideWithValue(b.api)]);
+    addTearDown(container.dispose);
+    final sub = container.listen(notificationsProvider, (_, __) {});
+    addTearDown(sub.close);
+    await container.read(notificationsProvider.future);
+    final gate = Completer<void>();
+    b.api.onPatch = (_, __) async {
+      await gate.future;
+      throw ApiException(message: 'x', statusCode: 503);
+    };
+    final marking = container.read(notificationsProvider.notifier).markRead('6e0000000000000000000001');
+    // The server marked it read meanwhile, and a refresh brought that in.
+    b.items.first['isRead'] = true;
+    container.invalidate(notificationsProvider);
+    await container.read(notificationsProvider.future);
+    gate.complete();
+    await marking;
+    expect(container.read(notificationsProvider).value!.first.isRead, isTrue);
   });
 
   testWidgets('a load failure offers retry', (t) async {

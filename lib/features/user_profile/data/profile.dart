@@ -84,11 +84,18 @@ class WatchlistNotifier extends AutoDisposeAsyncNotifier<List<SavedFilm>> {
   Future<void> remove(SavedFilm item) async {
     final before = state.valueOrNull;
     if (before == null) return;
+    final index = before.indexWhere((f) => f.movieId == item.movieId);
+    if (index < 0) return;
     state = AsyncData([for (final f in before) if (f.movieId != item.movieId) f]);
     try {
       await _api.post('/watchlist/remove', data: {'movieId': item.movieId});
     } catch (_) {
-      state = AsyncData(before);
+      // Put back only this film, into the list as it is now: other removes
+      // since then stay removed (R10-N6).
+      final now = state.valueOrNull ?? const <SavedFilm>[];
+      if (!now.any((f) => f.movieId == item.movieId)) {
+        state = AsyncData([...now]..insert(index.clamp(0, now.length), item));
+      }
       rethrow;
     }
   }

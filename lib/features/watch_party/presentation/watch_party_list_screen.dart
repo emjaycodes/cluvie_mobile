@@ -21,9 +21,6 @@ class WatchPartyListScreen extends ConsumerWidget {
   /// real feed; kept so old callers still compile.
   final Map<String, dynamic>? focus;
 
-  /// A scheduled party this long past its start is listed under Past.
-  static const _stale = Duration(hours: 4);
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final parties = ref.watch(watchPartiesProvider);
@@ -95,7 +92,7 @@ class WatchPartyListScreen extends ConsumerWidget {
           final live = [for (final p in all) if (p.status == PartyStatus.live) p];
           final upcoming = [
             for (final p in all)
-              if (p.status == PartyStatus.scheduled && p.scheduledAt.isAfter(now.subtract(_stale))) p,
+              if (p.status == PartyStatus.scheduled && !p.isOver(now)) p,
           ]..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
           final past = [
             for (final p in all)
@@ -107,7 +104,7 @@ class WatchPartyListScreen extends ConsumerWidget {
               const ClEmptyState(
                 illustration: ClIllustration.parties,
                 title: 'No watch parties yet',
-                message: "When someone in your clubs plans one, it'll show up here.",
+                message: "When a club plans one, it'll show up here.",
               ),
             ]);
           }

@@ -90,7 +90,7 @@ class _CommunityInfoScreenState extends ConsumerState<CommunityInfoScreen> {
             }),
             if (club.memberProfiles.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.section),
-              _Members(club: club, canPromote: membership == ClubMembership.member && club.isAdmin(_me(ref))),
+              _Members(club: club, canPromote: membership == ClubMembership.member && _canPromote(club, _me(ref))),
             ],
             const SizedBox(height: AppSpacing.xl),
             if (membership == ClubMembership.member)
@@ -123,6 +123,15 @@ class _CommunityInfoScreenState extends ConsumerState<CommunityInfoScreen> {
 
 String? _me(WidgetRef ref) => ref.watch(currentUserIdProvider).valueOrNull;
 
+/// Whether [me] may promote members: the server's verdict from
+/// `memberProfiles` (it counts role-only admins), else the club's lists.
+bool _canPromote(Community club, String? me) {
+  if (me == null) return false;
+  final mine = club.memberProfiles.where((p) => p.id == me).firstOrNull;
+  if (mine != null) return mine.role != ClubRole.member;
+  return club.isAdmin(me);
+}
+
 class _Members extends ConsumerStatefulWidget {
   const _Members({required this.club, required this.canPromote});
   final Community club;
@@ -152,21 +161,18 @@ class _MembersState extends ConsumerState<_Members> {
     final clubId = widget.club.id;
     if (clubId == null || _promoting.contains(p.id)) return;
     setState(() => _promoting.add(p.id));
-    final refusal = await makeClubAdmin(ref, clubId, p.id);
+    final result = await makeClubAdmin(ref, clubId, p.id);
     if (!mounted) return;
     setState(() => _promoting.remove(p.id));
     final name = p.username ?? 'They';
-    switch (refusal) {
-      case null:
-        ClSnackbar.show(context, message: '$name is now an admin.', type: ClSnackbarType.success);
-      case ClubActionRefusal.unauthorised:
-        ClSnackbar.show(context, message: 'Only the owner and admins can do that.', type: ClSnackbarType.error);
-      case ClubActionRefusal.notFound:
-        ClSnackbar.show(context, message: 'This club no longer exists.', type: ClSnackbarType.error);
-      case ClubActionRefusal.ownerCannotLeave:
-      case ClubActionRefusal.failed:
-        ClSnackbar.show(context, message: "Couldn't make $name an admin. Try again.", type: ClSnackbarType.error);
-    }
+    final (message, type) = switch (result) {
+      PromoteResult.done => ('$name is now an admin.', ClSnackbarType.success),
+      PromoteResult.noLongerMember => ("$name is no longer in the club.", ClSnackbarType.warning),
+      PromoteResult.notAllowed => ('Only the owner and admins can do that.', ClSnackbarType.error),
+      PromoteResult.notFound => ('This club no longer exists.', ClSnackbarType.error),
+      PromoteResult.failed => ("Couldn't make $name an admin. Try again.", ClSnackbarType.error),
+    };
+    ClSnackbar.show(context, message: message, type: type);
   }
 
   @override
@@ -174,7 +180,7 @@ class _MembersState extends ConsumerState<_Members> {
     final me = ref.watch(currentUserIdProvider).valueOrNull;
     final people = widget.club.memberProfiles;
     final roomy = MediaQuery.textScalerOf(context).scale(1) <= 1.6;
-    final makeAdminWidth = ClButton.intrinsicWidth(context, 'Make admin');
+    final makeAdminWidth = ClButton.intrinsicWidth(context, 'Make admin', size: ClButtonSize.sm);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Semantics(header: true, child: Text('Members', style: AppTextStyles.h3)),
       const SizedBox(height: AppSpacing.md),
@@ -188,11 +194,12 @@ class _MembersState extends ConsumerState<_Members> {
               isMe: p.id == me,
               roomy: roomy,
               actionWidth: makeAdminWidth,
-              action: widget.canPromote && p.role == ClubRole.member && p.id != me
+              action: widget.canPromote && p.role == ClubRole.member && p.id != me && p.username != null
                   ? ClButton(
                       label: 'Make admin',
                       expand: false,
-                      variant: ClButtonVariant.ghost,
+                      size: ClButtonSize.sm,
+                      variant: ClButtonVariant.secondary,
                       isLoading: _promoting.contains(p.id),
                       semanticLabel: 'Make ${p.username ?? 'this member'} an admin',
                       onPressed: _promoting.contains(p.id) ? null : () => _confirm(p),
@@ -246,7 +253,8 @@ class _MemberRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
       child: LayoutBuilder(builder: (context, box) {
-        final inline = action != null && roomy && box.maxWidth - actionWidth - 56 >= 140;
+        // Avatar (36) + gaps; the name needs ~96pt to stay readable.
+        final inline = action != null && roomy && box.maxWidth - actionWidth - 36 - AppSpacing.md - AppSpacing.sm >= 96;
         final row = Row(children: [
           if (roomy) ...[
             ClAvatar(name: profile.username ?? '?', radius: 18),

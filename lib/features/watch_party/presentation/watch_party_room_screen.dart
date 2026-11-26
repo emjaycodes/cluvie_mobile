@@ -142,12 +142,16 @@ class _WatchPartyRoomScreenState extends ConsumerState<WatchPartyRoomScreen> {
   Future<void> _setStatus(String status, String done) async {
     if (_busy) return;
     setState(() => _busy = true);
-    final refusal = await setPartyStatus(ref, widget.partyId, status);
+    final (ok, refusal) = await setPartyStatus(ref, widget.partyId, status);
     if (!mounted) return;
     setState(() => _busy = false);
     ClSnackbar.show(
       context,
-      message: refusal == null ? done : "Couldn't update the party. Try again.",
+      message: switch (refusal) {
+        null => ok?.refreshed == false ? "$done Couldn't refresh the party yet." : done,
+        PartyRefusal.notHost => 'Only the host can change this party.',
+        _ => "Couldn't update the party. Try again.",
+      },
       type: refusal == null ? ClSnackbarType.success : ClSnackbarType.error,
     );
   }
@@ -266,7 +270,7 @@ class _WatchPartyRoomScreenState extends ConsumerState<WatchPartyRoomScreen> {
                   ]),
                 ),
               ]),
-              if (host && p.isOpen) ...[
+              if (host && !p.isOver()) ...[
                 const SizedBox(height: AppSpacing.xl),
                 if (p.status == PartyStatus.scheduled)
                   ClButton(
@@ -283,7 +287,7 @@ class _WatchPartyRoomScreenState extends ConsumerState<WatchPartyRoomScreen> {
                     isLoading: _busy,
                     onPressed: _busy ? null : _confirmEnd,
                   ),
-              ] else if (!p.isOpen) ...[
+              ] else if (p.isOver()) ...[
                 const SizedBox(height: AppSpacing.xl),
                 ClStatusBanner(
                   type: ClStatusType.warning,

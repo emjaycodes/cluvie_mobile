@@ -39,15 +39,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     if (target == null || _opening != null) return;
     setState(() => _opening = n.id);
     String? route;
+    var failed = false;
     try {
       route = await resolve(ref.read(apiClientProvider), target);
     } catch (_) {
-      route = null;
+      failed = true;
     }
     if (!mounted) return;
     setState(() => _opening = null);
     if (route == null) {
-      ClSnackbar.show(context, message: "Couldn't open this. It may have been removed.", type: ClSnackbarType.error);
+      ClSnackbar.show(
+        context,
+        message: failed ? "Couldn't open this. It may have been removed, or check your connection." : "Cluvie can't open this one yet.",
+        type: failed ? ClSnackbarType.error : ClSnackbarType.warning,
+      );
       return;
     }
     context.push(route);

@@ -98,10 +98,10 @@ class NotificationsNotifier extends AutoDisposeAsyncNotifier<List<AppNotificatio
     ];
   }
 
-  void _set(String id, bool read) {
+  void _replace(String id, AppNotification item) {
     final list = state.valueOrNull;
     if (list == null) return;
-    state = AsyncData([for (final n in list) n.id == id ? n.copyWith(isRead: read) : n]);
+    state = AsyncData([for (final n in list) n.id == id ? item : n]);
   }
 
   /// Marks one read (`PATCH /notifications/:id/read`): at once on screen,
@@ -109,12 +109,15 @@ class NotificationsNotifier extends AutoDisposeAsyncNotifier<List<AppNotificatio
   Future<void> markRead(String id) async {
     final current = state.valueOrNull?.where((n) => n.id == id).firstOrNull;
     if (current == null || current.isRead) return;
-    _set(id, true);
-    ref.invalidate(unreadNotificationCountProvider);
+    final optimistic = current.copyWith(isRead: true);
+    _replace(id, optimistic);
     try {
       await _api.patch('/notifications/$id/read');
     } catch (_) {
-      _set(id, false);
+      // Undo only our own change: if a refresh replaced the item since,
+      // the server's answer wins (R10-N5).
+      final now = state.valueOrNull?.where((n) => n.id == id).firstOrNull;
+      if (identical(now, optimistic)) _replace(id, current);
     } finally {
       ref.invalidate(unreadNotificationCountProvider);
     }
@@ -178,8 +181,9 @@ NotificationTarget? targetFor(String? link, {String? me}) {
   };
 }
 
-/// Turns a target into an app route; null when the lookup fails or finds
-/// nothing to open.
+/// Turns a target into an app route; null when the lookup finds nothing to
+/// open (e.g. a catalog film without a TMDB id). Throws when the lookup
+/// itself fails.
 Future<String?> resolve(ApiClient api, NotificationTarget target) async {
   switch (target) {
     case DirectTarget(:final route):

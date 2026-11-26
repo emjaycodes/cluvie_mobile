@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/core/theme/app_theme.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
 import 'package:cluvie_mobile/features/home/data/home_feed.dart';
+import 'package:cluvie_mobile/features/user_profile/data/profile.dart';
 import 'package:cluvie_mobile/features/user_profile/presentation/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -147,6 +150,31 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Past Lives'), findsOneWidget);
     expect(find.text("Couldn't remove Past Lives. Try again."), findsOneWidget);
+  });
+
+  test('R10-N6: a failed remove brings back only that film', () async {
+    final b = _Backend();
+    final container = ProviderContainer(overrides: [apiClientProvider.overrideWithValue(b.api)]);
+    addTearDown(container.dispose);
+    final sub = container.listen(watchlistProvider, (_, __) {});
+    addTearDown(sub.close);
+    final films = await container.read(watchlistProvider.future);
+    final gate = Completer<void>();
+    b.api.onPost = (path, data) async {
+      if (data!['movieId'] == films[0].movieId) {
+        await gate.future;
+        throw ApiException(message: 'x', statusCode: 500);
+      }
+      return {'success': true};
+    };
+    final n = container.read(watchlistProvider.notifier);
+    final first = n.remove(films[0]).catchError((_) {});
+    await n.remove(films[1]);
+    gate.complete();
+    await first;
+    final ids = container.read(watchlistProvider).value!.map((f) => f.movieId);
+    expect(ids, contains(films[0].movieId));
+    expect(ids, isNot(contains(films[1].movieId)));
   });
 
   testWidgets('an empty watchlist offers Discover', (t) async {
