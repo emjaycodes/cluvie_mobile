@@ -7,6 +7,7 @@ import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/core/utils/fit_text.dart';
 import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/join_feedback.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/club_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,15 +29,12 @@ class _CommunityInfoScreenState extends ConsumerState<CommunityInfoScreen> {
   bool _joining = false;
 
   Future<void> _join(Community club) async {
+    if (_joining) return;
     setState(() => _joining = true);
-    final refusal = await joinClub(ref, widget.communityId);
+    final (done, refusal) = await joinClub(ref, widget.communityId);
     if (!mounted) return;
     setState(() => _joining = false);
-    ClSnackbar.show(
-      context,
-      message: refusal == null ? 'Welcome to ${club.displayName}.' : "Couldn't join. Check your connection and try again.",
-      type: refusal == null ? ClSnackbarType.success : ClSnackbarType.error,
-    );
+    showJoinResult(context, club.displayName, done, refusal);
   }
 
   @override

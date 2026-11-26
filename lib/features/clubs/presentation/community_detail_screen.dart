@@ -6,7 +6,9 @@ import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/core/utils/fit_text.dart';
 import 'package:cluvie_mobile/core/utils/relative_time.dart';
+import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/join_feedback.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/widgets/club_tile.dart';
 import 'package:cluvie_mobile/features/discover/presentation/movie_poster_tile.dart';
 import 'package:cluvie_mobile/features/movies/data/polls.dart';
@@ -43,38 +45,36 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
   String get _id => widget.communityId;
 
   Future<void> _refresh() async {
-    final hadClub = ref.read(communityProvider(_id)).hasValue;
+    // A section that fails keeps its earlier data on screen; say so once.
+    // A section with nothing to keep shows its own error card instead.
+    final had = [
+      ref.read(communityProvider(_id)).hasValue,
+      ref.read(activePollsProvider(_id)).hasValue,
+      ref.read(clubFilmsProvider(_id)).hasValue,
+    ];
     ref.invalidate(communityProvider(_id));
     ref.invalidate(activePollsProvider(_id));
     ref.invalidate(clubFilmsProvider(_id));
-    try {
-      await ref.read(communityProvider(_id).future);
-    } catch (_) {
-      if (hadClub && mounted) {
-        ClSnackbar.show(context, message: "Couldn't refresh. Showing earlier details.", type: ClSnackbarType.error);
-      }
-    }
-    // The sections show their own errors.
-    await Future.wait([
-      ref.read(activePollsProvider(_id).future).then((_) {}, onError: (_) {}),
-      ref.read(clubFilmsProvider(_id).future).then((_) {}, onError: (_) {}),
+    Future<bool> ok(Future<Object?> f) => f.then((_) => true, onError: (_) => false);
+    final results = await Future.wait([
+      ok(ref.read(communityProvider(_id).future)),
+      ok(ref.read(activePollsProvider(_id).future)),
+      ok(ref.read(clubFilmsProvider(_id).future)),
     ]);
+    final stale = [for (var i = 0; i < 3; i++) had[i] && !results[i]].any((x) => x);
+    if (stale && mounted) {
+      ClSnackbar.show(context, message: "Couldn't refresh. Showing earlier details.", type: ClSnackbarType.error);
+    }
   }
 
   Future<void> _join(Community club) async {
+    if (_joining) return;
     setState(() => _joining = true);
-    final refusal = await joinClub(ref, _id);
+    // Stays busy until the club is refetched, so Join can't be sent twice.
+    final (done, refusal) = await joinClub(ref, _id);
     if (!mounted) return;
     setState(() => _joining = false);
-    switch (refusal) {
-      case null:
-        ClSnackbar.show(context, message: 'Welcome to ${club.displayName}.', type: ClSnackbarType.success);
-      case ClubActionRefusal.notFound:
-        ClSnackbar.show(context, message: 'This club no longer exists.', type: ClSnackbarType.error);
-      case ClubActionRefusal.ownerCannotLeave:
-      case ClubActionRefusal.failed:
-        ClSnackbar.show(context, message: "Couldn't join. Check your connection and try again.", type: ClSnackbarType.error);
-    }
+    showJoinResult(context, club.displayName, done, refusal);
   }
 
   void _openMenu(Community club, ClubMembership membership) {
@@ -176,7 +176,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.xxl + bottom),
             children: [
-              Padding(padding: AppSpacing.screen, child: _Header(club: club, membership: membership)),
+              Padding(padding: AppSpacing.screen, child: _Header(club: club, membership: membership, me: ref.watch(currentUserIdProvider).valueOrNull)),
               const SizedBox(height: AppSpacing.xl),
               Padding(
                 padding: AppSpacing.screen,
@@ -202,7 +202,7 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
                       variant: ClButtonVariant.primary,
                       onPressed: () => context.push('/communities/$_id/suggest'),
                     ),
-                  ClubMembership.unknown => const SizedBox.shrink(),
+                  ClubMembership.unknown => _MembershipUnknown(communityId: _id),
                 },
               ),
               const SizedBox(height: AppSpacing.section),
@@ -218,9 +218,10 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.club, required this.membership});
+  const _Header({required this.club, required this.membership, required this.me});
   final Community club;
   final ClubMembership membership;
+  final String? me;
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +252,12 @@ class _Header extends StatelessWidget {
       ],
       if (membership == ClubMembership.member) ...[
         const SizedBox(height: AppSpacing.md),
-        const ClBadge('You’re a member', tone: ClBadgeTone.success, icon: AppIcons.check, uppercase: false),
+        if (club.isOwner(me))
+          const ClBadge('You run this club', tone: ClBadgeTone.purple, icon: AppIcons.crown, uppercase: false)
+        else if (club.isAdmin(me))
+          const ClBadge('You’re an admin', tone: ClBadgeTone.purple, icon: AppIcons.crown, uppercase: false)
+        else
+          const ClBadge('You’re a member', tone: ClBadgeTone.success, icon: AppIcons.check, uppercase: false),
       ],
       if (description != null) ...[
         const SizedBox(height: AppSpacing.md),
@@ -471,4 +477,26 @@ class _MenuRow extends StatelessWidget {
           ]),
         ),
       );
+}
+
+/// Shown where Join or Suggest would be while membership is unknown: nothing
+/// while it loads, a retry when it couldn't be checked.
+class _MembershipUnknown extends ConsumerWidget {
+  const _MembershipUnknown({required this.communityId});
+  final String communityId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final failed = ref.watch(joinedCommunitiesProvider).hasError || ref.watch(currentUserIdProvider).hasError;
+    if (!failed) return const SizedBox.shrink();
+    return ClErrorState(
+      compact: true,
+      title: "Couldn't check your membership",
+      onRetry: () {
+        ref.invalidate(joinedCommunitiesProvider);
+        ref.invalidate(currentUserIdProvider);
+        ref.invalidate(communityProvider(communityId));
+      },
+    );
+  }
 }

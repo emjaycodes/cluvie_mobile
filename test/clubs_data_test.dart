@@ -1,6 +1,7 @@
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/core/models/community.dart';
+import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -138,10 +139,10 @@ void main() {
   });
 
   group('join and leave', () {
-    Future<ClubActionRefusal?> run(
+    Future<(ClubActionDone?, ClubActionRefusal?)> run(
       WidgetTester tester,
       FakeApiClient api,
-      Future<ClubActionRefusal?> Function(WidgetRef ref) action,
+      Future<(ClubActionDone?, ClubActionRefusal?)> Function(WidgetRef ref) action,
     ) async {
       late WidgetRef captured;
       await tester.pumpWidget(ProviderScope(
@@ -151,36 +152,92 @@ void main() {
           return const SizedBox();
         }),
       ));
-      ClubActionRefusal? result;
+      late (ClubActionDone?, ClubActionRefusal?) result;
       await tester.runAsync(() async => result = await action(captured));
       return result;
     }
 
-    testWidgets('join posts and succeeds; "already a member" counts as joined', (tester) async {
-      final api = FakeApiClient(onPost: (_, __) => {'success': true});
-      expect(await run(tester, api, (ref) => joinClub(ref, _id)), isNull);
-      expect(api.calls.single.path, '/communities/$_id/join');
+    FakeApiClient api({Object? Function(String, Map<String, dynamic>?)? onPost, bool refetchFails = false}) => FakeApiClient(
+          onGet: (path, _) {
+            if (refetchFails) throw apiError(503);
+            if (path == '/communities/$_id') return {'success': true, 'data': clubJson()};
+            return {'success': true, 'communities': [clubJson()]};
+          },
+          onPost: onPost,
+        );
 
-      api.onPost = (_, __) => throw apiError(400, {'message': 'User already a member'});
-      expect(await run(tester, api, (ref) => joinClub(ref, _id)), isNull);
+    testWidgets('join posts, waits for the refetch, and succeeds; "already a member" counts as joined', (tester) async {
+      final a = api(onPost: (_, __) => {'success': true});
+      var (done, refusal) = await run(tester, a, (ref) => joinClub(ref, _id));
+      expect(refusal, isNull);
+      expect(done!.refreshed, isTrue);
+      expect(a.calls.first.path, '/communities/$_id/join');
+      expect(a.calls.map((c) => c.path), containsAll(['/communities/joined', '/communities/$_id']));
 
-      api.onPost = (_, __) => throw apiError(404);
-      expect(await run(tester, api, (ref) => joinClub(ref, _id)), ClubActionRefusal.notFound);
+      a.onPost = (_, __) => throw apiError(400, {'message': 'User already a member'});
+      (done, refusal) = await run(tester, a, (ref) => joinClub(ref, _id));
+      expect(done, isNotNull);
 
-      api.onPost = (_, __) => throw apiError(500);
-      expect(await run(tester, api, (ref) => joinClub(ref, _id)), ClubActionRefusal.failed);
+      a.onPost = (_, __) => throw apiError(404);
+      expect((await run(tester, a, (ref) => joinClub(ref, _id))).$2, ClubActionRefusal.notFound);
+      a.onPost = (_, __) => throw apiError(401);
+      expect((await run(tester, a, (ref) => joinClub(ref, _id))).$2, ClubActionRefusal.unauthorised);
+      a.onPost = (_, __) => throw apiError(500);
+      expect((await run(tester, a, (ref) => joinClub(ref, _id))).$2, ClubActionRefusal.failed);
     });
 
-    testWidgets('leave: the owner is refused; "not a member" counts as left', (tester) async {
-      final api = FakeApiClient(onPost: (_, __) => throw apiError(400, {'message': 'Owner cannot leave the community'}));
-      expect(await run(tester, api, (ref) => leaveClub(ref, _id)), ClubActionRefusal.ownerCannotLeave);
-      expect(api.calls.single.path, '/communities/$_id/leave');
+    testWidgets('a join whose refetch fails still counts, and says it is stale', (tester) async {
+      final a = api(onPost: (_, __) => {'success': true}, refetchFails: true);
+      final (done, refusal) = await run(tester, a, (ref) => joinClub(ref, _id));
+      expect(refusal, isNull);
+      expect(done!.refreshed, isFalse);
+    });
 
-      api.onPost = (_, __) => throw apiError(400, {'message': 'You are not a member of this community'});
-      expect(await run(tester, api, (ref) => leaveClub(ref, _id)), isNull);
+    testWidgets('leave: the owner is refused (code or message); "not a member" counts as left', (tester) async {
+      final a = api(onPost: (_, __) => throw apiError(400, {'message': 'Owner cannot leave the community'}));
+      expect((await run(tester, a, (ref) => leaveClub(ref, _id))).$2, ClubActionRefusal.ownerCannotLeave);
+      expect(a.calls.first.path, '/communities/$_id/leave');
+      a.onPost = (_, __) => throw apiError(400, {'code': 'OWNER_CANNOT_LEAVE', 'message': 'Nope'});
+      expect((await run(tester, a, (ref) => leaveClub(ref, _id))).$2, ClubActionRefusal.ownerCannotLeave);
 
-      api.onPost = (_, __) => {'success': true};
-      expect(await run(tester, api, (ref) => leaveClub(ref, _id)), isNull);
+      a.onPost = (_, __) => throw apiError(400, {'message': 'You are not a member of this community'});
+      expect((await run(tester, a, (ref) => leaveClub(ref, _id))).$1, isNotNull);
+
+      a.onPost = (_, __) => {'success': true};
+      expect((await run(tester, a, (ref) => leaveClub(ref, _id))).$1, isNotNull);
+    });
+  });
+
+  group('membership by the backend rule', () {
+    test('owner-only and raw-id members count, though /joined misses them', () async {
+      final ownerOnly = clubJson(members: const [])..['owner'] = 'me';
+      final rawId = clubJson(id: '64c000000000000000000002', members: ['someone', 'me']);
+      final container = ProviderContainer(overrides: [
+        currentUserIdProvider.overrideWith((ref) async => 'me'),
+        apiClientProvider.overrideWithValue(FakeApiClient(onGet: (path, _) {
+          if (path == '/communities/$_id') return {'success': true, 'data': ownerOnly};
+          if (path == '/communities/64c000000000000000000002') return {'success': true, 'data': rawId};
+          // Like the server: /joined matches only {user} entries.
+          return {'success': true, 'communities': []};
+        })),
+      ]);
+      addTearDown(container.dispose);
+      await container.read(currentUserIdProvider.future);
+      await container.read(joinedCommunitiesProvider.future);
+      for (final id in [_id, '64c000000000000000000002']) {
+        container.listen(clubMembershipProvider(id), (_, __) {});
+        await container.read(communityProvider(id).future);
+        expect(container.read(clubMembershipProvider(id)), ClubMembership.member, reason: id);
+      }
+    });
+
+    test('this session\'s join wins over stale data', () {
+      final container = ProviderContainer(overrides: [
+        apiClientProvider.overrideWithValue(FakeApiClient(onGet: (_, __) => {'success': true, 'communities': []})),
+      ]);
+      addTearDown(container.dispose);
+      container.read(clubMembershipOverridesProvider.notifier).state = {_id: true};
+      expect(container.read(clubMembershipProvider(_id)), ClubMembership.member);
     });
   });
 }

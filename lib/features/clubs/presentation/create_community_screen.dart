@@ -65,7 +65,7 @@ class _CreateCommunityScreenState extends ConsumerState<CreateCommunityScreen> {
     try {
       final club = await ref.read(joinedCommunitiesProvider.notifier).createCommunity(name, _descCtrl.text.trim());
       if (!mounted) return;
-      ClSnackbar.show(context, message: '$name is ready. Invite your friends to join.', type: ClSnackbarType.success);
+      ClSnackbar.show(context, message: '$name is ready. Friends can find it under Clubs.', type: ClSnackbarType.success);
       if (club.id != null) {
         context.pushReplacement('/communities/${club.id}');
       } else {

@@ -555,7 +555,7 @@ void main() {
 
     testWidgets('no polls: the empty state, with a way to suggest', (t) async {
       await _pump(t, _app(pollsApi(polls: () => []), initial: '/communities/$_club/vote'));
-      expect(find.text('No active polls — suggest a film!'), findsOneWidget);
+      expect(find.text('Votes are made from the films the club suggests. Suggest one to get started.'), findsOneWidget);
       await t.tap(_button('Suggest a film'));
       await t.pumpAndSettle();
       expect(find.text('suggest $_club'), findsOneWidget);
@@ -565,7 +565,7 @@ void main() {
       final api = FakeApiClient();
       await _pump(t, _app(api, initial: '/communities/demo/vote'));
       expect(api.calls, isEmpty);
-      expect(find.text('No active polls — suggest a film!'), findsOneWidget);
+      expect(find.text('Votes are made from the films the club suggests. Suggest one to get started.'), findsOneWidget);
     });
 
     testWidgets('a load failure shows retry', (t) async {

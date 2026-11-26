@@ -7,6 +7,7 @@ import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/movies/data/polls.dart' show isMongoId;
 import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -126,13 +127,22 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
     final clubs = ref.watch(joinedCommunitiesProvider);
     final List<Widget> body;
     if (clubs.hasValue && !(clubs.isLoading && clubs.hasError)) {
-      final list = clubs.requireValue;
+      var list = clubs.requireValue;
       final linked = widget.communityId;
+      // /joined misses owners and older raw-id members: for a linked club,
+      // ask the club itself.
+      final linkedState =
+          linked == null || list.any((c) => c.id == linked) ? null : ref.watch(clubMembershipProvider(linked));
+      final linkedClub = linked == null ? null : ref.watch(communityProvider(linked)).valueOrNull;
+      if (linkedState == ClubMembership.member && linkedClub != null) list = [linkedClub, ...list];
       body =
-          list.isEmpty
+          // A demo link can't be resolved: say it isn't one of your clubs.
+          linkedState == ClubMembership.unknown && isMongoId(linked)
+              ? [const ClSkeleton(height: 56, radius: AppRadius.lg)]
+              : linkedState != null && linkedState != ClubMembership.member
+              ? [_notMember(context, linked!)]
+              : list.isEmpty
               ? [_noClubs(context)]
-              : linked != null && !list.any((c) => c.id == linked)
-              ? [_notMember(context, linked)]
               : _form(list);
     } else if (clubs.isLoading) {
       // Also while a retry is in flight, so "Try again" visibly does something.
@@ -195,7 +205,7 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
       actionVariant: ClButtonVariant.secondary,
       onAction: () {
         Navigator.of(context).pop();
-        GoRouter.of(context).go('/communities/$id');
+        GoRouter.of(context).push('/communities/$id');
       },
     );
   }

@@ -45,14 +45,21 @@ class _ClubSettingsScreenState extends ConsumerState<ClubSettingsScreen> {
   }
 
   Future<void> _leave(Community club) async {
+    if (_leaving) return;
     setState(() => _leaving = true);
-    final refusal = await leaveClub(ref, widget.communityId);
+    final (done, refusal) = await leaveClub(ref, widget.communityId);
     if (!mounted) return;
     setState(() => _leaving = false);
+    if (done != null) {
+      ClSnackbar.show(context, message: 'You left ${club.displayName}.', type: ClSnackbarType.success);
+      context.go('/communities');
+      return;
+    }
     switch (refusal) {
       case null:
-        ClSnackbar.show(context, message: 'You left ${club.displayName}.', type: ClSnackbarType.success);
-        context.go('/communities');
+        break;
+      case ClubActionRefusal.unauthorised:
+        ClSnackbar.show(context, message: 'Your session has ended. Sign in again to leave.', type: ClSnackbarType.error);
       case ClubActionRefusal.ownerCannotLeave:
         ClSnackbar.show(context, message: "Owners can't leave their own club.", type: ClSnackbarType.error);
       case ClubActionRefusal.notFound:
@@ -70,8 +77,23 @@ class _ClubSettingsScreenState extends ConsumerState<ClubSettingsScreen> {
       communityId: widget.communityId,
       title: 'Membership',
       builder: (context, club) {
-        final me = ref.watch(currentUserIdProvider).valueOrNull;
+        final meAsync = ref.watch(currentUserIdProvider);
+        final me = meAsync.valueOrNull;
         final membership = membershipIn(ref, club);
+        // The role and Leave depend on who you are: wait for it rather than
+        // guess "Member" (and offer Leave to an owner).
+        if (meAsync.isLoading && !meAsync.hasValue) {
+          return Semantics(
+            label: 'Loading your membership',
+            liveRegion: true,
+            child: ListView(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppSpacing.gutter),
+              children: const [ClSkeleton(height: 28, width: 200), SizedBox(height: AppSpacing.xl), ClSkeleton(height: 72)],
+            ),
+          );
+        }
+        final known = me != null && me.isNotEmpty && membership != ClubMembership.unknown;
         final owner = club.isOwner(me);
         final role = owner ? 'Owner' : (club.isAdmin(me) ? 'Admin' : 'Member');
 
@@ -83,7 +105,17 @@ class _ClubSettingsScreenState extends ConsumerState<ClubSettingsScreen> {
           const SizedBox(height: AppSpacing.xl),
         ];
 
-        if (membership == ClubMembership.notMember) {
+        if (!known) {
+          children.add(ClErrorState(
+            compact: true,
+            title: "Couldn't check your membership",
+            onRetry: () {
+              ref.invalidate(currentUserIdProvider);
+              ref.invalidate(joinedCommunitiesProvider);
+              ref.invalidate(communityProvider(widget.communityId));
+            },
+          ));
+        } else if (membership == ClubMembership.notMember) {
           children.add(ClEmptyState(
             compact: true,
             icon: AppIcons.clubs,
@@ -91,7 +123,7 @@ class _ClubSettingsScreenState extends ConsumerState<ClubSettingsScreen> {
             message: 'Open the club to join it.',
             actionLabel: 'Open club',
             actionVariant: ClButtonVariant.secondary,
-            onAction: () => context.go('/communities/${widget.communityId}'),
+            onAction: () => context.pushReplacement('/communities/${widget.communityId}'),
           ));
         } else {
           children.addAll([

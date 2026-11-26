@@ -4,6 +4,7 @@ import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/core/utils/fit_text.dart';
+import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
 import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
 import 'package:cluvie_mobile/features/movies/data/polls.dart';
 import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
@@ -39,6 +40,7 @@ class ClubDiscussionsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final films = ref.watch(clubFilmsProvider(communityId));
+    final notMember = ref.watch(clubMembershipProvider(communityId)) == ClubMembership.notMember;
     final bottom = MediaQuery.paddingOf(context).bottom;
 
     Future<void> reload() async {
@@ -94,9 +96,11 @@ class ClubDiscussionsScreen extends ConsumerWidget {
               ClEmptyState(
                 illustration: ClIllustration.discussions,
                 title: 'No discussions yet',
-                message: 'Each film the club suggests gets a discussion. Suggest one to start.',
-                actionLabel: 'Suggest a film',
-                onAction: () => context.push('/communities/$communityId/suggest'),
+                message: notMember
+                    ? 'Each film the club suggests gets a discussion. Join the club to suggest one.'
+                    : 'Each film the club suggests gets a discussion. Suggest one to start.',
+                actionLabel: notMember ? 'Open club' : 'Suggest a film',
+                onAction: () => context.push(notMember ? '/communities/$communityId' : '/communities/$communityId/suggest'),
               ),
             ]);
           }

@@ -60,6 +60,8 @@ Map<String, Object?> _poll() => {
 class _Backend {
   _Backend({this.failJoined = false});
   bool failJoined;
+  bool failRefetch = false;
+  bool failPolls = false;
   final joined = <String>{_owned, _member};
   late final clubs = <String, Map<String, Object?>>{
     _owned: _club(_owned, 'Cinema Sundays', owner: _me, members: ['u2']),
@@ -73,9 +75,18 @@ class _Backend {
     onGet: (path, params) {
       if (path == '/communities/joined') {
         if (failJoined) throw ApiException(message: 'x', statusCode: 500);
-        return {'success': true, 'communities': [for (final id in joined) clubs[id]]};
+        // Like the server: only {user} entries match ('members.user').
+        return {
+          'success': true,
+          'communities': [
+            for (final c in clubs.values)
+              if ((c['members'] as List).any((m) => m is Map && m['user'] == _me)) c,
+          ],
+        };
       }
+      if (failRefetch) throw ApiException(message: 'x', statusCode: 503);
       if (path == '/communities/all') return {'success': true, 'communities': clubs.values.toList()};
+      if (path == '/polls/active' && failPolls) throw ApiException(message: 'x', statusCode: 503);
       if (path == '/polls/active') return {'success': true, 'data': params?['communityId'] == _member ? [_poll()] : []};
       final films = RegExp(r'^/communities/(\w+)/movies$').firstMatch(path);
       if (films != null) {
@@ -128,6 +139,7 @@ Map<String, Object?>? _voteExtra;
 
 Widget _app(
   _Backend backend, {
+  Future<String?> Function()? me,
   String initial = '/communities',
   Size size = const Size(390, 844),
   double scale = 1,
@@ -162,7 +174,7 @@ Widget _app(
   return ProviderScope(
     overrides: [
       apiClientProvider.overrideWithValue(backend.api),
-      currentUserIdProvider.overrideWith((ref) async => _me),
+      currentUserIdProvider.overrideWith((ref) => (me ?? () async => _me)()),
       unreadCountProvider.overrideWithValue(0),
     ],
     child: MediaQuery(
@@ -228,7 +240,7 @@ void main() {
       await t.tap(join);
       await t.pumpAndSettle();
       expect(b.api.calls.where((c) => c.path == '/communities/$_other/join'), hasLength(1));
-      expect(find.text('You joined Noir Nights.'), findsOneWidget);
+      expect(find.text('Welcome to Noir Nights.'), findsOneWidget);
       // Refetched: Noir Nights is now one of yours, so it has no Join button.
       final tile = find.ancestor(of: find.text('Noir Nights'), matching: find.byType(ClubTile)).first;
       expect(find.descendant(of: tile, matching: find.byType(ClButton)), findsNothing);
@@ -363,6 +375,59 @@ void main() {
       await _tap(t, 'Join club');
       expect(find.text('Join this club to vote'), findsNothing);
       expect(find.text('Vote'), findsWidgets);
+    });
+  });
+
+  group('Round 9 fixes', () {
+    testWidgets('R9-S1: a raw-id member, missed by /joined, is a member everywhere', (t) async {
+      final b = _Backend();
+      b.clubs[_other] = {..._club(_other, 'Noir Nights'), 'members': [{'user': 'someone', 'role': 'admin'}, _me]};
+      await _pump(t, _app(b));
+      // Listed under Your clubs (no Join), not under Find a club.
+      final tile = find.ancestor(of: find.text('Noir Nights'), matching: find.byType(ClubTile)).first;
+      expect(find.descendant(of: tile, matching: find.byType(ClButton)), findsNothing);
+
+      final get = b.api.onGet!;
+      b.api.onGet = (path, params) => path == '/polls/active' ? {'success': true, 'data': [_poll()]} : get(path, params);
+      await t.pumpWidget(const SizedBox());
+      await _pump(t, _app(b, initial: '/communities/$_other/vote'));
+      expect(find.text('Join this club to vote'), findsNothing);
+      expect(find.text('Vote'), findsWidgets);
+    });
+
+    testWidgets('R9-S3: a join whose refetch fails still shows you as joined, once', (t) async {
+      final b = _Backend();
+      await _pump(t, _app(b, initial: '/communities/$_other'));
+      b.failRefetch = true;
+      await t.tap(_button('Join club'));
+      await t.pumpAndSettle();
+      expect(b.api.calls.where((c) => c.path == '/communities/$_other/join'), hasLength(1));
+      expect(find.text("You joined Noir Nights. Couldn't refresh the club yet."), findsOneWidget);
+      expect(find.text('Join club'), findsNothing);
+      expect(find.text('Suggest a film'), findsOneWidget);
+    });
+
+    testWidgets('R9-S2: Membership waits for your id; never guesses Member', (t) async {
+      final b = _Backend();
+      await _pump(t, _app(b, initial: '/communities/$_owned/settings', me: () async => null));
+      expect(find.text('Member'), findsNothing);
+      expect(find.text('Leave club'), findsNothing);
+      expect(find.text("Couldn't check your membership"), findsOneWidget);
+    });
+
+    testWidgets('R9-S4: a detail refresh where the vote fails keeps it and says so', (t) async {
+      final b = _Backend();
+      await _pump(t, _app(b, initial: '/communities/$_member'));
+      b.failPolls = true;
+      await t.fling(_vertical.first, const Offset(0, 400), 1000);
+      await t.pumpAndSettle();
+      expect(find.text('What should we watch on Friday?'), findsOneWidget);
+      expect(find.text("Couldn't refresh. Showing earlier details."), findsOneWidget);
+    });
+
+    testWidgets('R9-N8: the owner sees their role on the club page', (t) async {
+      await _pump(t, _app(_Backend(), initial: '/communities/$_owned'));
+      expect(find.text('You run this club'), findsOneWidget);
     });
   });
 

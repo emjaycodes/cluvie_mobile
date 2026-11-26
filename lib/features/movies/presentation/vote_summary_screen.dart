@@ -9,6 +9,7 @@ import 'package:cluvie_mobile/core/utils/fit_text.dart';
 import 'package:cluvie_mobile/core/utils/relative_time.dart';
 import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/join_feedback.dart';
 import 'package:cluvie_mobile/features/movies/data/polls.dart';
 import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
 import 'package:flutter/material.dart';
@@ -97,16 +98,12 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
   bool _joining = false;
 
   Future<void> _join() async {
+    if (_joining) return;
     setState(() => _joining = true);
-    final refusal = await joinClub(ref, widget.communityId);
+    final (done, refusal) = await joinClub(ref, widget.communityId);
     if (!mounted) return;
     setState(() => _joining = false);
-    final club = widget.clubName ?? 'the club';
-    ClSnackbar.show(
-      context,
-      message: refusal == null ? 'You joined $club. Cast your vote.' : "Couldn't join $club. Try again.",
-      type: refusal == null ? ClSnackbarType.success : ClSnackbarType.error,
-    );
+    showJoinResult(context, widget.clubName ?? 'the club', done, refusal);
   }
 
   Future<void> _vote(Poll poll, PollOption option) async {
@@ -224,10 +221,12 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
               ClEmptyState(
                 illustration: ClIllustration.polls,
                 title: 'No vote running',
-                message: 'No active polls — suggest a film!',
-                actionLabel: 'Suggest a film',
+                message: notMember
+                    ? 'Members vote on the films the club suggests. Join to take part.'
+                    : 'Votes are made from the films the club suggests. Suggest one to get started.',
+                actionLabel: notMember ? 'Join club' : 'Suggest a film',
                 actionVariant: ClButtonVariant.secondary,
-                onAction: () => context.push('/communities/${widget.communityId}/suggest'),
+                onAction: notMember ? _join : () => context.push('/communities/${widget.communityId}/suggest'),
               ),
             ]);
           }

@@ -6,6 +6,7 @@ import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/join_feedback.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/widgets/club_tile.dart';
 import 'package:cluvie_mobile/features/home/data/home_feed.dart';
 import 'package:flutter/material.dart';
@@ -67,29 +68,12 @@ class _CommunityListScreenState extends ConsumerState<CommunityListScreen> {
     final id = club.id;
     if (id == null || _joining.contains(id)) return;
     setState(() => _joining.add(id));
-    final refusal = await joinClub(ref, id);
+    // Busy until the lists are refetched, so Join can't be sent twice.
+    final (done, refusal) = await joinClub(ref, id);
     if (!mounted) return;
     setState(() => _joining.remove(id));
-    switch (refusal) {
-      case null:
-        ClSnackbar.show(
-          context,
-          message: 'You joined ${club.displayName}.',
-          type: ClSnackbarType.success,
-          actionLabel: 'Open',
-          onAction: () => context.push('/communities/$id'),
-        );
-      case ClubActionRefusal.notFound:
-        ref.invalidate(allCommunitiesProvider);
-        ClSnackbar.show(context, message: '${club.displayName} no longer exists.', type: ClSnackbarType.error);
-      case ClubActionRefusal.ownerCannotLeave:
-      case ClubActionRefusal.failed:
-        ClSnackbar.show(
-          context,
-          message: "Couldn't join ${club.displayName}. Check your connection and try again.",
-          type: ClSnackbarType.error,
-        );
-    }
+    if (refusal == ClubActionRefusal.notFound) ref.invalidate(allCommunitiesProvider);
+    showJoinResult(context, club.displayName, done, refusal);
   }
 
   @override
@@ -100,12 +84,22 @@ class _CommunityListScreenState extends ConsumerState<CommunityListScreen> {
     final unread = ref.watch(unreadCountProvider);
     final bottom = MediaQuery.paddingOf(context).bottom;
 
-    final mine = (joined.valueOrNull ?? const <Community>[]).where(_matches).toList();
-    final mineIds = {for (final c in joined.valueOrNull ?? const <Community>[]) c.id};
+    // Yours: this session's joins and leaves, /joined, and clubs whose own
+    // member list has you (/joined misses owners and older raw-id members).
+    final overrides = ref.watch(clubMembershipOverridesProvider);
+    final joinedIds = {for (final c in joined.valueOrNull ?? const <Community>[]) c.id};
+    bool isMine(Community c) => isMyClub(c, me: me, joinedIds: joinedIds, overrides: overrides);
+    final allClubs = all.valueOrNull ?? const <Community>[];
+    final mineAll = [
+      for (final c in joined.valueOrNull ?? const <Community>[])
+        if (overrides[c.id] != false) c,
+      for (final c in allClubs)
+        if (!joinedIds.contains(c.id) && isMine(c)) c,
+    ];
+    final mine = mineAll.where(_matches).toList();
+    final mineIds = {for (final c in mineAll) c.id};
     final membershipKnown = joined.hasValue;
-    final others = (all.valueOrNull ?? const <Community>[])
-        .where((c) => c.id != null && !mineIds.contains(c.id) && _matches(c))
-        .toList();
+    final others = allClubs.where((c) => c.id != null && !mineIds.contains(c.id) && _matches(c)).toList();
 
     String? roleOf(Community c) => c.isOwner(me) ? 'Owner' : (c.isAdmin(me) ? 'Admin' : null);
 
@@ -190,8 +184,8 @@ class _CommunityListScreenState extends ConsumerState<CommunityListScreen> {
               ),
             ),
           ],
-          data: (list) {
-            if (list.isEmpty && !searching) {
+          data: (_) {
+            if (mineAll.isEmpty && !searching) {
               return [
                 Padding(
                   padding: AppSpacing.screen,
