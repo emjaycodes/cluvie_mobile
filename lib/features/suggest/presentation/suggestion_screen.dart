@@ -76,8 +76,11 @@ class _SuggestMovieScreenState extends ConsumerState<SuggestMovieScreen> {
         ref.invalidate(movieSearchProvider(_query));
         await ref.read(movieSearchProvider(_query).future);
       } else {
-        ref.invalidate(discoverFeedProvider);
-        await ref.read(discoverFeedProvider.future);
+        ref.invalidate(trendingProvider);
+        final feed = await ref.read(discoverFeedProvider.future);
+        if (feed.stale && mounted) {
+          ClSnackbar.show(context, message: "Couldn't refresh. Showing earlier results.", type: ClSnackbarType.error);
+        }
       }
     } catch (_) {
       // With earlier results on screen, say the refresh failed.
@@ -235,7 +238,7 @@ class _SuggestMovieScreenState extends ConsumerState<SuggestMovieScreen> {
             compact: true,
             title: "Couldn't load trending films",
             message: 'Search for a film above, or try again.',
-            onRetry: () => ref.invalidate(discoverFeedProvider),
+            onRetry: () => ref.invalidate(trendingProvider),
           ),
         ),
       ];
@@ -250,7 +253,7 @@ class _SuggestMovieScreenState extends ConsumerState<SuggestMovieScreen> {
             compact: true,
             title: "Couldn't load trending films",
             message: 'Search for a film above, or try again.',
-            onRetry: () => ref.invalidate(discoverFeedProvider),
+            onRetry: () => ref.invalidate(trendingProvider),
           ),
         ),
       ];

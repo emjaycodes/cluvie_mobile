@@ -62,9 +62,14 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         ref.invalidate(movieSearchProvider(query));
         await ref.read(movieSearchProvider(query).future);
       } else {
-        // The feed watches the catalog, so this refetches both sources.
+        // The feed watches both sources, so this refetches it.
+        ref.invalidate(trendingProvider);
         ref.invalidate(catalogProvider);
-        await ref.read(discoverFeedProvider.future);
+        final feed = await ref.read(discoverFeedProvider.future);
+        // One source failed but its earlier films are still shown.
+        if (feed.stale && mounted) {
+          ClSnackbar.show(context, message: "Couldn't refresh. Showing earlier results.", type: ClSnackbarType.error);
+        }
       }
     } catch (_) {
       // With nothing cached the error state says it; with earlier results on
@@ -218,7 +223,10 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         SliverToBoxAdapter(
           child: Padding(
             padding: AppSpacing.screen,
-            child: _RetryCard(onRetry: () => ref.invalidate(catalogProvider)),
+            child: _RetryCard(onRetry: () {
+              ref.invalidate(trendingProvider);
+              ref.invalidate(catalogProvider);
+            }),
           ),
         ),
       ];
@@ -243,7 +251,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
     ];
     return [
       if (data.trendingFailed)
-        ...failed("Couldn't load trending films", () => ref.invalidate(discoverFeedProvider))
+        ...failed("Couldn't load trending films", () => ref.invalidate(trendingProvider))
       else if (data.trending.isNotEmpty) ...[
         const SliverToBoxAdapter(child: _Header('Trending now', subtitle: 'What everyone is watching this week')),
         SliverToBoxAdapter(child: _TrendingRow(movies: data.trending, onTap: _open)),

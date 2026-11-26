@@ -259,6 +259,48 @@ void main() {
       expect(find.textContaining("Couldn't refresh"), findsOneWidget);
     });
 
+    for (final failing in ['/movies/trending', '/movies/list']) {
+      testWidgets('a refresh where only $failing fails keeps that section and says so (R8-S2)', (t) async {
+        var fail = false;
+        final api = FakeApiClient(onGet: (path, _) {
+          if (fail && path == failing) throw Exception('down');
+          return path == '/movies/trending' ? {'success': true, 'data': _trending} : _popular;
+        });
+        await _pump(t, _app(api));
+        fail = true;
+        await t.fling(find.byType(CustomScrollView), const Offset(0, 500), 1500);
+        await t.pumpAndSettle();
+        expect(find.textContaining("Couldn't refresh"), findsOneWidget);
+        expect(find.textContaining("Couldn't load"), findsNothing);
+        await t.pumpAndSettle(const Duration(seconds: 4)); // let the snackbar go
+        if (failing == '/movies/trending') {
+          expect(find.text('Aftersun'), findsOneWidget);
+        } else {
+          await t.scrollUntilVisible(find.text('Popular film 1'), 200, scrollable: find.byType(Scrollable).first);
+          expect(find.text('Popular film 1'), findsOneWidget);
+        }
+      });
+    }
+
+    testWidgets('retrying the suggested section leaves TMDB trending alone (R8-N1)', (t) async {
+      var failList = true;
+      final api = FakeApiClient(onGet: (path, _) {
+        if (path == '/movies/list' && failList) throw Exception('down');
+        return path == '/movies/trending' ? {'success': true, 'data': _trending} : _popular;
+      });
+      await _pump(t, _app(api));
+      failList = false;
+      final retry = find.widgetWithText(ClButton, 'Try again');
+      await t.ensureVisible(retry);
+      await t.pumpAndSettle();
+      await t.drag(find.byType(CustomScrollView), const Offset(0, -150)); // clear the floating nav
+      await t.pumpAndSettle();
+      await t.tap(find.descendant(of: retry, matching: find.byType(ClPressable)).first);
+      await t.pumpAndSettle();
+      expect(api.calls.where((c) => c.path == '/movies/trending'), hasLength(1));
+      expect(api.calls.where((c) => c.path == '/movies/list'), hasLength(2));
+    });
+
     testWidgets('the search field uses the input tokens: borderInput at rest, 2px focus ring', (t) async {
       await _pump(t, _app(_api()));
       final deco = t.widget<TextField>(find.byType(TextField)).decoration!;

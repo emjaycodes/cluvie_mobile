@@ -7,6 +7,7 @@ import 'package:cluvie_mobile/core/theme/app_theme.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
 import 'package:cluvie_mobile/features/movies/data/discussions.dart';
 import 'package:cluvie_mobile/features/movies/data/polls.dart';
 import 'package:cluvie_mobile/features/movies/presentation/club_discussions_screen.dart';
@@ -218,6 +219,52 @@ void main() {
       expect(find.text('No posts yet. Start the conversation.'), findsOneWidget);
     });
 
+    testWidgets('reopening a film refetches a stale catalog, so other members\' suggestions show (R8-S1)', (t) async {
+      final saved = catalogMaxAge;
+      catalogMaxAge = Duration.zero;
+      addTearDown(() => catalogMaxAge = saved);
+      var inCatalog = false;
+      final api = FakeApiClient(onGet: (path, _) {
+        if (path == '/tmdb/376867') return _tmdbDetail();
+        if (path == '/movies/list') return inCatalog ? [_catalog(376867)] : <Object>[];
+        if (path == '/discussions/$_catalogId') return <Object>[];
+        throw UnimplementedError(path);
+      });
+      await _pump(t, _app(api, initial: '/movie/376867'));
+      await _scrollTo(t, find.textContaining('No club has suggested this film yet'));
+      final router = GoRouter.of(t.element(find.byType(MovieDetailScreen)));
+      router.go('/discover');
+      await t.pumpAndSettle();
+      inCatalog = true; // another member suggested it
+      router.go('/movie/376867');
+      await t.pumpAndSettle();
+      await _scrollTo(t, find.text('No posts yet. Start the conversation.'));
+      expect(find.textContaining('No club has suggested this film yet'), findsNothing);
+    });
+
+    testWidgets('a catalog that failed earlier is refetched when a film is opened (R8-S1)', (t) async {
+      var fail = true;
+      final api = FakeApiClient(onGet: (path, _) {
+        if (path == '/tmdb/376867') return _tmdbDetail();
+        if (path == '/movies/list') {
+          if (fail) throw _apiError(503);
+          return [_catalog(376867)];
+        }
+        if (path == '/discussions/$_catalogId') return <Object>[];
+        throw UnimplementedError(path);
+      });
+      await _pump(t, _app(api, initial: '/movie/376867'));
+      await _scrollTo(t, find.text("Couldn't load the discussion"));
+      final router = GoRouter.of(t.element(find.byType(MovieDetailScreen)));
+      router.go('/discover');
+      await t.pumpAndSettle();
+      fail = false;
+      router.go('/movie/376867');
+      await t.pumpAndSettle();
+      await _scrollTo(t, find.text('No posts yet. Start the conversation.'));
+      expect(find.text("Couldn't load the discussion"), findsNothing);
+    });
+
     testWidgets('retrying the discussion preview shows the skeleton while it loads', (t) async {
       var calls = 0;
       Completer<Object?>? held;
@@ -384,6 +431,27 @@ void main() {
       expect(api.calls.where((c) => c.method == 'POST'), isEmpty);
       expect(find.text('3 votes'), findsOneWidget);
     });
+
+    for (final code in ['POLL_CLOSED', 'ALREADY_VOTED']) {
+      testWidgets('a refused vote ($code) is undone even when the reload fails (R8-S3)', (t) async {
+        var loads = 0;
+        final api = pollsApi(
+          polls: () {
+            loads++;
+            if (loads > 1) throw _apiError(503);
+            return [_poll()];
+          },
+          onPost: (_, __) => throw _apiError(400, {'code': code}),
+        );
+        await _pump(t, _app(api, initial: '/communities/$_club/vote'));
+        await _scrollTo(t, find.bySemanticsLabel('Vote for Past Lives'));
+        await t.tap(find.bySemanticsLabel('Vote for Past Lives'));
+        await t.pumpAndSettle();
+        expect(loads, 2);
+        expect(find.text('Your vote'), findsNothing);
+        expect(find.text('3 votes'), findsOneWidget);
+      });
+    }
 
     testWidgets('a non-member is told to join, not to retry (403)', (t) async {
       final api = pollsApi(onPost: (_, __) => throw _apiError(403, {'success': false, 'message': 'You must be a member of this community to vote'}));
@@ -612,6 +680,42 @@ void main() {
       expect(api.calls.where((c) => c.method == 'GET'), hasLength(2));
       expect(find.text('Me'), findsOneWidget);
       expect(find.text('Cluvie member'), findsNothing);
+    });
+
+    testWidgets('two quick posts: a slow older reload can\'t hide the newer post (R8-S4)', (t) async {
+      final stored = <Map<String, Object?>>[];
+      final held = <Completer<Object?>>[];
+      var gets = 0;
+      final api = FakeApiClient(
+        onGet: (path, _) {
+          gets++;
+          if (gets == 1) return <Object>[];
+          final snapshot = [...stored];
+          final c = Completer<Object?>();
+          held.add(c);
+          return c.future.then((_) => snapshot);
+        },
+        onPost: (path, data) {
+          final id = 'p${stored.length}';
+          stored.add(_post(id, data!['text'] as String, user: 'Me', hoursAgo: 0));
+          return {'discussion': {'_id': id, 'text': data['text'], 'userId': _me, 'createdAt': DateTime.now().toUtc().toIso8601String()}};
+        },
+      );
+      await _pump(t, _app(api, initial: '/discussionThread', extra: extra()));
+      for (final text in ['First post', 'Second post']) {
+        await t.enterText(find.byType(TextField), text);
+        await t.pump();
+        await t.tap(find.byTooltip('Post'));
+        await t.pump();
+        await t.pump();
+      }
+      expect(held, hasLength(2));
+      held[1].complete(null); // the newer reload: [First, Second]
+      await t.pump();
+      held[0].complete(null); // the older one, arriving last: [First]
+      await t.pumpAndSettle();
+      expect(find.text('First post'), findsOneWidget);
+      expect(find.text('Second post'), findsOneWidget);
     });
 
     testWidgets('a failed post keeps the draft and offers retry', (t) async {

@@ -111,9 +111,12 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
       case null:
         ClSnackbar.show(context, message: 'Voted for ${option.title}', type: ClSnackbarType.success);
       case VoteRefusal.alreadyVoted:
+        // Refused: undo the optimistic vote now, in case the reload fails.
+        setState(() => _local[poll.id] = before);
         ClSnackbar.show(context, message: 'You already voted in this poll', type: ClSnackbarType.info);
         await _reload();
       case VoteRefusal.closed:
+        setState(() => _local[poll.id] = before);
         ClSnackbar.show(context, message: 'This poll has closed', type: ClSnackbarType.warning);
         await _reload();
       case VoteRefusal.notMember:
@@ -125,7 +128,7 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
           type: ClSnackbarType.info,
           actionLabel: 'Open club',
           onAction: () {
-            if (mounted) context.go('/communities/${widget.communityId}');
+            if (mounted) context.push('/communities/${widget.communityId}');
           },
         );
       case VoteRefusal.failed:

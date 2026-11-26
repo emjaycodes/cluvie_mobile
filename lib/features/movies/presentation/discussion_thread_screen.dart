@@ -463,7 +463,7 @@ class _Composer extends StatelessWidget {
                   ),
                   icon: sending
                       ? const ClLoading(size: 20, color: AppColors.textPrimary)
-                      : Icon(AppIcons.send, size: 20, color: canSend ? AppColors.textPrimary : AppColors.textSecondary),
+                      : Icon(AppIcons.send, size: 20, color: canSend ? AppColors.onPurpleBadge : AppColors.textSecondary),
                 ),
               ),
             ]),

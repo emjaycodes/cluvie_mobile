@@ -87,40 +87,58 @@ class TmdbRepository {
 final tmdbRepositoryProvider = Provider<TmdbRepository>(TmdbRepository.new);
 
 /// Cluvie's film catalog (`GET /movies/list`): every film any club has
-/// suggested, as raw Mongo documents (`{_id, tmdbId, title, posterPath…}`).
+/// suggested, as raw Mongo documents (`{_id, tmdbId, title, posterPath…}`),
+/// with when it was fetched.
 ///
 /// Fetched once and shared by Discover and Movie Detail, which looks films
 /// up in it by TMDB id (the API has no direct lookup yet). Invalidate it
-/// after a suggestion so both pick the new film up.
-final catalogProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+/// after a suggestion so both pick the new film up. Movie Detail refetches
+/// it when it is older than [catalogMaxAge] or failed earlier.
+typedef Catalog = ({List<Map<String, dynamic>> docs, DateTime fetchedAt});
+
+final catalogProvider = FutureProvider<Catalog>((ref) async {
   final body = (await ref.read(apiClientProvider).get('/movies/list')).data;
   final list = body is List ? body : (body is Map && body['data'] is List ? body['data'] as List : const []);
-  return [
-    for (final m in list)
-      if (m is Map) Map<String, dynamic>.from(m),
-  ];
+  return (
+    docs: [
+      for (final m in list)
+        if (m is Map) Map<String, dynamic>.from(m),
+    ],
+    fetchedAt: DateTime.now(),
+  );
 });
+
+/// How long Movie Detail trusts the shared catalog. Other members suggest
+/// films too, and only this device's suggestions invalidate it. Variable
+/// only so tests can shorten it (widget tests can't fake `DateTime.now`).
+Duration catalogMaxAge = const Duration(minutes: 2);
+
+/// TMDB's weekly trending list, shared by Discover and Suggest. Its own
+/// provider so catalog changes (suggestions) don't refetch TMDB.
+final trendingProvider = FutureProvider<List<TmdbMovie>>((ref) => ref.read(tmdbRepositoryProvider).trending());
 
 /// How many catalog films Discover shows. `/movies/list` has no limit and
 /// grows with every suggestion.
 const kSuggestedInClubsLimit = 24;
 
-/// Discover's browse content. A source that fails comes back empty with its
-/// `...Failed` flag set, so the screen can say so and offer a retry for that
-/// section; the whole feed only fails when both do.
+/// Discover's browse content.
+///
+/// A source that fails keeps the list it had (flagged [stale], so a refresh
+/// can say it failed); with nothing earlier it comes back empty with its
+/// `...Failed` flag set, so the screen offers a retry for that section. The
+/// whole feed only fails when both sources fail with nothing to show.
 typedef DiscoverFeed = ({
   List<TmdbMovie> trending,
   List<TmdbMovie> suggested,
   bool trendingFailed,
   bool suggestedFailed,
+  bool stale,
 });
 
-/// Not auto-disposed, so switching tabs doesn't refetch; pull-to-refresh
-/// invalidates it (and [catalogProvider]).
+/// Not auto-disposed, so switching tabs doesn't refetch. Refresh by
+/// invalidating [trendingProvider] and [catalogProvider].
 final discoverFeedProvider = FutureProvider<DiscoverFeed>((ref) async {
-  final repo = ref.read(tmdbRepositoryProvider);
-  // The two lists come from different sources (TMDB vs. our own catalog), so
-  // one failing shouldn't hide the other.
+  final previous = ref.state.valueOrNull;
   Object? firstError;
   StackTrace? firstStack;
   Future<List<TmdbMovie>?> attempt(Future<List<TmdbMovie>> f) => f.then<List<TmdbMovie>?>((v) => v, onError: (Object e, StackTrace s) {
@@ -130,14 +148,17 @@ final discoverFeedProvider = FutureProvider<DiscoverFeed>((ref) async {
   });
   final suggested = ref
       .watch(catalogProvider.future)
-      .then((docs) => [for (final d in docs) TmdbMovie.fromJson(d)].take(kSuggestedInClubsLimit).toList());
-  final results = await Future.wait([attempt(repo.trending()), attempt(suggested)]);
-  if (results.every((r) => r == null)) Error.throwWithStackTrace(firstError!, firstStack!);
+      .then((c) => [for (final d in c.docs) TmdbMovie.fromJson(d)].take(kSuggestedInClubsLimit).toList());
+  final results = await Future.wait([attempt(ref.watch(trendingProvider.future)), attempt(suggested)]);
+  final trending = results[0] ?? ((previous?.trending.isNotEmpty ?? false) ? previous!.trending : null);
+  final picks = results[1] ?? ((previous?.suggested.isNotEmpty ?? false) ? previous!.suggested : null);
+  if (trending == null && picks == null) Error.throwWithStackTrace(firstError!, firstStack!);
   return (
-    trending: results[0] ?? const <TmdbMovie>[],
-    suggested: results[1] ?? const <TmdbMovie>[],
-    trendingFailed: results[0] == null,
-    suggestedFailed: results[1] == null,
+    trending: trending ?? const <TmdbMovie>[],
+    suggested: picks ?? const <TmdbMovie>[],
+    trendingFailed: trending == null,
+    suggestedFailed: picks == null,
+    stale: (results[0] == null && trending != null) || (results[1] == null && picks != null),
   );
 });
 

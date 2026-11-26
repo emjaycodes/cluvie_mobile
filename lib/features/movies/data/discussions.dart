@@ -91,9 +91,15 @@ class DiscussionNotifier extends AutoDisposeFamilyAsyncNotifier<List<DiscussionP
       ..sort(comparePosts);
   }
 
-  /// Reloads; a failure keeps the posts on screen and is rethrown.
+  /// Bumped per reload, so a slow response can't overwrite a newer one.
+  int _reloads = 0;
+
+  /// Reloads; a failure keeps the posts on screen and is rethrown. A
+  /// response that is no longer the latest request's is dropped.
   Future<void> reload() async {
+    final mine = ++_reloads;
     final fresh = await AsyncValue.guard(() => build(arg));
+    if (mine != _reloads) return;
     if (fresh.hasError && state.hasValue) {
       Error.throwWithStackTrace(fresh.error!, fresh.stackTrace!);
     }

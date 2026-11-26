@@ -123,8 +123,20 @@ typedef CatalogFilm = ({String id, String title, String? posterUrl});
 /// direct lookup once the backend has one. To refetch, invalidate
 /// [catalogProvider], not this.
 final catalogFilmProvider = FutureProvider.autoDispose.family<CatalogFilm?, int>((ref, tmdbId) async {
-  final list = await ref.watch(catalogProvider.future);
-  for (final m in list) {
+  // A catalog that failed earlier, or is older than catalogMaxAge, is
+  // refetched when a film is opened: other members' suggestions only show
+  // up that way. Invalidating re-runs this provider on the fresh list. (The
+  // await moves this out of the build phase, where invalidating isn't
+  // allowed.)
+  final shared = ref.read(catalogProvider);
+  final stale = !shared.isLoading &&
+      (shared.hasError || (shared.valueOrNull != null && DateTime.now().difference(shared.value!.fetchedAt) > catalogMaxAge));
+  if (stale) {
+    await Future<void>.value();
+    ref.invalidate(catalogProvider);
+  }
+  final catalog = await ref.watch(catalogProvider.future);
+  for (final m in catalog.docs) {
     final t = m['tmdbId'];
     if ((t is int ? t : int.tryParse('$t')) != tmdbId) continue;
     final id = m['_id'];
