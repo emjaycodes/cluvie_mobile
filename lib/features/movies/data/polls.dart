@@ -1,6 +1,7 @@
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
+import 'package:cluvie_mobile/features/home/data/home_feed.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Mongo ids are 24 hex characters. The polls API answers 400 for anything
@@ -163,6 +164,7 @@ enum VoteRefusal {
 Future<VoteRefusal?> castVote(WidgetRef ref, {required String pollId, required String optionId}) async {
   try {
     await ref.read(apiClientProvider).post('/polls/$pollId/vote', data: {'optionId': optionId});
+    ref.invalidate(homeFeedProvider);
     return null;
   } on ApiException catch (e) {
     final body = e.responseBody;

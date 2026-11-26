@@ -6,25 +6,33 @@ import 'package:cluvie_mobile/core/theme/app_motion.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/core/utils/relative_time.dart';
+import 'package:cluvie_mobile/features/discover/presentation/movie_poster_tile.dart';
 import 'package:cluvie_mobile/features/home/data/home_feed.dart';
+import 'package:cluvie_mobile/features/notifications/data/notifications.dart' show unreadNotificationCountProvider;
+import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
+import 'package:cluvie_mobile/features/watch_party/presentation/widgets/party_tile.dart' show partyWhen;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// Home feed: this week's pick → active poll → live now → upcoming watch
-/// parties → recent discussions.
+/// Home feed (`GET /feed`): the next watch party (hero) → active poll →
+/// live now → more watch parties → new films in your clubs → recent
+/// discussions. Everything comes from the user's clubs; with no clubs, one
+/// first-run state points to Clubs.
 ///
-/// Gold budget (tokens.md): the hero's RSVP CTA is the only gold content
-/// owner. Poll leader, badges and the live ring are purple; card CTAs
-/// ("Join live", RSVP) are white (`inverse`). Pull-to-refresh is purple.
+/// Gold budget (tokens.md): the hero's CTA, or "Find a club" in the
+/// first-run state. Poll leader and badges are purple; card CTAs are white
+/// (`inverse`). Pull-to-refresh is purple.
 ///
-/// Data comes from [homeFeedProvider] (demo data until the feed API exists).
-/// Loading shows skeletons, a failed load shows a retry, and each section has
-/// its own empty state. Every control opens the thing it names.
+/// Every control opens the thing it names, by id: parties at
+/// `/watch-parties/:id`, polls at their club's vote, discussions by catalog
+/// film id, films at `/movie/:tmdbId`.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   Future<void> _refresh(BuildContext context, WidgetRef ref) async {
+    ref.invalidate(unreadNotificationCountProvider);
     try {
       ref.invalidate(homeFeedProvider);
       await ref.read(homeFeedProvider.future);
@@ -122,7 +130,7 @@ class HomeScreen extends ConsumerWidget {
   static double _heroHeight(BuildContext context, FeaturedPick pick) {
     final size = MediaQuery.sizeOf(context);
     final scale = MediaQuery.textScalerOf(context).scale(1);
-    final stacked = _HeroActions.stacks(context, size.width - AppSpacing.gutter * 2);
+    final stacked = _HeroActions.stacks(context, size.width - AppSpacing.gutter * 2, pick);
     final peek = math.min(
       (size.height * 0.58).clamp(420.0, 540.0) + (scale - 1) * 300 + (stacked ? 56 : 0),
       size.height - MediaQuery.paddingOf(context).top - 96,
@@ -133,6 +141,23 @@ class HomeScreen extends ConsumerWidget {
   }
 
   List<Widget> _sections(BuildContext context, HomeFeed feed) {
+    if (!feed.hasClubs) {
+      return [
+        Padding(
+          padding: AppSpacing.screen,
+          child: ClCard(
+            child: ClEmptyState(
+              illustration: ClIllustration.clubs,
+              title: 'Your feed fills up with your clubs',
+              message: "Join a club or start one, and its votes, watch parties and discussions show up here.",
+              actionLabel: 'Find a club',
+              actionVariant: ClButtonVariant.primary,
+              onAction: () => context.go('/communities'),
+            ),
+          ),
+        ),
+      ];
+    }
     final poll = feed.poll;
     final live = feed.live;
     final pick = feed.pick;
@@ -142,15 +167,16 @@ class HomeScreen extends ConsumerWidget {
         index: i++,
         child: _Section(
           title: 'Active poll',
-          subtitle: poll == null ? null : '${poll.club} · closes in ${poll.closesInLabel}',
+          subtitle: poll == null ? null : '${poll.club ?? 'Your club'} · closes in ${poll.closesInLabel}',
           child:
               poll == null
                   ? ClCard(
                     child: ClEmptyState(
                       compact: true,
                       illustration: ClIllustration.polls,
-                      message: 'No active polls — suggest a film!',
+                      message: 'No open votes in your clubs. Suggest a film to get one going.',
                       actionLabel: 'Suggest a film',
+                      actionVariant: ClButtonVariant.secondary,
                       onAction: () => context.go('/suggest'),
                     ),
                   )
@@ -162,20 +188,20 @@ class HomeScreen extends ConsumerWidget {
       ClEntrance(
         index: i++,
         child: _Section(
-          title: 'Watch parties',
+          title: pick == null ? 'Watch parties' : 'More watch parties',
           subtitle: 'RSVP so hosts can plan',
-          actionLabel: feed.parties.isEmpty ? null : 'See all',
+          actionLabel: 'See all',
           onAction: () => context.push('/watch-parties'),
           padChild: false,
           child:
               feed.parties.isEmpty
-                  ? const Padding(
+                  ? Padding(
                     padding: AppSpacing.screen,
                     child: ClCard(
                       child: ClEmptyState(
                         compact: true,
                         illustration: ClIllustration.parties,
-                        message: 'No watch parties planned yet.',
+                        message: pick == null ? 'No watch parties planned yet.' : 'Nothing else planned yet.',
                       ),
                     ),
                   )
@@ -191,6 +217,35 @@ class HomeScreen extends ConsumerWidget {
                   ),
         ),
       ),
+      if (feed.suggestions.isNotEmpty)
+        ClEntrance(
+          index: i++,
+          child: _Section(
+            title: 'New in your clubs',
+            subtitle: 'Films your clubs suggested',
+            padChild: false,
+            child: SizedBox(
+              height: _filmWidth * 3 / 2 + MoviePosterTile.textHeight(context),
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: AppSpacing.screen,
+                itemCount: feed.suggestions.length,
+                separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+                itemBuilder: (context, i) {
+                  final s = feed.suggestions[i];
+                  final tmdb = s.film.id;
+                  return MoviePosterTile(
+                    movie: s.film,
+                    width: _filmWidth,
+                    onTap: () => tmdb != null
+                        ? context.push('/movie/$tmdb')
+                        : context.push('/discussionThread', extra: _threadExtra(s.movieId, s.film.title, s.film.posterUrl('w185'), null)),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
       ClEntrance(
         index: i++,
         child: _Section(
@@ -202,11 +257,14 @@ class HomeScreen extends ConsumerWidget {
                     child: ClEmptyState(
                       compact: true,
                       illustration: ClIllustration.discussions,
-                      message: 'Be the first to start a thread about what your club watched.',
-                      // Opens the pick's thread, so the label names the film.
-                      actionLabel: pick == null ? null : 'Discuss ${pick.title}',
+                      message: 'Be the first to start a thread about a film your club suggested.',
+                      // Opens the hero film's thread, so the label names it.
+                      actionLabel: pick?.party.movieId == null ? null : 'Discuss ${pick!.title}',
+                      actionVariant: ClButtonVariant.secondary,
                       onAction:
-                          pick == null ? null : () => context.push('/discussionThread', extra: pick.threadExtra),
+                          pick?.party.movieId == null
+                              ? null
+                              : () => context.push('/discussionThread', extra: _pickThread(pick!)),
                     ),
                   )
                   : Column(
@@ -222,6 +280,17 @@ class HomeScreen extends ConsumerWidget {
     ];
   }
 }
+
+const double _filmWidth = 112;
+
+Map<String, Object> _threadExtra(String movieId, String title, String? posterUrl, int? tmdbId) =>
+    DiscussionThreadScreen.extraFor(movieId: movieId, title: title, posterUrl: posterUrl, tmdbId: tmdbId);
+
+Map<String, Object> _pickThread(FeaturedPick pick) =>
+    _threadExtra(pick.party.movieId!, pick.title, pick.party.film?.posterUrl('w185'), pick.party.film?.id);
+
+/// "Cinema Sundays · Sun 28 Sep · 20:00".
+String _partyLine(HomeParty p) => [if (p.club != null) p.club!, partyWhen(p.scheduledAt)].join(' · ');
 
 /// First-load placeholder shaped like the feed: hero, poll card, party cards.
 class _HomeSkeleton extends StatelessWidget {
@@ -320,7 +389,7 @@ class _Hero extends StatelessWidget {
   /// Height of the fade between bare poster and the text panel.
   static const double fade = 48;
 
-  static const _pickBadge = "This week's pick";
+  static const _pickBadge = 'Next watch party';
 
   /// Height of the text panel (badges, title, when, buttons, padding) at the
   /// current text scale. Mirrors the layout in [build]; a small margin covers
@@ -343,12 +412,12 @@ class _Hero extends StatelessWidget {
     // Badges: overline text + 4dp vertical / 9dp horizontal padding + border.
     final badge = AppTextStyles.overline;
     final badgeH = measure('A', badge) + 8 + 2;
-    final badgesW = [_pickBadge, pick.meta].map((t) => measure(t.toUpperCase(), badge, wide: true) + 20).toList();
-    final badgeRows = badgesW[0] + AppSpacing.sm + badgesW[1] > width ? 2 : 1;
+    final badgesW = [_pickBadge, if (pick.year case final y?) y].map((t) => measure(t.toUpperCase(), badge, wide: true) + 20).toList();
+    final badgeRows = badgesW.length > 1 && badgesW[0] + AppSpacing.sm + badgesW[1] > width ? 2 : 1;
     final badges = badgeH * badgeRows + (badgeRows - 1) * AppSpacing.sm;
     final title = measure(pick.title, AppTextStyles.display, maxLines: 2);
-    final when = measure(pick.when, AppTextStyles.body);
-    final actions = _HeroActions.stacks(context, width) ? 48 * 2 + AppSpacing.sm : 48.0;
+    final when = measure(_partyLine(pick.party), AppTextStyles.body);
+    final actions = _HeroActions.stacks(context, width, pick) ? 48 * 2 + AppSpacing.sm : 48.0;
     return badges +
         AppSpacing.md +
         title +
@@ -427,7 +496,10 @@ class _Hero extends StatelessWidget {
                       Wrap(
                         spacing: AppSpacing.sm,
                         runSpacing: AppSpacing.sm,
-                        children: [const ClBadge(_pickBadge), ClBadge(pick.meta, tone: ClBadgeTone.glass)],
+                        children: [
+                          const ClBadge(_pickBadge),
+                          if (pick.year case final year?) ClBadge(year, tone: ClBadgeTone.glass),
+                        ],
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Semantics(
@@ -435,7 +507,7 @@ class _Hero extends StatelessWidget {
                         child: Text(pick.title, style: AppTextStyles.display, maxLines: 2, overflow: TextOverflow.ellipsis),
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      Text(pick.when, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+                      Text(_partyLine(pick.party), style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
                       const SizedBox(height: AppSpacing.lg),
                       _HeroActions(pick: pick),
                     ],
@@ -450,42 +522,46 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// "RSVP" (the screen's one gold CTA; opens the pick's watch party) and
-/// "Discuss" (opens the pick's thread). Side by side when the CTA label fits at
-/// half width; stacked, CTA first, when it doesn't (narrow phones, larger text).
+/// The screen's one gold CTA, opening the party ("RSVP", or "View party"
+/// when you're going), and "Discuss" (the film's thread, when the film is
+/// in the catalog). Side by side when both labels fit at half width;
+/// stacked, CTA first, when they don't.
 class _HeroActions extends StatelessWidget {
   const _HeroActions({required this.pick});
 
   final FeaturedPick pick;
 
-  static const _ctaLabel = 'RSVP';
+  static String _ctaLabel(FeaturedPick pick) => pick.party.going ? 'View party' : 'RSVP';
 
   static const _discussLabel = 'Discuss';
 
-  /// Whether either label would truncate at half of [width].
-  static bool stacks(BuildContext context, double width) {
+  /// Whether the two buttons must stack (either label would truncate at
+  /// half of [width]). A lone CTA never stacks.
+  static bool stacks(BuildContext context, double width, FeaturedPick pick) {
+    if (pick.party.movieId == null) return false;
     final half = (width - AppSpacing.md) / 2;
-    return [_ctaLabel, _discussLabel].any((l) => ClButton.intrinsicWidth(context, l, hasIcon: true) > half);
+    return [_ctaLabel(pick), _discussLabel].any((l) => ClButton.intrinsicWidth(context, l, hasIcon: true) > half);
   }
 
   @override
   Widget build(BuildContext context) {
     final cta = ClButton(
-      label: _ctaLabel,
-      semanticLabel: 'RSVP to the ${pick.title} watch party',
+      label: _ctaLabel(pick),
+      semanticLabel: pick.party.going ? 'View the ${pick.title} watch party' : 'RSVP to the ${pick.title} watch party',
       icon: AppIcons.ticket,
       variant: ClButtonVariant.primary,
-      onPressed: () => context.push('/watch-parties', extra: pick.party.focusExtra),
+      onPressed: () => context.push('/watch-parties/${pick.party.id}'),
     );
+    if (pick.party.movieId == null) return cta;
     final discuss = ClButton(
       label: _discussLabel,
       icon: AppIcons.chat,
       variant: ClButtonVariant.secondary,
-      onPressed: () => context.push('/discussionThread', extra: pick.threadExtra),
+      onPressed: () => context.push('/discussionThread', extra: _pickThread(pick)),
     );
     return LayoutBuilder(
       builder: (context, c) {
-        if (!stacks(context, c.maxWidth)) {
+        if (!stacks(context, c.maxWidth, pick)) {
           return Row(children: [Expanded(child: cta), const SizedBox(width: AppSpacing.md), Expanded(child: discuss)]);
         }
         return Column(
@@ -513,9 +589,9 @@ const double _metaIcon = 16;
 class _PollCard extends StatelessWidget {
   const _PollCard({required this.poll});
 
-  final Poll poll;
+  final HomePoll poll;
 
-  static const _voteLabel = 'Cast your vote';
+  String get _voteLabel => poll.hasVoted ? 'See the vote' : 'Cast your vote';
 
   @override
   Widget build(BuildContext context) {
@@ -525,6 +601,10 @@ class _PollCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (poll.question case final q?) ...[
+            Text(q, style: AppTextStyles.title),
+            const SizedBox(height: AppSpacing.md),
+          ],
           for (var i = 0; i < ranked.length; i++) ...[
             _PollRow(
               rank: i + 1,
@@ -537,14 +617,16 @@ class _PollCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           LayoutBuilder(
             builder: (context, c) {
-              final footer = Text('$total of ${poll.members} members voted', style: AppTextStyles.caption);
+              final footer = Text(
+                [total == 1 ? '1 vote' : '$total votes', if (poll.hasVoted) 'you voted'].join(' · '),
+                style: AppTextStyles.caption,
+              );
               final vote = ClButton(
                 label: _voteLabel,
                 variant: ClButtonVariant.inverse,
                 size: ClButtonSize.sm,
                 expand: false,
-                // Pass the poll so the vote screen shows these same options.
-                onPressed: () => context.push('/communities/${poll.communityId}/vote', extra: poll.voteExtra),
+                onPressed: () => context.push('/communities/${poll.communityId}/vote', extra: {if (poll.club case final club?) 'club': club}),
               );
               // Side by side while the button takes at most half the width;
               // otherwise the count goes above a full-width button.
@@ -567,7 +649,7 @@ class _PollRow extends StatelessWidget {
   const _PollRow({required this.rank, required this.option, required this.share, required this.leading});
 
   final int rank;
-  final PollOption option;
+  final HomePollOption option;
   final double share;
   final bool leading;
 
@@ -713,100 +795,50 @@ class _PollRow extends StatelessWidget {
 class _LiveCard extends StatelessWidget {
   const _LiveCard({required this.party});
 
-  final Party party;
-
-  static const double _ring = 84;
-  static const _joinLabel = 'Join live';
+  final HomeParty party;
 
   @override
   Widget build(BuildContext context) {
+    final p = party;
+    // Going (or hosting): straight into the room. Otherwise the party page,
+    // which decides whether you can come in.
     final join = ClButton(
-      label: _joinLabel,
-      icon: AppIcons.play,
+      label: p.going ? 'Join live' : 'See party',
+      icon: p.going ? AppIcons.play : null,
+      semanticLabel: p.going ? 'Join the ${p.title} live room' : 'See the ${p.title} watch party',
       variant: ClButtonVariant.inverse,
       size: ClButtonSize.sm,
-      expand: false,
-      onPressed: () => context.push('/watchParty', extra: party.roomExtra),
+      onPressed: () => context.push(p.going ? '/watch-parties/${p.id}/live' : '/watch-parties/${p.id}'),
     );
-    final ring = ClProgressRing(
-      value: party.progress,
-      size: _ring,
-      strokeWidth: 6,
-      // The fill is time watched; the countdown says it all.
-      semanticLabel: '${party.minutesLeft} minutes left',
-      semanticValue: '',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('${party.minutesLeft}m', style: AppTextStyles.title),
-          Text('left', style: AppTextStyles.caption),
-        ],
-      ),
-    );
-    final title = Text(party.title, style: AppTextStyles.title, maxLines: 2, overflow: TextOverflow.ellipsis);
-    // Club on its own line so it never gets cut for the count.
-    final club = Text(party.club, style: AppTextStyles.bodySm, maxLines: _nameLines(context), overflow: TextOverflow.ellipsis);
-    final watching = Text('${party.attending} watching', style: AppTextStyles.caption);
     return ClCard(
-      child: LayoutBuilder(
-        builder: (context, c) {
-          // Wide enough: ring left, text and button right. Otherwise (narrow
-          // phones, large text) the ring sits beside the badge and count, and
-          // the title, club and button take the card's full width.
-          final inline =
-              ClButton.intrinsicWidth(context, _joinLabel, size: ClButtonSize.sm, hasIcon: true) <=
-              c.maxWidth - _ring - AppSpacing.lg;
-          if (inline) {
-            return Row(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!_compact(context)) ...[
+            ClPosterImage(url: p.posterUrl, width: 64, height: 96, radius: AppRadius.sm, decorative: true),
+            const SizedBox(width: AppSpacing.lg),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ring,
-                const SizedBox(width: AppSpacing.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const ClBadge('Live', tone: ClBadgeTone.error),
-                      const SizedBox(height: AppSpacing.sm),
-                      title,
-                      const SizedBox(height: AppSpacing.xxs),
-                      club,
-                      watching,
-                      const SizedBox(height: AppSpacing.sm),
-                      join,
-                    ],
-                  ),
-                ),
-              ],
-            );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  ring,
-                  const SizedBox(width: AppSpacing.lg),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const ClBadge('Live', tone: ClBadgeTone.error),
-                        const SizedBox(height: AppSpacing.sm),
-                        watching,
-                      ],
-                    ),
-                  ),
+                const Align(alignment: Alignment.centerLeft, child: ClBadge('Live', tone: ClBadgeTone.error)),
+                const SizedBox(height: AppSpacing.sm),
+                Text(p.title, style: AppTextStyles.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                if (p.club != null) ...[
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(p.club!, style: AppTextStyles.bodySm, maxLines: _nameLines(context), overflow: TextOverflow.ellipsis),
                 ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              title,
-              const SizedBox(height: AppSpacing.xxs),
-              club,
-              const SizedBox(height: AppSpacing.md),
-              SizedBox(width: double.infinity, child: join),
-            ],
-          );
-        },
+                Text(
+                  '${p.attending} going · started ${timeAgoSpoken(p.scheduledAt)}',
+                  style: AppTextStyles.caption,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                join,
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -817,7 +849,7 @@ class _LiveCard extends StatelessWidget {
 class _PartyCard extends StatelessWidget {
   const _PartyCard({required this.party});
 
-  final Party party;
+  final HomeParty party;
 
   static const double _poster = 128;
 
@@ -858,11 +890,11 @@ class _PartyCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   ClPosterImage(url: party.posterUrl, radius: 0, scrim: ClScrim.bottom, decorative: true),
-                  if (party.badge != null)
+                  if (party.going)
                     Positioned(
                       top: AppSpacing.md,
                       left: AppSpacing.md,
-                      child: ClBadge(party.badge!, tone: ClBadgeTone.purpleSolid),
+                      child: ClBadge(party.hosting ? 'Hosting' : 'Going', tone: ClBadgeTone.purpleSolid),
                     ),
                   if (!titleBelow)
                     Positioned(left: AppSpacing.md, right: AppSpacing.md, bottom: AppSpacing.sm, child: title),
@@ -876,9 +908,11 @@ class _PartyCard extends StatelessWidget {
                 children: [
                   if (titleBelow) ...[title, const SizedBox(height: AppSpacing.xs)],
                   // When and where on separate lines, so neither is cut.
-                  _MetaLine(icon: AppIcons.calendar, text: party.when),
-                  const SizedBox(height: AppSpacing.xxs),
-                  _MetaLine(icon: AppIcons.clubs, text: party.club),
+                  _MetaLine(icon: AppIcons.calendar, text: partyWhen(party.scheduledAt)),
+                  if (party.club != null) ...[
+                    const SizedBox(height: AppSpacing.xxs),
+                    _MetaLine(icon: AppIcons.clubs, text: party.club!),
+                  ],
                 ],
               ),
             ),
@@ -888,32 +922,22 @@ class _PartyCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xxs, AppSpacing.sm, AppSpacing.sm),
               child: Row(
                 children: [
-                  // The stack's semantics already say who and how many.
-                  ClAvatarStack(people: party.people, total: party.attending, showCaption: false),
-                  const SizedBox(width: AppSpacing.sm),
-                  // At very large text the count would be cut next to RSVP;
-                  // the avatars (and their spoken label) carry it then.
                   Expanded(
-                    child:
-                        scale >= 1.6
-                            ? const SizedBox.shrink()
-                            : ExcludeSemantics(
-                              child: Text(
-                                '${party.attending} going',
-                                style: AppTextStyles.bodySm,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
+                    child: Text(
+                      '${party.attending} going',
+                      style: AppTextStyles.bodySm,
+                      maxLines: scale >= 1.6 ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: AppSpacing.sm),
                   ClButton(
-                    label: 'RSVP',
-                    semanticLabel: 'RSVP, ${party.title}',
+                    label: party.going ? 'View' : 'RSVP',
+                    semanticLabel: party.going ? 'View ${party.title}' : 'RSVP, ${party.title}',
                     variant: ClButtonVariant.inverse,
                     size: ClButtonSize.sm,
                     expand: false,
-                    // Opens the list with this party first and outlined.
-                    onPressed: () => context.push('/watch-parties', extra: party.focusExtra),
+                    onPressed: () => context.push('/watch-parties/${party.id}'),
                   ),
                 ],
               ),
@@ -951,32 +975,38 @@ class _MetaLine extends StatelessWidget {
 class _DiscussionCard extends StatelessWidget {
   const _DiscussionCard({required this.discussion});
 
-  final Discussion discussion;
+  final HomeDiscussion discussion;
 
   @override
   Widget build(BuildContext context) {
     final d = discussion;
     final meta = AppTextStyles.caption.copyWith(color: AppColors.textMuted);
+    final byline = [if (d.author != null) d.author!, if (d.club != null) d.club!].join(' · ');
     return ClCard(
-      onTap: () => context.push('/discussionThread', extra: d.threadExtra),
+      onTap: () => context.push('/discussionThread', extra: _threadExtra(d.movieId, d.film.title, d.posterUrl, d.film.id)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClPosterImage(url: d.posterUrl, width: 48, height: 70, radius: AppRadius.sm, decorative: true),
-          const SizedBox(width: AppSpacing.md),
+          if (!_compact(context)) ...[
+            ClPosterImage(url: d.posterUrl, width: 48, height: 70, radius: AppRadius.sm, decorative: true),
+            const SizedBox(width: AppSpacing.md),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Full width for the film; the Pinned badge sits on the meta row.
                 Text(
-                  d.title,
+                  d.film.title,
                   style: AppTextStyles.title,
                   maxLines: MediaQuery.textScalerOf(context).scale(1) > 1.15 ? 2 : 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Text(d.prompt, style: AppTextStyles.bodySm, maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(d.text, style: AppTextStyles.bodySm, maxLines: 2, overflow: TextOverflow.ellipsis),
+                if (byline.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(byline, style: meta, maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
                 const SizedBox(height: AppSpacing.sm),
                 Wrap(
                   spacing: AppSpacing.md,
@@ -988,7 +1018,7 @@ class _DiscussionCard extends StatelessWidget {
                       children: [
                         const Icon(AppIcons.chat, size: _metaIcon, color: AppColors.textMuted),
                         const SizedBox(width: AppSpacing.xs),
-                        Text('${d.replies} replies', style: meta),
+                        Text(d.replies == 1 ? '1 comment' : '${d.replies} comments', style: meta),
                       ],
                     ),
                     Row(
@@ -996,10 +1026,9 @@ class _DiscussionCard extends StatelessWidget {
                       children: [
                         const Icon(AppIcons.clock, size: _metaIcon, color: AppColors.textMuted),
                         const SizedBox(width: AppSpacing.xs),
-                        Text(d.ago, style: meta),
+                        Text(timeAgo(d.createdAt), style: meta),
                       ],
                     ),
-                    if (d.pinned) const ClBadge('Pinned', icon: AppIcons.pin),
                   ],
                 ),
               ],

@@ -70,7 +70,7 @@ Widget _app(
   return ProviderScope(
     overrides: [
       apiClientProvider.overrideWithValue(api),
-      homeFeedProvider.overrideWith((ref) async => demoHomeFeed),
+      homeFeedProvider.overrideWith((ref) async => const HomeFeed()),
       joinedCommunitiesProvider.overrideWith(() => FakeJoinedCommunities(joined ?? () => _clubs)),
       allCommunitiesProvider.overrideWith(() => FakeAllCommunities(() => [..._clubs, fakeClub('zz', 'Horror Hounds')])),
     ],

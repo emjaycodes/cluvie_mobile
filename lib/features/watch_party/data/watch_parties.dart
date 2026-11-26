@@ -2,6 +2,7 @@ import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/features/movies/data/polls.dart' show isMongoId;
 import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
+import 'package:cluvie_mobile/features/home/data/home_feed.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The live room (`/watch-parties/:id/live`) runs over the backend's
@@ -195,6 +196,7 @@ typedef PartyResult = (PartyActionDone?, PartyRefusal?);
 /// Reloads the party (kept alive while waiting) and the list.
 Future<bool> _reload(WidgetRef ref, String id) async {
   ref.invalidate(watchPartiesProvider);
+  ref.invalidate(homeFeedProvider);
   final keep = ref.listenManual(watchPartyProvider(id), (_, __) {});
   try {
     final _ = await ref.refresh(watchPartyProvider(id).future);

@@ -1,158 +1,315 @@
+import 'package:cluvie_mobile/core/api/api_client_provider.dart';
+import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
+import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
 import 'package:cluvie_mobile/features/notifications/data/notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The Home feed: everything the Home tab shows, loaded as one unit.
-///
-/// There is no feed endpoint yet, so [homeFeedProvider] serves [demoHomeFeed].
-/// Swap its body for the API call when one exists; the screen already
-/// handles loading, error, refresh and empty sections.
+/// The Home feed from `GET /api/feed`: everything in the signed-in user's
+/// clubs (owner, `{user}` or legacy raw-id member). Each section holds at
+/// most `limit` items.
 class HomeFeed {
   const HomeFeed({
+    this.clubCount = 0,
     this.pick,
     this.poll,
     this.live,
     this.parties = const [],
     this.discussions = const [],
-    this.unread = 0,
+    this.suggestions = const [],
   });
 
-  /// This week's pick (the hero). Null hides the hero.
+  /// How many clubs the user is in. 0: the first-run state, not five
+  /// empty sections.
+  final int clubCount;
+
+  /// The hero: the next watch party in your clubs. Null hides the hero.
   final FeaturedPick? pick;
 
-  /// The active poll. Null shows the "suggest a film" empty state.
-  final Poll? poll;
+  /// The open poll that closes soonest. Null shows the "suggest" state.
+  final HomePoll? poll;
 
-  /// A party that is live right now. Null hides "Live now".
-  final Party? live;
-  final List<Party> parties;
-  final List<Discussion> discussions;
-  final int unread;
+  /// A party happening now. Null hides "Live now".
+  final HomeParty? live;
+
+  /// Upcoming parties after the hero's, soonest first.
+  final List<HomeParty> parties;
+  final List<HomeDiscussion> discussions;
+
+  /// Films suggested in your clubs, newest first, round-robin across clubs.
+  final List<HomeSuggestion> suggestions;
+
+  bool get hasClubs => clubCount > 0;
+
+  /// Parses `{success, data}` or the bare `data`. [me] decides "hosting".
+  factory HomeFeed.fromJson(Object? json, {String? me, DateTime? now}) {
+    final body = json is Map && json['data'] is Map ? json['data'] as Map : json;
+    if (body is! Map) return const HomeFeed();
+    List<Map> list(String key) => [for (final v in body[key] is List ? body[key] as List : const []) if (v is Map) v];
+
+    final polls = [for (final p in list('polls')) if (HomePoll.fromJson(p, now: now) case final v?) v];
+    final all = [for (final p in list('watchParties')) if (HomeParty.fromJson(p, me: me) case final v?) v]
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    final live = all.where((p) => p.isLive).firstOrNull;
+    final upcoming = [for (final p in all) if (!p.isLive) p];
+    final pickParty = upcoming.firstOrNull;
+    return HomeFeed(
+      clubCount: list('communities').length,
+      poll: polls.firstOrNull,
+      live: live,
+      pick: pickParty == null ? null : FeaturedPick(pickParty),
+      parties: upcoming.skip(1).toList(),
+      discussions: [for (final d in list('discussions')) if (HomeDiscussion.fromJson(d) case final v?) v],
+      suggestions: [for (final s in list('suggestions')) if (HomeSuggestion.fromJson(s) case final v?) v],
+    );
+  }
 }
 
+String? _str(Object? v) => v is String && v.trim().isNotEmpty ? v.trim() : null;
+
+String? _id(Object? v) {
+  if (v is String && v.isNotEmpty) return v;
+  if (v is Map && v['_id'] is String) return v['_id'] as String;
+  return null;
+}
+
+int _int(Object? v) => v is num ? v.toInt() : 0;
+
+TmdbMovie? _film(Object? v) => v is Map ? TmdbMovie.fromJson(Map<String, dynamic>.from(v)) : null;
+
+/// The hero: the next watch party, shown with its film's poster.
 class FeaturedPick {
-  const FeaturedPick({required this.title, required this.meta, required this.posterUrl, required this.party});
-  final String title;
+  const FeaturedPick(this.party);
+  final HomeParty party;
 
-  /// Genre · year.
-  final String meta;
-  final String posterUrl;
+  /// The film's title when known, else the party's.
+  String get title => party.film?.title ?? party.title;
 
-  /// The watch party the pick is scheduled for.
-  final Party party;
+  /// Release year, or null.
+  String? get year => party.film?.year;
 
-  /// "Cinema Sundays · Watch party Sun 8:00 PM".
-  String get when => '${party.club} · Watch party ${party.when}';
-
-  /// Route extra for the discussion thread.
-  Map<String, Object> get threadExtra => {'title': title, 'posterUrl': posterUrl};
+  String? get posterUrl => party.film?.posterUrl('w500');
 }
 
-class PollOption {
-  const PollOption(this.id, this.title, this.votes, this.posterUrl, this.order);
-
-  /// Film id (TMDB), used when voting.
-  final String id;
-  final String title;
+class HomePollOption {
+  const HomePollOption({required this.optionId, required this.film, required this.votes, required this.order});
+  final String optionId;
+  final TmdbMovie film;
   final int votes;
-  final String posterUrl;
 
-  /// Suggestion order; ties go to the earliest suggestion.
+  /// Position in the poll; ties go to the earliest option.
   final int order;
+
+  String get title => film.title;
+  String? get posterUrl => film.posterUrl('w185');
 }
 
-class Poll {
-  const Poll({
+/// An open poll in one of your clubs.
+class HomePoll {
+  const HomePoll({
+    required this.pollId,
     required this.communityId,
     required this.club,
-    required this.closesIn,
+    required this.question,
+    required this.closesAt,
     required this.options,
-    required this.members,
+    this.hasVoted = false,
+    this.now,
   });
-  final String communityId;
-  final String club;
-  final Duration closesIn;
-  final List<PollOption> options;
-  final int members;
 
-  /// Single-pick poll, so this is also the number of members who voted.
+  final String pollId;
+  final String communityId;
+  final String? club;
+  final String? question;
+  final DateTime closesAt;
+  final List<HomePollOption> options;
+  final bool hasVoted;
+
+  /// For tests; null means the real clock.
+  final DateTime? now;
+
+  Duration get closesIn {
+    final d = closesAt.difference(now ?? DateTime.now());
+    return d.isNegative ? Duration.zero : d;
+  }
+
   int get totalVotes => options.fold(0, (a, o) => a + o.votes);
 
-  /// Most votes first; ties go to the earliest suggestion.
-  List<PollOption> get ranked =>
+  /// Most votes first; ties go to the earliest option.
+  List<HomePollOption> get ranked =>
       [...options]..sort((a, b) => b.votes != a.votes ? b.votes.compareTo(a.votes) : a.order.compareTo(b.order));
 
   /// "2 days", "5 hours", "40 minutes".
   String get closesInLabel {
     String unit(int n, String u) => '$n $u${n == 1 ? '' : 's'}';
-    if (closesIn.inDays >= 1) return unit(closesIn.inDays, 'day');
-    if (closesIn.inHours >= 1) return unit(closesIn.inHours, 'hour');
-    return unit(closesIn.inMinutes, 'minute');
+    final c = closesIn;
+    if (c.inDays >= 1) return unit(c.inDays, 'day');
+    if (c.inHours >= 1) return unit(c.inHours, 'hour');
+    return unit(c.inMinutes < 1 ? 1 : c.inMinutes, 'minute');
   }
 
-  /// Route extra for the vote screen, so it shows this same poll.
-  Map<String, Object> get voteExtra => {
-        'club': club,
-        'closesInMinutes': closesIn.inMinutes,
-        'options': [
-          for (final o in options)
-            {'id': o.id, 'title': o.title, 'posterUrl': o.posterUrl, 'votes': o.votes, 'order': o.order},
-        ],
-      };
+  static HomePoll? fromJson(Map json, {DateTime? now}) {
+    final id = _id(json['pollId']);
+    final club = _id(json['communityId']);
+    final closes = DateTime.tryParse('${json['expiresAt']}')?.toLocal();
+    if (id == null || club == null || closes == null) return null;
+    final options = <HomePollOption>[];
+    for (final (i, o) in (json['options'] is List ? json['options'] as List : const []).indexed) {
+      if (o is! Map) continue;
+      final oid = _id(o['optionId']);
+      final film = _film(o['movie']);
+      if (oid == null || film == null) continue;
+      options.add(HomePollOption(optionId: oid, film: film, votes: _int(o['voteCount']), order: i));
+    }
+    if (options.isEmpty) return null;
+    return HomePoll(
+      pollId: id,
+      communityId: club,
+      club: _str(json['communityName']),
+      question: _str(json['question']),
+      closesAt: closes,
+      options: options,
+      hasVoted: json['hasVoted'] == true,
+      now: now,
+    );
+  }
 }
 
-typedef Person = ({String name, String? imageUrl});
-
-class Party {
-  const Party({
+/// A watch party in one of your clubs.
+class HomeParty {
+  const HomeParty({
+    required this.id,
     required this.title,
-    required this.club,
-    required this.when,
-    required this.posterUrl,
-    required this.attending,
-    required this.people,
-    this.badge,
-    this.progress = 0,
-    this.minutesLeft = 0,
+    required this.scheduledAt,
+    required this.isLive,
+    this.film,
+    this.movieId,
+    this.clubId,
+    this.club,
+    this.hostName,
+    this.attending = 0,
+    this.joined = false,
+    this.hosting = false,
   });
+
+  final String id;
   final String title;
-  final String club;
-  final String when;
-  final String posterUrl;
+  final DateTime scheduledAt;
+  final bool isLive;
+  final TmdbMovie? film;
+
+  /// Catalog film id, for the film's discussion.
+  final String? movieId;
+  final String? clubId;
+  final String? club;
+  final String? hostName;
   final int attending;
-  final List<Person> people;
-  final String? badge;
 
-  /// Live parties: share of the film already watched (0..1).
-  final double progress;
+  /// You RSVP'd.
+  final bool joined;
 
-  /// Live parties: minutes until the film ends.
-  final int minutesLeft;
+  /// You're the host (who is always going).
+  final bool hosting;
 
-  /// Route extra for the watch-party list, which lists this party first.
-  Map<String, Object> get focusExtra => {
-        'focus': {'title': title, 'when': when, 'club': club, 'posterUrl': posterUrl, 'attending': attending},
-      };
+  bool get going => joined || hosting;
 
-  /// Route extra for the live room.
-  Map<String, Object> get roomExtra => {'title': title, 'minutesLeft': minutesLeft};
+  String? get posterUrl => film?.posterUrl('w342');
+
+  static HomeParty? fromJson(Map json, {String? me}) {
+    final id = _id(json['watchPartyId']);
+    final when = DateTime.tryParse('${json['scheduledAt']}')?.toLocal();
+    if (id == null || when == null) return null;
+    final host = json['host'];
+    final hostId = _id(host);
+    return HomeParty(
+      id: id,
+      title: _str(json['title']) ?? 'Watch party',
+      scheduledAt: when,
+      isLive: json['status'] == 'live',
+      film: _film(json['movie']),
+      movieId: _id(json['movieId']),
+      clubId: _id(json['communityId']),
+      club: _str(json['communityName']),
+      hostName: host is Map ? _str(host['username']) : null,
+      attending: _int(json['participantCount']),
+      joined: json['joined'] == true,
+      hosting: me != null && hostId == me,
+    );
+  }
 }
 
-class Discussion {
-  const Discussion(this.title, this.prompt, this.posterUrl, this.replies, this.ago, {this.pinned = false});
-  final String title;
-  final String prompt;
-  final String posterUrl;
+/// A recent post about a film suggested in one of your clubs.
+class HomeDiscussion {
+  const HomeDiscussion({
+    required this.id,
+    required this.movieId,
+    required this.film,
+    required this.text,
+    required this.createdAt,
+    this.author,
+    this.club,
+    this.replies = 0,
+    this.likes = 0,
+  });
+
+  final String id;
+
+  /// Catalog film id: discussions are keyed by it.
+  final String movieId;
+  final TmdbMovie film;
+  final String text;
+  final DateTime createdAt;
+  final String? author;
+  final String? club;
+
+  /// The film's comment count.
   final int replies;
-  final String ago;
-  final bool pinned;
+  final int likes;
 
-  Map<String, Object> get threadExtra => {'title': title, 'posterUrl': posterUrl};
+  String? get posterUrl => film.posterUrl('w185');
+
+  static HomeDiscussion? fromJson(Map json) {
+    final id = _id(json['discussionId']);
+    final movieId = _id(json['movieId']);
+    final film = _film(json['movie']);
+    final text = _str(json['text']);
+    if (id == null || movieId == null || film == null || text == null) return null;
+    final movie = json['movie'];
+    return HomeDiscussion(
+      id: id,
+      movieId: movieId,
+      film: film,
+      text: text,
+      createdAt: DateTime.tryParse('${json['createdAt']}')?.toLocal() ?? DateTime.now(),
+      author: json['author'] is Map ? _str((json['author'] as Map)['username']) : null,
+      club: _str(json['communityName']),
+      replies: movie is Map ? _int(movie['commentCount']) : 0,
+      likes: _int(json['upvotes']),
+    );
+  }
 }
 
-/// Loads the Home feed. Refresh by invalidating it and awaiting `.future`.
+/// A film suggested in one of your clubs.
+class HomeSuggestion {
+  const HomeSuggestion({required this.movieId, required this.film, this.club});
+  final String movieId;
+  final TmdbMovie film;
+  final String? club;
+
+  static HomeSuggestion? fromJson(Map json) {
+    final movieId = _id(json['movieId']);
+    final film = _film(json['movie']);
+    if (movieId == null || film == null) return null;
+    return HomeSuggestion(movieId: movieId, film: film, club: _str(json['communityName']));
+  }
+}
+
+/// Loads the Home feed (`GET /feed`). Refresh by invalidating it and
+/// awaiting `.future`. Invalidate it after anything that changes what Home
+/// shows: RSVPs, votes, joining or leaving a club, signing out.
 final homeFeedProvider = FutureProvider<HomeFeed>((ref) async {
-  // TODO(api): replace with the home feed request once it exists.
-  return demoHomeFeed;
+  final me = await ref.watch(currentUserIdProvider.future);
+  final res = await ref.read(apiClientProvider).get('/feed', params: {'limit': 10});
+  return HomeFeed.fromJson(res.data, me: me);
 });
 
 /// Unread notification count for every bell in the app, so the tabs agree.
@@ -160,93 +317,3 @@ final homeFeedProvider = FutureProvider<HomeFeed>((ref) async {
 /// From `GET /notifications?isRead=false`. 0 while loading or when it
 /// failed, so a bell never shows a made-up count.
 final unreadCountProvider = Provider.autoDispose<int>((ref) => ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0);
-
-// ── Demo data ────────────────────────────────────────────────────────────────
-
-const _tmdb = 'https://image.tmdb.org/t/p/w342';
-const _pastLivesPoster = '$_tmdb/kAellTx1ukNtc42BP1kcnHPCG5e.jpg';
-const _oppenheimerPoster = '$_tmdb/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg';
-const _eeaaoPoster = '$_tmdb/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg';
-const _falloutPoster = '$_tmdb/74xTEgt7R36Fpooo50r9T25onhq.jpg';
-
-const Person _ada = (name: 'Ada Obi', imageUrl: null);
-const Person _tunde = (name: 'Tunde Bello', imageUrl: null);
-const Person _mira = (name: 'Mira Chen', imageUrl: null);
-const Person _sam = (name: 'Sam Reyes', imageUrl: null);
-
-const _pastLivesParty = Party(
-  title: 'Past Lives',
-  club: 'Cinema Sundays',
-  when: 'Sun 8:00 PM',
-  posterUrl: _pastLivesPoster,
-  attending: 14,
-  people: [_mira, _sam, _tunde],
-);
-
-const demoHomeFeed = HomeFeed(
-  unread: 3,
-  pick: FeaturedPick(
-    title: 'Past Lives',
-    meta: 'Drama · 2023',
-    posterUrl: 'https://image.tmdb.org/t/p/w780/kAellTx1ukNtc42BP1kcnHPCG5e.jpg',
-    party: _pastLivesParty,
-  ),
-  poll: Poll(
-    communityId: 'friday-film-club',
-    club: 'Friday Film Club',
-    closesIn: Duration(days: 2),
-    members: 31,
-    options: [
-      PollOption('872585', 'Oppenheimer', 8, _oppenheimerPoster, 1),
-      PollOption('545611', 'Everything Everywhere All at Once', 11, _eeaaoPoster, 0),
-      PollOption('353081', 'Mission: Impossible — Fallout', 5, _falloutPoster, 2),
-    ],
-  ),
-  live: Party(
-    title: 'Mission: Impossible — Fallout',
-    club: 'Action Heads',
-    when: 'Now',
-    posterUrl: _falloutPoster,
-    attending: 12,
-    people: [_sam, _ada],
-    progress: 0.72,
-    minutesLeft: 41,
-  ),
-  parties: [
-    Party(
-      title: 'Oppenheimer',
-      club: 'Nolan Nerds',
-      when: 'Tonight 8:00 PM',
-      posterUrl: _oppenheimerPoster,
-      attending: 9,
-      people: [_ada, _tunde, _mira],
-      badge: 'Tonight',
-    ),
-    _pastLivesParty,
-    Party(
-      title: 'Everything Everywhere All at Once',
-      club: 'A24 Lovers',
-      when: 'Fri 7:30 PM',
-      posterUrl: _eeaaoPoster,
-      attending: 6,
-      people: [_tunde, _ada],
-    ),
-  ],
-  discussions: [
-    Discussion(
-      'Oppenheimer',
-      "Christopher Nolan's magnum opus. Did the three timelines work for you?",
-      _oppenheimerPoster,
-      12,
-      '2h',
-      pinned: true,
-    ),
-    Discussion(
-      'Mission: Impossible — Fallout',
-      'Most thrilling practical stunt ever filmed? Make your case.',
-      _falloutPoster,
-      5,
-      '5h',
-    ),
-  ],
-);

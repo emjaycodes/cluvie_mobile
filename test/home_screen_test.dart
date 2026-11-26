@@ -4,6 +4,7 @@ import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_theme.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/home/data/home_feed.dart';
+import 'package:cluvie_mobile/features/discover/presentation/movie_poster_tile.dart';
 import 'package:cluvie_mobile/features/home/presentation/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -14,28 +15,129 @@ import 'package:go_router/go_router.dart';
 import 'helpers/design_checks.dart';
 import 'helpers/real_fonts.dart';
 
+const _me = '64b000000000000000000001';
+const _club1 = '64c000000000000000000001';
+const _club2 = '64c000000000000000000002';
+const _nextParty = '6a0000000000000000000001';
+const _laterParty = '6a0000000000000000000002';
+const _liveParty = '6a0000000000000000000003';
+const _poll = '650000000000000000000001';
+
+Map<String, Object?> _movie(String id, int tmdb, String title, {String year = '2023', int comments = 0}) =>
+    {'_id': id, 'tmdbId': tmdb, 'title': title, 'posterPath': '/p.jpg', 'releaseDate': '$year-06-02', 'commentCount': comments};
+
+final _pastLives = _movie('680000000000000000000001', 666277, 'Past Lives', comments: 12);
+final _oppenheimer = _movie('680000000000000000000002', 872585, 'Oppenheimer', comments: 4);
+final _eeaao = _movie('680000000000000000000003', 545611, 'Everything Everywhere All at Once', year: '2022');
+final _fallout = _movie('680000000000000000000004', 353081, 'Mission: Impossible — Fallout', year: '2018', comments: 5);
+
+/// A `GET /feed` body shaped exactly like `routes/feedRoutes.js` builds it.
+Map<String, Object?> _feedJson({
+  bool clubs = true,
+  bool poll = true,
+  bool parties = true,
+  bool live = true,
+  bool discussions = true,
+  bool hasVoted = false,
+  bool joinedNext = false,
+  bool joinedLive = false,
+}) {
+  final now = DateTime.now();
+  String at(Duration d) => now.add(d).toUtc().toIso8601String();
+  return {
+    'success': true,
+    'data': {
+      'communities': clubs ? [{'communityId': _club1, 'name': 'Cinema Sundays'}, {'communityId': _club2, 'name': 'Nolan Nerds'}] : [],
+      'polls': poll && clubs
+          ? [
+              {
+                'pollId': _poll,
+                'communityId': _club1,
+                'communityName': 'Cinema Sundays',
+                'question': 'What do we watch on Friday?',
+                'expiresAt': at(const Duration(days: 2, minutes: 1)),
+                'allowMultiple': false,
+                'totalVotes': 24,
+                'hasVoted': hasVoted,
+                'myVotes': hasVoted ? ['o1'] : [],
+                'options': [
+                  {'optionId': '660000000000000000000001', 'movieId': _oppenheimer['_id'], 'movie': _oppenheimer, 'voteCount': 7},
+                  {'optionId': '660000000000000000000002', 'movieId': _eeaao['_id'], 'movie': _eeaao, 'voteCount': 12},
+                  {'optionId': '660000000000000000000003', 'movieId': _fallout['_id'], 'movie': _fallout, 'voteCount': 5},
+                ],
+              },
+            ]
+          : [],
+      'suggestions': clubs
+          ? [
+              {'communityId': _club1, 'communityName': 'Cinema Sundays', 'movieId': _pastLives['_id'], 'movie': _pastLives},
+              {'communityId': _club2, 'communityName': 'Nolan Nerds', 'movieId': _oppenheimer['_id'], 'movie': _oppenheimer},
+            ]
+          : [],
+      'discussions': discussions && clubs
+          ? [
+              {
+                'discussionId': '6d0000000000000000000001',
+                'movieId': _fallout['_id'],
+                'movie': _fallout,
+                'communityId': _club2,
+                'communityName': 'Nolan Nerds',
+                'text': 'That bathroom fight is the best action scene of the decade. Fight me.',
+                'author': {'_id': 'u9', 'username': 'tunde'},
+                'upvotes': 3,
+                'createdAt': at(const Duration(hours: -3)),
+              },
+            ]
+          : [],
+      'watchParties': parties && clubs
+          ? [
+              if (live)
+                {
+                  'watchPartyId': _liveParty, 'communityId': _club2, 'communityName': 'Action Heads', 'movieId': _fallout['_id'],
+                  'movie': _fallout, 'title': 'Fallout marathon', 'scheduledAt': at(const Duration(minutes: -40)), 'status': 'live',
+                  'isPrivate': false, 'host': {'_id': 'h2', 'username': 'carmen'}, 'participantCount': 6, 'joined': joinedLive,
+                },
+              {
+                'watchPartyId': _nextParty, 'communityId': _club1, 'communityName': 'Cinema Sundays', 'movieId': _pastLives['_id'],
+                'movie': _pastLives, 'title': 'Sunday screening', 'scheduledAt': at(const Duration(days: 1)), 'status': 'scheduled',
+                'isPrivate': false, 'host': {'_id': 'h1', 'username': 'ada'}, 'participantCount': 9, 'joined': joinedNext,
+              },
+              {
+                'watchPartyId': _laterParty, 'communityId': _club2, 'communityName': 'Nolan Nerds', 'movieId': _oppenheimer['_id'],
+                'movie': _oppenheimer, 'title': 'Oppenheimer', 'scheduledAt': at(const Duration(days: 3)), 'status': 'scheduled',
+                'isPrivate': false, 'host': {'_id': _me, 'username': 'me_myself'}, 'participantCount': 14, 'joined': true,
+              },
+            ]
+          : [],
+    },
+  };
+}
+
+HomeFeed _feed([Map<String, Object?>? json]) => HomeFeed.fromJson(json ?? _feedJson(), me: _me);
+
 const _targets = [
   '/notifications',
   '/watch-parties',
+  '/watch-parties/:id',
+  '/watch-parties/:id/live',
   '/discussionThread',
-  '/watchParty',
-  '/communities/friday-film-club/vote',
+  '/communities/:id/vote',
+  '/communities',
+  '/movie/:id',
   '/suggest',
 ];
 
-/// What a stub destination prints: its path plus the film/club it was given.
-String _describe(Object? extra) {
-  if (extra is! Map) return '';
-  final focus = extra['focus'];
-  if (focus is Map) return ' about ${focus['title']} (${focus['club']}, ${focus['when']})';
-  if (extra['club'] != null) {
-    return ' for ${extra['club']} (${(extra['options'] as List).length} options, closes in ${extra['closesInMinutes']}m)';
-  }
-  if (extra['minutesLeft'] != null) return ' about ${extra['title']} (${extra['minutesLeft']}m left)';
-  return ' about ${extra['title']}';
+/// What a stub destination prints: its path plus what it was given.
+String _describe(GoRouterState st) {
+  final extra = st.extra;
+  final where = st.uri.path;
+  if (extra is! Map) return 'at $where';
+  if (extra['movieId'] != null) return 'at $where about ${extra['title']} (${extra['movieId']}, tmdb ${extra['tmdbId']})';
+  if (extra['club'] != null) return 'at $where for ${extra['club']}';
+  return 'at $where';
 }
 
-/// [feed] defaults to the demo feed. [shell] mounts Home under the real
+/// [feed] defaults to [_feedJson]. [shell] mounts Home under the real
 /// floating nav, as in the app.
 Widget _app({
   Size size = const Size(390, 844),
@@ -49,12 +151,11 @@ Widget _app({
   final router = GoRouter(initialLocation: '/home', routes: [
     if (shell) ShellRoute(builder: (_, __, child) => ClBottomNavBar(child: child), routes: [home]) else home,
     for (final p in _targets)
-      GoRoute(path: p, builder: (_, st) => Scaffold(body: Text('at $p${_describe(st.extra)}'))),
+      GoRoute(path: p, builder: (_, st) => Scaffold(body: Text(_describe(st)))),
   ]);
   return ProviderScope(
     overrides: [
-      homeFeedProvider.overrideWith((ref) async => (feed ?? () => demoHomeFeed)()),
-      // The app has no unread source yet (0); 3 exercises the badge.
+      homeFeedProvider.overrideWith((ref) async => (feed ?? () => _feed())()),
       unreadCountProvider.overrideWithValue(3),
     ],
     child: MediaQuery(
@@ -129,8 +230,8 @@ void main() {
 
   group('Layout', () {
     // Names that must never be cut: clubs, the short film titles, counts.
-    const names = ['Action Heads', 'Nolan Nerds', 'Cinema Sundays', 'Oppenheimer', 'Past Lives', '9 going', '14 going'];
-    const controls = ['Cast your vote', 'Join live', 'RSVP', 'Discuss', 'See all'];
+    const names = ['Action Heads', 'Nolan Nerds', 'Cinema Sundays', 'Oppenheimer', 'Past Lives', '14 going'];
+    const controls = ['Cast your vote', 'See party', 'RSVP', 'Discuss', 'See all'];
 
     void expectNotCut(WidgetTester t, String label) {
       for (final e in find.text(label).evaluate()) {
@@ -174,7 +275,7 @@ void main() {
       await _pump(t, shell: true, padding: const EdgeInsets.only(top: 47, bottom: 34));
       await t.drag(find.byType(Scrollable).first, const Offset(0, -4000));
       await t.pumpAndSettle();
-      final last = t.getRect(_card(find.text('5 replies')));
+      final last = t.getRect(_card(find.text('5 comments')));
       final nav = t.getRect(find.bySemanticsLabel('Home').first);
       expect(last.bottom, lessThan(nav.top), reason: 'last card is under the nav');
     });
@@ -200,7 +301,7 @@ void main() {
             final panel = t.getRect(find.byWidgetPredicate((w) => w is ColoredBox && w.color == panelColor));
             // Round 5 B1: and every line is below the toolbar, so nothing
             // runs under the logo or off the screen.
-            for (final f in [find.textContaining("WEEK'S PICK"), find.text('DRAMA · 2023'), _inHero(find.text('Past Lives'))]) {
+            for (final f in [find.text('NEXT WATCH PARTY'), _inHero(find.text('2023')), _inHero(find.text('Past Lives'))]) {
               final r = t.getRect(f.first);
               expect(r.top, greaterThanOrEqualTo(panel.top), reason: '$f above the panel');
               expect(r.top, greaterThanOrEqualTo(inset + kToolbarHeight), reason: '$f under the toolbar');
@@ -274,13 +375,21 @@ void main() {
       expect(find.descendant(of: poll, matching: find.textContaining('Leading', findRichText: true)), findsOneWidget);
       expect(find.textContaining('WINNER'), findsNothing);
       final ys = [for (final s in ['Everything Everywhere All at Once', 'Oppenheimer', 'Mission: Impossible — Fallout']) t.getTopLeft(inPoll(s)).dy];
+      expect(find.descendant(of: poll, matching: find.text('What do we watch on Friday?')), findsOneWidget);
       expect(ys, orderedEquals([...ys]..sort()), reason: 'poll rows are not ranked by votes');
     });
 
     testWidgets('footer count matches the votes shown', (t) async {
       await _pump(t);
       await _scrollTo(t, find.text('Cast your vote'));
-      expect(find.text('24 of 31 members voted'), findsOneWidget);
+      expect(find.text('24 votes'), findsOneWidget);
+    });
+
+    testWidgets('after voting, the button says See the vote and the footer says so', (t) async {
+      await _pump(t, feed: () => _feed(_feedJson(hasVoted: true)));
+      await _scrollTo(t, find.text('See the vote'));
+      expect(find.text('24 votes · you voted'), findsOneWidget);
+      expect(find.text('Cast your vote'), findsNothing);
     });
   });
 
@@ -296,24 +405,44 @@ void main() {
     }
 
     testWidgets('bell → notifications', (t) => tapAndExpect(t, find.byTooltip('Notifications, 3 unread'), 'at /notifications'));
-    testWidgets('hero RSVP → the pick\'s watch party',
-        (t) => tapAndExpect(t, _inHero(find.text('RSVP')), 'at /watch-parties about Past Lives (Cinema Sundays, Sun 8:00 PM)'));
-    testWidgets('hero Discuss → the pick\'s thread', (t) => tapAndExpect(t, _inHero(find.text('Discuss')), 'at /discussionThread about Past Lives'));
-    testWidgets('Cast your vote → the same poll',
-        (t) => tapAndExpect(t, find.text('Cast your vote'), 'at /communities/friday-film-club/vote for Friday Film Club (3 options, closes in 2880m)'));
-    testWidgets('Join live → that party\'s room',
-        (t) => tapAndExpect(t, find.text('Join live'), 'at /watchParty about Mission: Impossible — Fallout (41m left)'));
-    testWidgets('party RSVP → that party',
-        (t) => tapAndExpect(t, find.descendant(of: find.byType(ListView), matching: find.text('RSVP')),
-            'at /watch-parties about Oppenheimer (Nolan Nerds, Tonight 8:00 PM)'));
+    testWidgets('hero RSVP → the next party', (t) => tapAndExpect(t, _inHero(find.text('RSVP')), 'at /watch-parties/$_nextParty'));
+    testWidgets('hero Discuss → the film\'s thread, by catalog id',
+        (t) => tapAndExpect(t, _inHero(find.text('Discuss')), 'at /discussionThread about Past Lives (680000000000000000000001, tmdb 666277)'));
+    testWidgets('Cast your vote → the club\'s vote',
+        (t) => tapAndExpect(t, find.text('Cast your vote'), 'at /communities/$_club1/vote for Cinema Sundays'));
+    testWidgets('live, not going: See party → the party page',
+        (t) => tapAndExpect(t, find.text('See party'), 'at /watch-parties/$_liveParty'));
+    testWidgets('live, going: Join live → the room', (t) async {
+      await _pump(t, feed: () => _feed(_feedJson(joinedLive: true)));
+      await _scrollTo(t, find.text('Join live'));
+      await t.tap(_control(find.text('Join live')));
+      await t.pumpAndSettle();
+      expect(find.text('at /watch-parties/$_liveParty/live'), findsOneWidget);
+    });
+    testWidgets('a party you host → View opens it',
+        (t) => tapAndExpect(t, find.descendant(of: find.byType(ListView), matching: find.text('View')), 'at /watch-parties/$_laterParty'));
     testWidgets('See all → watch parties', (t) => tapAndExpect(t, find.text('See all'), 'at /watch-parties'));
     testWidgets('discussion card → its own film',
-        (t) => tapAndExpect(t, find.text('5 replies'), 'at /discussionThread about Mission: Impossible — Fallout'));
+        (t) => tapAndExpect(t, find.text('5 comments'), 'at /discussionThread about Mission: Impossible — Fallout (680000000000000000000004, tmdb 353081)'));
+    testWidgets('a new film → its page', (t) async {
+      await _pump(t);
+      final tile = find.byType(MoviePosterTile);
+      await _scrollTo(t, tile);
+      await t.tap(tile.first);
+      await t.pumpAndSettle();
+      expect(find.text('at /movie/666277'), findsOneWidget);
+    });
+
+    testWidgets('going to the next party: the hero says View party', (t) async {
+      await _pump(t, feed: () => _feed(_feedJson(joinedNext: true)));
+      expect(_inHero(find.text('View party')), findsOneWidget);
+      expect(_inHero(find.text('RSVP')), findsNothing);
+    });
 
     testWidgets('cards with their own button are not also tappable (one stop per action)', (t) async {
       await _pump(t);
-      final partyRsvp = find.descendant(of: find.byType(ListView), matching: find.text('RSVP'));
-      for (final label in [find.text('Cast your vote'), find.text('Join live'), partyRsvp]) {
+      final partyView = find.descendant(of: find.byType(ListView), matching: find.text('View'));
+      for (final label in [find.text('Cast your vote'), find.text('See party'), partyView]) {
         await _scrollTo(t, label);
         expect(t.widget<ClCard>(_card(label)).onTap, isNull, reason: '$label card');
       }
@@ -329,7 +458,7 @@ void main() {
       expect(find.bySemanticsLabel('Loading your feed'), findsOneWidget);
       expect(find.byType(ClSkeleton), findsWidgets);
       expect(find.byType(ClLogo), findsOneWidget, reason: 'the app bar stays while loading');
-      c.complete(demoHomeFeed);
+      c.complete(_feed());
       await t.pumpAndSettle();
       expect(find.text('Past Lives'), findsWidgets);
       expect(find.byType(ClSkeleton), findsNothing);
@@ -340,7 +469,7 @@ void main() {
       await _pump(t, feed: () {
         calls++;
         if (calls == 1) throw Exception('offline');
-        return demoHomeFeed;
+        return _feed();
       });
       expect(find.text("Couldn't load your feed"), findsOneWidget);
       await t.tap(_control(find.text('Try again')));
@@ -362,7 +491,7 @@ void main() {
       await t.pump();
       expect(find.text("Couldn't load your feed"), findsNothing);
       expect(find.bySemanticsLabel('Loading your feed'), findsOneWidget);
-      retry.complete(demoHomeFeed);
+      retry.complete(_feed());
       await t.pumpAndSettle();
       expect(find.text('Active poll'), findsOneWidget);
     });
@@ -372,7 +501,7 @@ void main() {
       await _pump(t, feed: () {
         calls++;
         if (calls > 1) throw Exception('offline');
-        return demoHomeFeed;
+        return _feed();
       });
       await t.fling(find.byType(Scrollable).first, const Offset(0, 500), 1500);
       await t.pumpAndSettle();
@@ -381,32 +510,72 @@ void main() {
       expect(find.textContaining("Couldn't refresh"), findsOneWidget);
     });
 
-    testWidgets('empty feed: each section shows its empty state; Live now is hidden', (t) async {
-      await _pump(t, feed: () => const HomeFeed());
-      expect(find.byType(FlexibleSpaceBar), findsNothing, reason: 'no pick, no hero');
-      expect(find.text('No active polls — suggest a film!'), findsOneWidget);
+    testWidgets('in clubs but nothing going on: each section shows its empty state; Live now is hidden', (t) async {
+      await _pump(t, feed: () => _feed(_feedJson(poll: false, parties: false, discussions: false)));
+      expect(find.byType(FlexibleSpaceBar), findsNothing, reason: 'no party, no hero');
+      expect(find.text('No open votes in your clubs. Suggest a film to get one going.'), findsOneWidget);
       expect(find.text('Live now'), findsNothing);
       await _scrollTo(t, find.text('No watch parties planned yet.'));
-      expect(find.text('See all'), findsNothing);
       await _scrollTo(t, find.textContaining('Be the first to start a thread'));
-      expect(find.textContaining('Discuss'), findsNothing, reason: 'no pick to discuss');
+      expect(find.textContaining('Discuss'), findsNothing, reason: 'no party film to discuss');
+      expect(goldViolations(t, allowed: const []), isEmpty, reason: 'empty states add no gold');
       expect(t.takeException(), isNull);
     });
 
     testWidgets('empty poll → Suggest a film opens the suggest tab', (t) async {
-      await _pump(t, feed: () => const HomeFeed());
+      await _pump(t, feed: () => _feed(_feedJson(poll: false)));
+      await _scrollTo(t, find.text('Suggest a film'));
       await t.tap(_control(find.text('Suggest a film')));
       await t.pumpAndSettle();
       expect(find.text('at /suggest'), findsOneWidget);
     });
 
-    testWidgets('no discussions → the action names and opens the pick', (t) async {
-      await _pump(t, feed: () => HomeFeed(pick: demoHomeFeed.pick, poll: demoHomeFeed.poll));
+    testWidgets('no discussions → the action names and opens the party film', (t) async {
+      await _pump(t, feed: () => _feed(_feedJson(discussions: false)));
       final action = find.text('Discuss Past Lives');
       await _scrollTo(t, action);
       await t.tap(_control(action));
       await t.pumpAndSettle();
-      expect(find.text('at /discussionThread about Past Lives'), findsOneWidget);
+      expect(find.text('at /discussionThread about Past Lives (680000000000000000000001, tmdb 666277)'), findsOneWidget);
+    });
+
+    testWidgets('no clubs: one first-run state that opens Clubs, not five empty sections', (t) async {
+      await _pump(t, feed: () => _feed(_feedJson(clubs: false)));
+      expect(find.text('Your feed fills up with your clubs'), findsOneWidget);
+      expect(find.text('Active poll'), findsNothing);
+      expect(goldViolations(t, allowed: [find.ancestor(of: find.text('Find a club'), matching: find.byType(ClButton))]), isEmpty);
+      await t.tap(_control(find.text('Find a club')));
+      await t.pumpAndSettle();
+      expect(find.text('at /communities'), findsOneWidget);
+    });
+  });
+
+  group('Parsing GET /feed', () {
+    test('hero is the next scheduled party; live is separate; the rest follow', () {
+      final f = _feed();
+      expect(f.clubCount, 2);
+      expect(f.pick!.party.id, _nextParty);
+      expect(f.pick!.title, 'Past Lives');
+      expect(f.live!.id, _liveParty);
+      expect(f.parties.map((p) => p.id), [_laterParty]);
+      expect(f.parties.single.hosting, isTrue);
+      expect(f.poll!.ranked.first.title, 'Everything Everywhere All at Once');
+      expect(f.poll!.totalVotes, 24);
+      expect(f.discussions.single.replies, 5);
+      expect(f.suggestions.map((s) => s.film.id), [666277, 872585]);
+    });
+
+    test('malformed items are skipped, not fatal', () {
+      final json = _feedJson();
+      final data = json['data'] as Map;
+      (data['watchParties'] as List).add({'title': 'no id'});
+      (data['discussions'] as List).add({'discussionId': 'x'});
+      (data['polls'] as List).add({'pollId': 'p', 'communityId': 'c', 'expiresAt': 'nope'});
+      final f = HomeFeed.fromJson(json, me: _me);
+      expect(f.parties, hasLength(1));
+      expect(f.discussions, hasLength(1));
+      expect(f.poll!.pollId, _poll);
+      expect(HomeFeed.fromJson(null).hasClubs, isFalse);
     });
   });
 
@@ -431,16 +600,12 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('the live ring reads as a countdown, once', (t) async {
+    testWidgets('the live card says who and since when, and its button names the party', (t) async {
       final handle = t.ensureSemantics();
       await _pump(t);
-      await _scrollTo(t, find.text('Join live'));
-      final ring = t.getSemantics(find.byType(ClProgressRing)).getSemanticsData();
-      // The card reads as one item, starting with the countdown.
-      expect(ring.label, startsWith('41 minutes left'));
-      expect(ring.label, isNot(contains('41m')), reason: 'the ring text is read again');
-      expect(ring.value, isNot(contains('%')), reason: 'the fill is elapsed time, not what is left');
-      expect(find.bySemanticsLabel(RegExp(r'^41m$')), findsNothing);
+      await _scrollTo(t, find.text('See party'));
+      expect(find.textContaining('6 going · started'), findsOneWidget);
+      expect(find.bySemanticsLabel('See the Fallout marathon watch party'), findsOneWidget);
       handle.dispose();
     });
 
@@ -448,10 +613,8 @@ void main() {
       final handle = t.ensureSemantics();
       await _pump(t);
       expect(find.bySemanticsLabel(RegExp('poster')), findsNothing);
-      await _scrollTo(t, find.text('9 going'));
-      expect(find.bySemanticsLabel('9 going'), findsNothing);
-      expect(find.bySemanticsLabel(RegExp(r'Ada, Tunde \+7 going')), findsOneWidget);
-      expect(find.bySemanticsLabel('RSVP, Oppenheimer'), findsOneWidget, reason: 'party RSVP names its film');
+      await _scrollTo(t, find.text('14 going'));
+      expect(find.bySemanticsLabel('View Oppenheimer'), findsOneWidget, reason: 'the party button names its party');
       handle.dispose();
     });
   });

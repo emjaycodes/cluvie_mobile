@@ -85,7 +85,7 @@ Widget _app(
   return ProviderScope(
     overrides: [
       apiClientProvider.overrideWithValue(api),
-      homeFeedProvider.overrideWith((ref) async => demoHomeFeed),
+      homeFeedProvider.overrideWith((ref) async => const HomeFeed()),
       unreadCountProvider.overrideWithValue(unread),
       allCommunitiesProvider.overrideWith(() => FakeAllCommunities(all ?? () => _clubs)),
       joinedCommunitiesProvider.overrideWith(() => FakeJoinedCommunities(joined ?? () => [_clubs.first])),

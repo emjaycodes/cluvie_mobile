@@ -3,6 +3,7 @@ import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/repository/comunity_repository.dart';
 import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
+import 'package:cluvie_mobile/features/home/data/home_feed.dart';
 import 'package:cluvie_mobile/features/movies/data/polls.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -65,6 +66,7 @@ class JoinedCommunityNotifier extends AsyncNotifier<List<Community>> {
       overrides.state = {...overrides.state, id: true};
     }
     ref.invalidate(allCommunitiesProvider);
+    ref.invalidate(homeFeedProvider);
     return created;
   }
 }
@@ -141,6 +143,7 @@ Future<bool> _refreshClub(WidgetRef ref, String id) async {
   ref.invalidate(joinedCommunitiesProvider);
   ref.invalidate(allCommunitiesProvider);
   ref.invalidate(communityProvider(id));
+  ref.invalidate(homeFeedProvider);
   // The club provider auto-disposes: keep it alive while waiting on it.
   final keep = ref.listenManual(communityProvider(id), (_, __) {});
   try {
