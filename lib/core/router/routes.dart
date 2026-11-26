@@ -26,6 +26,7 @@ import 'package:cluvie_mobile/features/movies/presentation/vote_summary_screen.d
 import 'package:cluvie_mobile/features/notifications/presentation/notification_settings_screen.dart';
 import 'package:cluvie_mobile/features/notifications/presentation/notifications_screen.dart';
 import 'package:cluvie_mobile/features/suggest/presentation/suggestion_screen.dart';
+import 'package:cluvie_mobile/features/user_profile/presentation/edit_profile_screen.dart';
 import 'package:cluvie_mobile/features/user_profile/presentation/profile_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_list_screen.dart';
@@ -123,7 +124,9 @@ final router = GoRouter(
       redirect: (context, state) {
         final extra = state.extra is Map ? state.extra as Map : const {};
         final id = extra['id'];
-        return id is String && id.isNotEmpty ? '/watch-parties/$id/live' : null;
+        // The party page applies `canEnterRoom`; going straight to the live
+        // room let cancelled, ended or too-early parties connect (R11-N5).
+        return id is String && id.isNotEmpty ? '/watch-parties/$id' : null;
       },
       builder: (context, state) {
         // Optional: {'title': String, 'minutesLeft': int} from the card that opened it.
@@ -367,6 +370,14 @@ final router = GoRouter(
         final id = state.pathParameters['id']!;
         return UserProfileScreen(userId: id);
       },
+    ),
+    // Edit your own profile: full-screen, above the tab shell, so the
+    // keyboard never fights the floating nav.
+    GoRoute(
+      name: RouteNames.editProfile,
+      path: '/profile/edit',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const EditProfileScreen(),
     ),
   ],
 );

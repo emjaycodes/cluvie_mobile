@@ -41,6 +41,7 @@ Map<String, Object?> _feedJson({
   bool hasVoted = false,
   bool joinedNext = false,
   bool joinedLive = false,
+  int extraParties = 0,
 }) {
   final now = DateTime.now();
   String at(Duration d) => now.add(d).toUtc().toIso8601String();
@@ -107,6 +108,13 @@ Map<String, Object?> _feedJson({
                 'movie': _oppenheimer, 'title': 'Oppenheimer', 'scheduledAt': at(const Duration(days: 3)), 'status': 'scheduled',
                 'isPrivate': false, 'host': {'_id': _me, 'username': 'me_myself'}, 'participantCount': 14, 'joined': true,
               },
+              for (var i = 0; i < extraParties; i++)
+                {
+                  'watchPartyId': '6a00000000000000000001$i', 'communityId': _club2, 'communityName': 'Nolan Nerds',
+                  'movieId': _pastLives['_id'], 'movie': _pastLives, 'title': 'Bonus screening ${i + 1}',
+                  'scheduledAt': at(Duration(days: 4 + i)), 'status': 'scheduled', 'isPrivate': false,
+                  'host': {'_id': 'h3', 'username': 'tunde'}, 'participantCount': 2 + i, 'joined': false,
+                },
             ]
           : [],
     },
@@ -244,7 +252,15 @@ void main() {
       for (final scale in const [1.0, 1.3, 2.0]) {
         testWidgets('no overflow or cut text top to bottom at ${size.width.toInt()}x${size.height.toInt()} @${scale}x', (t) async {
           final top = size.height > 800 ? 47.0 : 20.0;
-          await _pump(t, size: size, scale: scale, shell: true, padding: EdgeInsets.only(top: top, bottom: 34));
+          // Extra cards, so the sideways scroll really reaches later ones.
+          await _pump(
+            t,
+            size: size,
+            scale: scale,
+            shell: true,
+            padding: EdgeInsets.only(top: top, bottom: 34),
+            feed: () => _feed(_feedJson(extraParties: 3)),
+          );
           expect(t.takeException(), isNull);
           for (final label in controls) {
             await _scrollTo(t, find.text(label));
@@ -254,12 +270,16 @@ void main() {
           for (final n in names) {
             expectNotCut(t, n);
           }
-          // The party list scrolls sideways; every card must fit its height.
-          await t.drag(find.byType(ListView).first, const Offset(-900, 0));
-          await t.pumpAndSettle();
-          expect(t.takeException(), isNull);
-          for (final n in names) {
-            expectNotCut(t, n);
+          // The party list scrolls sideways; bring every card into view on its
+          // own Scrollable instead of a blind offset drag (R11-N14).
+          final sideways = find.byWidgetPredicate(
+            (w) => w is Scrollable && w.axisDirection == AxisDirection.right,
+          ).first;
+          for (final title in ['Bonus screening 1', 'Bonus screening 2', 'Bonus screening 3']) {
+            await t.scrollUntilVisible(find.text(title), 220, scrollable: sideways);
+            await t.pumpAndSettle();
+            expect(t.takeException(), isNull);
+            expectNotCut(t, title);
           }
           await t.drag(find.byType(Scrollable).first, const Offset(0, -4000));
           await t.pumpAndSettle();
@@ -547,6 +567,49 @@ void main() {
       await t.tap(_control(find.text('Find a club')));
       await t.pumpAndSettle();
       expect(find.text('at /communities'), findsOneWidget);
+    });
+  });
+
+  group('Staleness (R11-S2)', () {
+    testWidgets('a cached feed whose next change already passed refetches on mount, without a pull', (t) async {
+      var calls = 0;
+      final stale = HomeFeed(
+        clubCount: 1,
+        pick: FeaturedPick(
+          HomeParty(
+            id: _nextParty,
+            title: 'A party that already started',
+            scheduledAt: DateTime.now().subtract(const Duration(minutes: 5)),
+            isLive: false,
+          ),
+        ),
+      );
+      await _pump(t, feed: () {
+        calls++;
+        return calls == 1 ? stale : _feed();
+      });
+      await t.pumpAndSettle();
+      expect(calls, greaterThanOrEqualTo(2), reason: 'the cached feed should be refetched on mount');
+      expect(find.text('A party that already started'), findsNothing);
+      expect(find.text('Sunday screening'), findsWidgets);
+    });
+
+    testWidgets('a poll whose closesAt is past never renders a countdown', (t) async {
+      final closed = HomeFeed(
+        clubCount: 1,
+        poll: HomePoll(
+          pollId: _poll,
+          communityId: _club1,
+          club: 'Cinema Sundays',
+          question: 'Closed poll',
+          closesAt: DateTime.now().subtract(const Duration(hours: 1)),
+          options: [HomePollOption(optionId: '660000000000000000000001', film: _feed().poll!.options.first.film, votes: 3, order: 0)],
+        ),
+      );
+      await _pump(t, feed: () => closed);
+      await t.pumpAndSettle();
+      expect(find.textContaining('closes in'), findsNothing);
+      expect(find.textContaining('Voting closed'), findsOneWidget);
     });
   });
 

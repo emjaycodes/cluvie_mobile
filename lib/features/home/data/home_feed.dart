@@ -152,6 +152,10 @@ class HomePoll {
   /// For tests; null means the real clock.
   final DateTime? now;
 
+  /// Whether the vote has closed. There is never a countdown for a past
+  /// deadline, even when a stale feed slips through (R11-S2).
+  bool get isClosed => !closesAt.isAfter(now ?? DateTime.now());
+
   Duration get closesIn {
     final d = closesAt.difference(now ?? DateTime.now());
     return d.isNegative ? Duration.zero : d;
@@ -163,8 +167,10 @@ class HomePoll {
   List<HomePollOption> get ranked =>
       [...options]..sort((a, b) => b.votes != a.votes ? b.votes.compareTo(a.votes) : a.order.compareTo(b.order));
 
-  /// "2 days", "5 hours", "40 minutes".
-  String get closesInLabel {
+  /// "2 days", "5 hours", "40 minutes". Null once the vote has closed, so a
+  /// past deadline can never be floored to "1 minute" (R11-S2).
+  String? get closesInLabel {
+    if (isClosed) return null;
     String unit(int n, String u) => '$n $u${n == 1 ? '' : 's'}';
     final c = closesIn;
     if (c.inDays >= 1) return unit(c.inDays, 'day');

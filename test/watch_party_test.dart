@@ -299,6 +299,22 @@ void main() {
       expect(find.textContaining('can RSVP'), findsNothing);
     });
 
+    testWidgets('R11-N2: leave answering NOT_PARTICIPANT is done and reloads the party', (t) async {
+      final b = _Backend();
+      b.api.onPost = (path, _) {
+        if (path.endsWith('/leave')) {
+          throw ApiException(message: 'x', statusCode: 400, responseBody: {'code': 'NOT_PARTICIPANT'});
+        }
+        throw UnimplementedError(path);
+      };
+      await _pump(t, _app(b, '/watch-parties/$_going'));
+      expect(b.b0, 1);
+      await _tap(t, "Can't make it");
+      expect(find.textContaining("Couldn't update the party"), findsNothing);
+      expect(find.text("Got it. You're not going."), findsOneWidget);
+      expect(b.b0, 2, reason: 'the party is reloaded after the refusal');
+    });
+
     testWidgets('R10-N4: an unexpected 400 is a failure, not "you\'re going"', (t) async {
       final b = _Backend();
       b.api.onPost = (_, __) => throw ApiException(message: 'x', statusCode: 400, responseBody: {'message': 'Cast to ObjectId failed'});
@@ -409,6 +425,15 @@ void main() {
       await _tap(t, '👏');
       expect(_room!.sent, contains('react:clap'));
       expect(_chatLine('You  👏'), findsOneWidget);
+    });
+
+    testWidgets('R11-N3: an unknown person is Someone with a neutral avatar, no fake initials', (t) async {
+      await _pump(t, _app(_Backend(), '/watch-parties/$_going/live'));
+      _room!.serve(const RoomPresence('u9', 'joined'));
+      await t.pumpAndSettle();
+      expect(find.text('Someone'), findsOneWidget);
+      expect(find.text('A club member'), findsNothing);
+      expect(find.text('AC'), findsNothing);
     });
 
     testWidgets('chat: send, see it, and a rate limit says so', (t) async {

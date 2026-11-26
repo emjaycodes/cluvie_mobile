@@ -35,6 +35,7 @@ class RouteNames {
   static const watchPartyDetail = 'watchPartyDetail';
 
   static const profile = 'profile';
+  static const editProfile = 'editProfile';
   static const userProfile = 'userProfile';
   static const notifications = 'notifications';
 

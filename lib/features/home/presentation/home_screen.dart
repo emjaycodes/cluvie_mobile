@@ -41,6 +41,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
   Timer? _stale;
   DateTime _loadedAt = DateTime.now();
 
+  /// The feed instance whose refresh timer is armed. The provider is not
+  /// autoDispose, so a remount can be handed the same cached feed; comparing
+  /// by identity lets us arm it anyway (R11-S2).
+  HomeFeed? _armed;
+
+  /// The last past deadline we forced a refetch for, so a feed the server
+  /// still returns stale can't cause an invalidate loop (R11-S2).
+  DateTime? _forcedAt;
+
   @override
   void initState() {
     super.initState();
@@ -62,13 +71,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     }
   }
 
+  /// Arms staleness handling for a feed that's already loaded. Called from
+  /// build, not only from a provider change, so a cached feed after a tab
+  /// switch is handled too (R11-S2).
+  void _arm(HomeFeed? feed) {
+    if (feed == null || identical(feed, _armed)) return;
+    _armed = feed;
+    _loadedAt = DateTime.now();
+    _scheduleRefresh(feed);
+  }
+
   /// Reload when the feed goes stale: a poll closes or a party starts.
   void _scheduleRefresh(HomeFeed feed) {
     _stale?.cancel();
     final at = feed.nextChange();
     if (at == null) return;
     final wait = at.difference(DateTime.now()) + const Duration(seconds: 2);
-    if (wait.isNegative || wait > const Duration(hours: 12)) return;
+    if (wait > const Duration(hours: 12)) return;
+    if (wait.isNegative) {
+      // The change already happened while this feed was cached: refetch once,
+      // after the frame. The refetched feed is re-parsed (`fromJson` drops a
+      // closed poll), so it can't keep reporting the same past deadline.
+      if (_forcedAt == at) return;
+      _forcedAt = at;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.invalidate(homeFeedProvider);
+      });
+      return;
+    }
+    _forcedAt = null;
     _stale = Timer(wait, () {
       if (mounted) ref.invalidate(homeFeedProvider);
     });
@@ -89,14 +120,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(homeFeedProvider, (_, next) {
-      if (next.valueOrNull case final feed?) {
-        _loadedAt = DateTime.now();
-        _scheduleRefresh(feed);
-      }
-    });
     final async = ref.watch(homeFeedProvider);
     final feed = async.valueOrNull;
+    // Arm on every build (not just a provider change): a remount may receive
+    // an already-cached feed whose next change has already passed (R11-S2).
+    _arm(feed);
     final pick = feed?.pick;
     final reduced = AppMotion.of(context).reduced;
     final unread = ref.watch(unreadCountProvider);
@@ -216,7 +244,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
         index: i++,
         child: _Section(
           title: 'Active poll',
-          subtitle: poll == null ? null : '${poll.club ?? 'Your club'} · closes in ${poll.closesInLabel}',
+          subtitle: poll == null
+              ? null
+              : '${poll.club ?? 'Your club'} · ${poll.closesInLabel == null ? 'Voting closed' : 'closes in ${poll.closesInLabel}'}',
           child:
               poll == null
                   ? ClCard(

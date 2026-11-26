@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 
 /// Avatar with initials fallback and optional gold ring (e.g. host, you).
@@ -12,6 +13,7 @@ class ClAvatar extends StatelessWidget {
     this.radius = 20,
     this.ring = false,
     this.borderColor,
+    this.neutral = false,
   });
 
   final String? imageUrl;
@@ -25,6 +27,9 @@ class ClAvatar extends StatelessWidget {
 
   /// Thin separating border, used by [ClAvatarStack].
   final Color? borderColor;
+
+  /// An unnamed person: a neutral placeholder with no initials (R11-N3).
+  final bool neutral;
 
   String get _initials {
     final parts = (name ?? '').trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
@@ -42,17 +47,19 @@ class ClAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasUrl = imageUrl != null && imageUrl!.isNotEmpty;
     final fallback = Container(
-      color: _tint,
+      color: neutral ? AppColors.surfaceRaised : _tint,
       alignment: Alignment.center,
       // Initials are part of the picture, sized to the fixed circle; the name
       // is in semantics, so they don't scale with text size.
-      child: Text(
-        _initials,
-        textScaler: TextScaler.noScaling,
-        maxLines: 1,
-        softWrap: false,
-        style: AppTextStyles.label.copyWith(fontSize: radius * 0.7, color: AppColors.textPrimary),
-      ),
+      child: neutral
+          ? Icon(AppIcons.profile, size: radius * 0.9, color: AppColors.textSecondary)
+          : Text(
+              _initials,
+              textScaler: TextScaler.noScaling,
+              maxLines: 1,
+              softWrap: false,
+              style: AppTextStyles.label.copyWith(fontSize: radius * 0.7, color: AppColors.textPrimary),
+            ),
     );
 
     Widget avatar = ClipOval(

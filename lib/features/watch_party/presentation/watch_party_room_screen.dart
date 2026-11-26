@@ -176,7 +176,15 @@ class _WatchPartyRoomScreenState extends ConsumerState<WatchPartyRoomScreen> {
     if (userId == me) return 'You';
     return _names[userId] ??
         ref.read(watchPartyProvider(widget.partyId)).valueOrNull?.participantNames[userId] ??
-        'A club member';
+        'Someone';
+  }
+
+  /// Whether we know a real name for [userId]; an unknown one gets a neutral
+  /// avatar with no initials (R11-N3).
+  bool _isNamed(String userId) {
+    if (userId == ref.read(currentUserIdProvider).valueOrNull) return true;
+    return _names.containsKey(userId) ||
+        ref.read(watchPartyProvider(widget.partyId)).valueOrNull?.participantNames.containsKey(userId) == true;
   }
 
   void _addReaction(String userId, String key) {
@@ -393,7 +401,12 @@ class _WatchPartyRoomScreenState extends ConsumerState<WatchPartyRoomScreen> {
               child: SizedBox(
                 width: 72,
                 child: Column(children: [
-                  ClAvatar(name: _nameOf(id), radius: 24, ring: id == p.hostId),
+                  ClAvatar(
+                    name: _isNamed(id) ? _nameOf(id) : null,
+                    neutral: !_isNamed(id),
+                    radius: 24,
+                    ring: id == p.hostId,
+                  ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     _nameOf(id),
