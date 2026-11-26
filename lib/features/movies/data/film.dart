@@ -118,19 +118,18 @@ typedef CatalogFilm = ({String id, String title, String? posterUrl});
 /// Looks up a TMDB film in Cluvie's catalog. Null means no club has
 /// suggested it yet, so it has no discussion.
 ///
-/// The API has no lookup by TMDB id, so this scans `GET /movies/list`. Fine
-/// for now; swap in a direct lookup once the backend has one.
+/// The API has no lookup by TMDB id, so this scans the shared
+/// [catalogProvider] (one `GET /movies/list` for every film). Swap in a
+/// direct lookup once the backend has one. To refetch, invalidate
+/// [catalogProvider], not this.
 final catalogFilmProvider = FutureProvider.autoDispose.family<CatalogFilm?, int>((ref, tmdbId) async {
-  final res = await ref.read(apiClientProvider).get('/movies/list');
-  final body = res.data;
-  final list = body is List ? body : (body is Map && body['data'] is List ? body['data'] as List : const []);
+  final list = await ref.watch(catalogProvider.future);
   for (final m in list) {
-    if (m is! Map) continue;
     final t = m['tmdbId'];
     if ((t is int ? t : int.tryParse('$t')) != tmdbId) continue;
     final id = m['_id'];
     if (id is! String || id.isEmpty) return null;
-    final poster = TmdbMovie.fromJson(Map<String, dynamic>.from(m)).posterUrl('w185');
+    final poster = TmdbMovie.fromJson(m).posterUrl('w185');
     return (id: id, title: '${m['title'] ?? ''}', posterUrl: poster);
   }
   return null;

@@ -6,6 +6,7 @@ import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/core/utils/fit_text.dart';
 import 'package:cluvie_mobile/core/utils/relative_time.dart';
+import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
 import 'package:cluvie_mobile/features/movies/data/discussions.dart';
 import 'package:cluvie_mobile/features/movies/data/film.dart';
 import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
@@ -52,6 +53,18 @@ class MovieDetailScreen extends ConsumerWidget {
 class _Loaded extends ConsumerWidget {
   const _Loaded({required this.film});
   final FilmDetail film;
+
+  /// The sheet refreshes the catalog itself, so the discussion preview
+  /// below picks the film up; this confirms it.
+  Future<void> _suggest(BuildContext context) async {
+    final club = await showSuggestSheet(context, film.toTmdbMovie());
+    if (club == null || !context.mounted) return;
+    ClSnackbar.show(
+      context,
+      message: 'Suggested ${film.title} to ${club.name ?? 'your club'}.',
+      type: ClSnackbarType.success,
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -111,7 +124,7 @@ class _Loaded extends ConsumerWidget {
                 icon: AppIcons.popcorn,
                 variant: ClButtonVariant.primary,
                 size: ClButtonSize.lg,
-                onPressed: () => showSuggestSheet(context, film.toTmdbMovie()),
+                onPressed: () => _suggest(context),
               ),
               if (kWatchlistAvailable) ...[
                 const SizedBox(height: AppSpacing.md),
@@ -222,12 +235,14 @@ class _DiscussionPreview extends ConsumerWidget {
           children: [header, const SizedBox(height: AppSpacing.md), child],
         );
 
+    // Retrying after an error shows the skeleton, so the tap visibly works.
     return catalog.when(
+      skipLoadingOnRefresh: false,
       loading: () => body(const ClSkeletonRow(thumbWidth: 40, thumbHeight: 40)),
       error: (_, __) => body(ClErrorState(
         compact: true,
         title: "Couldn't load the discussion",
-        onRetry: () => ref.invalidate(catalogFilmProvider(film.tmdbId)),
+        onRetry: () => ref.invalidate(catalogProvider),
       )),
       data: (entry) {
         if (entry == null) {
@@ -249,6 +264,7 @@ class _DiscussionPreview extends ConsumerWidget {
               ),
             );
         return body(posts.when(
+          skipLoadingOnRefresh: false,
           loading: () => const ClSkeletonRow(thumbWidth: 40, thumbHeight: 40),
           error: (_, __) => ClErrorState(
             compact: true,

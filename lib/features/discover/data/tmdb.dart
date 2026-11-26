@@ -80,23 +80,47 @@ class TmdbRepository {
   Future<List<TmdbMovie>> trending() async =>
       parseMovies((await _ref.read(apiClientProvider).get('/movies/trending')).data);
 
-  /// Films clubs have suggested, most voted first (`GET /movies/list`).
-  /// The backend has no TMDB "popular" route.
-  Future<List<TmdbMovie>> popular() async =>
-      parseMovies((await _ref.read(apiClientProvider).get('/movies/list')).data);
-
   Future<List<TmdbMovie>> search(String query) async =>
       parseMovies((await _ref.read(apiClientProvider).get('/tmdb/search', params: {'query': query})).data);
 }
 
 final tmdbRepositoryProvider = Provider<TmdbRepository>(TmdbRepository.new);
 
-/// Discover's browse content. Not auto-disposed, so switching tabs doesn't
-/// refetch; pull-to-refresh invalidates it.
-final discoverFeedProvider = FutureProvider<({List<TmdbMovie> trending, List<TmdbMovie> popular})>((ref) async {
+/// Cluvie's film catalog (`GET /movies/list`): every film any club has
+/// suggested, as raw Mongo documents (`{_id, tmdbId, title, posterPath…}`).
+///
+/// Fetched once and shared by Discover and Movie Detail, which looks films
+/// up in it by TMDB id (the API has no direct lookup yet). Invalidate it
+/// after a suggestion so both pick the new film up.
+final catalogProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final body = (await ref.read(apiClientProvider).get('/movies/list')).data;
+  final list = body is List ? body : (body is Map && body['data'] is List ? body['data'] as List : const []);
+  return [
+    for (final m in list)
+      if (m is Map) Map<String, dynamic>.from(m),
+  ];
+});
+
+/// How many catalog films Discover shows. `/movies/list` has no limit and
+/// grows with every suggestion.
+const kSuggestedInClubsLimit = 24;
+
+/// Discover's browse content. A source that fails comes back empty with its
+/// `...Failed` flag set, so the screen can say so and offer a retry for that
+/// section; the whole feed only fails when both do.
+typedef DiscoverFeed = ({
+  List<TmdbMovie> trending,
+  List<TmdbMovie> suggested,
+  bool trendingFailed,
+  bool suggestedFailed,
+});
+
+/// Not auto-disposed, so switching tabs doesn't refetch; pull-to-refresh
+/// invalidates it (and [catalogProvider]).
+final discoverFeedProvider = FutureProvider<DiscoverFeed>((ref) async {
   final repo = ref.read(tmdbRepositoryProvider);
   // The two lists come from different sources (TMDB vs. our own catalog), so
-  // one failing shouldn't hide the other. Only fail when both do.
+  // one failing shouldn't hide the other.
   Object? firstError;
   StackTrace? firstStack;
   Future<List<TmdbMovie>?> attempt(Future<List<TmdbMovie>> f) => f.then<List<TmdbMovie>?>((v) => v, onError: (Object e, StackTrace s) {
@@ -104,9 +128,17 @@ final discoverFeedProvider = FutureProvider<({List<TmdbMovie> trending, List<Tmd
     firstStack ??= s;
     return null;
   });
-  final results = await Future.wait([attempt(repo.trending()), attempt(repo.popular())]);
+  final suggested = ref
+      .watch(catalogProvider.future)
+      .then((docs) => [for (final d in docs) TmdbMovie.fromJson(d)].take(kSuggestedInClubsLimit).toList());
+  final results = await Future.wait([attempt(repo.trending()), attempt(suggested)]);
   if (results.every((r) => r == null)) Error.throwWithStackTrace(firstError!, firstStack!);
-  return (trending: results[0] ?? const <TmdbMovie>[], popular: results[1] ?? const <TmdbMovie>[]);
+  return (
+    trending: results[0] ?? const <TmdbMovie>[],
+    suggested: results[1] ?? const <TmdbMovie>[],
+    trendingFailed: results[0] == null,
+    suggestedFailed: results[1] == null,
+  );
 });
 
 /// Search results per query. Keyed by query, so a slow response for an old

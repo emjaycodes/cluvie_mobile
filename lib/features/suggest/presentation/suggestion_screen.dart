@@ -240,7 +240,21 @@ class _SuggestMovieScreenState extends ConsumerState<SuggestMovieScreen> {
         ),
       ];
     }
-    if (data == null) return const [SliverToBoxAdapter(child: MoviePosterGridSkeleton())];
+    if (data == null || (data.trendingFailed && feed.isLoading)) {
+      return const [SliverToBoxAdapter(child: MoviePosterGridSkeleton())];
+    }
+    if (data.trendingFailed) {
+      return [
+        _card(
+          ClErrorState(
+            compact: true,
+            title: "Couldn't load trending films",
+            message: 'Search for a film above, or try again.',
+            onRetry: () => ref.invalidate(discoverFeedProvider),
+          ),
+        ),
+      ];
+    }
     if (data.trending.isEmpty) {
       return [
         _card(

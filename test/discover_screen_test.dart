@@ -6,7 +6,9 @@ import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_theme.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
 import 'package:cluvie_mobile/features/discover/presentation/discover_screen.dart';
+import 'package:cluvie_mobile/features/discover/presentation/movie_poster_tile.dart';
 import 'package:cluvie_mobile/features/home/data/home_feed.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +19,28 @@ import 'helpers/design_checks.dart';
 import 'helpers/fakes.dart';
 import 'helpers/real_fonts.dart';
 
+// The backend's real item shapes (S10, round 7), not TMDB's:
+// `/movies/trending` maps TMDB to `{tmdbId, title, poster, releaseDate}`,
+// and `/movies/list` returns Mongo `Movie` documents.
+Map<String, Object?> _trend(int? id, String title, {String? date = '2023-05-01', String? poster = '/p.jpg'}) => {
+  'tmdbId': id,
+  'title': title,
+  'poster': poster,
+  'releaseDate': date,
+  'overview': 'An overview.',
+  'popularity': 12.5,
+};
+
+Map<String, Object?> _doc(int id, String title) => {
+  '_id': '65a1b2c3d4e5f6a7b8c9${id.toString().padLeft(4, '0')}',
+  'tmdbId': id,
+  'title': title,
+  'posterPath': '/p.jpg',
+  'releaseDate': '2023-05-01',
+  'votes': 0,
+};
+
+// `/tmdb/search` passes TMDB's own items through.
 Map<String, Object?> _film(int? id, String title, {String? date = '2023-05-01', String? poster = '/p.jpg'}) => {
   'id': id,
   'title': title,
@@ -24,8 +48,8 @@ Map<String, Object?> _film(int? id, String title, {String? date = '2023-05-01', 
   'release_date': date,
 };
 
-final _trending = [_film(11, 'Aftersun'), _film(12, 'Anatomy of a Fall'), _film(13, 'Perfect Days')];
-final _popular = [for (var i = 0; i < 7; i++) _film(100 + i, 'Popular film ${i + 1}')];
+final _trending = [_trend(11, 'Aftersun'), _trend(12, 'Anatomy of a Fall'), _trend(13, 'Perfect Days')];
+final _popular = [for (var i = 0; i < 7; i++) _doc(100 + i, 'Popular film ${i + 1}')];
 
 FakeApiClient _api({FutureOr<Object?> Function(String q)? search, bool failFeed = false}) => FakeApiClient(
   onGet: (path, params) {
@@ -122,7 +146,45 @@ void main() {
       await _pump(t, _app(api));
       expect(find.text("Couldn't load Discover — tap to retry"), findsNothing);
       expect(find.text('Trending now'), findsNothing);
-      expect(find.text('Popular in clubs'), findsOneWidget);
+      expect(find.text('Suggested in clubs'), findsOneWidget);
+      // The missing section says so, with its own retry (S8, round 7).
+      expect(find.text("Couldn't load trending films"), findsOneWidget);
+    });
+
+    testWidgets('a failed section retries on its own and shows a skeleton meanwhile', (t) async {
+      var trendingCalls = 0;
+      Completer<Object?>? held;
+      final api = FakeApiClient(onGet: (path, _) {
+        if (path == '/movies/trending') {
+          trendingCalls++;
+          if (trendingCalls == 1) throw Exception('TMDB unavailable');
+          held = Completer<Object?>();
+          return held!.future;
+        }
+        return _popular;
+      });
+      await _pump(t, _app(api));
+      expect(find.text("Couldn't load trending films"), findsOneWidget);
+      await t.tap(find.widgetWithText(ClButton, 'Try again'));
+      await t.pump();
+      expect(find.text("Couldn't load trending films"), findsNothing);
+      expect(find.byType(ClSkeletonRow), findsOneWidget);
+      held!.complete({'success': true, 'data': _trending});
+      await t.pumpAndSettle();
+      expect(find.text('Trending now'), findsOneWidget);
+      expect(find.text('Aftersun'), findsWidgets);
+    });
+
+    testWidgets('Suggested in clubs is capped', (t) async {
+      final many = [for (var i = 0; i < 40; i++) _doc(500 + i, 'Club film ${i + 1}')];
+      final api = FakeApiClient(onGet: (path, _) {
+        if (path == '/movies/trending') return {'success': true, 'data': <Object>[]};
+        return many;
+      });
+      await _pump(t, _app(api));
+      final grid = t.widget<MoviePosterGrid>(find.byType(MoviePosterGrid));
+      expect(grid.movies.length, kSuggestedInClubsLimit);
+      expect(grid.movies.first.id, 500);
     });
 
     testWidgets('a failure shows one retry card and no demo films; tapping it reloads', (t) async {

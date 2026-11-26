@@ -182,6 +182,66 @@ void main() {
       expect(find.text('Cinema Sundays'), findsOneWidget);
     });
 
+    testWidgets('a suggestion is confirmed, and the discussion section picks the film up', (t) async {
+      var suggested = false;
+      final api = FakeApiClient(
+        onGet: (path, _) {
+          if (path == '/tmdb/376867') return _tmdbDetail();
+          if (path == '/movies/list') return suggested ? [_catalog(376867)] : <Object>[];
+          if (path == '/discussions/$_catalogId') return <Object>[];
+          throw UnimplementedError(path);
+        },
+        onPost: (path, data) {
+          suggested = true;
+          return {'success': true};
+        },
+      );
+      await _pump(t, _app(api, initial: '/movie/376867'));
+      await _scrollTo(t, find.textContaining('No club has suggested this film yet'));
+      expect(api.calls.where((c) => c.path == '/movies/list'), hasLength(1));
+
+      await t.ensureVisible(_button('Suggest to a club'));
+      await t.pumpAndSettle();
+      await t.tap(_button('Suggest to a club'));
+      await t.pumpAndSettle();
+      await t.ensureVisible(find.text('Suggest').last);
+      await t.pumpAndSettle();
+      await t.tap(_pressable(find.text('Suggest').last));
+      await t.pumpAndSettle();
+
+      final post = api.calls.singleWhere((c) => c.method == 'POST');
+      expect(post.path, '/communities/$_club/suggest');
+      expect(find.text('Suggested Moonlight to Cinema Sundays.'), findsOneWidget);
+      expect(api.calls.where((c) => c.path == '/movies/list'), hasLength(2), reason: 'the catalog is refetched');
+      expect(find.textContaining('No club has suggested this film yet'), findsNothing);
+      expect(find.text('No posts yet. Start the conversation.'), findsOneWidget);
+    });
+
+    testWidgets('retrying the discussion preview shows the skeleton while it loads', (t) async {
+      var calls = 0;
+      Completer<Object?>? held;
+      final api = FakeApiClient(onGet: (path, _) {
+        if (path == '/tmdb/376867') return _tmdbDetail();
+        if (path == '/movies/list') {
+          calls++;
+          if (calls == 1) throw Exception('offline');
+          held = Completer<Object?>();
+          return held!.future;
+        }
+        if (path == '/discussions/$_catalogId') return <Object>[];
+        throw UnimplementedError(path);
+      });
+      await _pump(t, _app(api, initial: '/movie/376867'));
+      await _scrollTo(t, find.text("Couldn't load the discussion"));
+      await t.tap(_button('Try again'));
+      await t.pump();
+      expect(find.text("Couldn't load the discussion"), findsNothing);
+      expect(find.byType(ClSkeletonRow), findsOneWidget);
+      held!.complete([_catalog(376867)]);
+      await t.pumpAndSettle();
+      expect(find.text('No posts yet. Start the conversation.'), findsOneWidget);
+    });
+
     testWidgets('no id, a bad id, or a 404 shows "not found", with a way out', (t) async {
       for (final route in ['/MovieDetails', '/movie/abc']) {
         await _pump(t, _app(_detailApi(), initial: route));

@@ -62,7 +62,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         ref.invalidate(movieSearchProvider(query));
         await ref.read(movieSearchProvider(query).future);
       } else {
-        ref.invalidate(discoverFeedProvider);
+        // The feed watches the catalog, so this refetches both sources.
+        ref.invalidate(catalogProvider);
         await ref.read(discoverFeedProvider.future);
       }
     } catch (_) {
@@ -217,7 +218,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         SliverToBoxAdapter(
           child: Padding(
             padding: AppSpacing.screen,
-            child: _RetryCard(onRetry: () => ref.invalidate(discoverFeedProvider)),
+            child: _RetryCard(onRetry: () => ref.invalidate(catalogProvider)),
           ),
         ),
       ];
@@ -225,18 +226,37 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
     if (data == null) {
       return const [SliverToBoxAdapter(child: _BrowseSkeleton())];
     }
+    // A section whose source failed says so, with its own retry. While that
+    // retry runs it shows a skeleton, so the tap visibly does something.
+    final reloading = feed.isLoading;
+    List<Widget> failed(String title, VoidCallback retry) => [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: AppSpacing.screen,
+          child:
+              reloading
+                  ? const ClSkeletonRow(thumbWidth: 56, thumbHeight: 84)
+                  : ClCard(child: ClErrorState(compact: true, title: title, onRetry: retry)),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.section)),
+    ];
     return [
-      if (data.trending.isNotEmpty) ...[
+      if (data.trendingFailed)
+        ...failed("Couldn't load trending films", () => ref.invalidate(discoverFeedProvider))
+      else if (data.trending.isNotEmpty) ...[
         const SliverToBoxAdapter(child: _Header('Trending now', subtitle: 'What everyone is watching this week')),
         SliverToBoxAdapter(child: _TrendingRow(movies: data.trending, onTap: _open)),
         const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.section)),
       ],
-      if (data.popular.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: _Header('Popular in clubs', subtitle: 'The films clubs have voted for most')),
-        MoviePosterGrid(movies: data.popular, onTap: _open),
+      if (data.suggestedFailed)
+        ...failed("Couldn't load films suggested in clubs", () => ref.invalidate(catalogProvider))
+      else if (data.suggested.isNotEmpty) ...[
+        const SliverToBoxAdapter(child: _Header('Suggested in clubs', subtitle: 'Films clubs have put forward to watch')),
+        MoviePosterGrid(movies: data.suggested, onTap: _open),
         const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.section)),
       ],
-      if (data.trending.isEmpty && data.popular.isEmpty)
+      if (data.trending.isEmpty && data.suggested.isEmpty && !data.trendingFailed && !data.suggestedFailed)
         const SliverToBoxAdapter(
           child: Padding(
             padding: AppSpacing.screen,

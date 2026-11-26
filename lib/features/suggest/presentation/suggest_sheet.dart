@@ -1,4 +1,5 @@
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
+import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_icons.dart';
@@ -47,6 +48,10 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
   bool _submitting = false;
   bool _failed = false;
 
+  /// The club that already has this film (the API's 409
+  /// `DUPLICATE_SUGGESTION`). Retrying would fail the same way.
+  String? _duplicateIn;
+
   @override
   void dispose() {
     _note.dispose();
@@ -67,17 +72,34 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
     setState(() {
       _submitting = true;
       _failed = false;
+      _duplicateIn = null;
     });
+    // Captured now: the sheet may be gone when the request finishes.
+    final container = ProviderScope.containerOf(context, listen: false);
     try {
       await ref
           .read(apiClientProvider)
           .post('/communities/${club.id}/suggest', data: {'tmdbId': widget.movie.id, 'note': _note.text.trim()});
+      // The catalog (Discover, Movie Detail's discussion) now has the film.
+      container.invalidate(catalogProvider);
       if (mounted) {
         Navigator.of(context).pop(club);
       } else {
         _report('Suggested ${widget.movie.title} to ${club.name ?? 'your club'}.', ClSnackbarType.success);
       }
-    } catch (_) {
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 409 && _code(e) == 'DUPLICATE_SUGGESTION') {
+        container.invalidate(catalogProvider);
+        if (mounted) {
+          setState(() {
+            _submitting = false;
+            _duplicateIn = club.id;
+          });
+        } else {
+          _report('${club.name ?? 'That club'} already has ${widget.movie.title}.', ClSnackbarType.info);
+        }
+        return;
+      }
       if (mounted) {
         setState(() {
           _submitting = false;
@@ -87,6 +109,11 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
         _report("Couldn't suggest ${widget.movie.title}. Try again.", ClSnackbarType.error);
       }
     }
+  }
+
+  static Object? _code(ApiException e) {
+    final body = e.responseBody;
+    return body is Map ? body['code'] : null;
   }
 
   void _report(String message, ClSnackbarType type) {
@@ -190,6 +217,7 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
   List<Widget> _form(List<Community> clubs) {
     final club = _selected(clubs);
     final clubName = club?.name ?? 'club';
+    final duplicate = club != null && club.id == _duplicateIn;
     return [
       Semantics(
         // Announce the group so the rows read as one choice.
@@ -218,7 +246,25 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
         textInputAction: TextInputAction.done,
       ),
       const SizedBox(height: AppSpacing.lg),
-      if (_failed) ...[
+      if (duplicate) ...[
+        Semantics(
+          liveRegion: true,
+          child: Row(
+            children: [
+              const Icon(AppIcons.info, size: 20, color: AppColors.textSecondary),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  '$clubName already has ${widget.movie.title}.'
+                  '${clubs.length > 1 ? ' Pick another club to suggest it there.' : ''}',
+                  style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+      ] else if (_failed) ...[
         Semantics(
           liveRegion: true,
           child: Row(
@@ -251,7 +297,7 @@ class _SuggestSheetState extends ConsumerState<SuggestSheet> {
         variant: ClButtonVariant.primary,
         icon: AppIcons.send,
         isLoading: _submitting,
-        onPressed: club == null || widget.movie.id == null ? null : () => _submit(club),
+        onPressed: club == null || duplicate || widget.movie.id == null ? null : () => _submit(club),
       ),
     ];
   }

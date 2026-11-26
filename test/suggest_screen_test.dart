@@ -1,3 +1,4 @@
+import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'dart:async';
 
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
@@ -18,10 +19,15 @@ import 'helpers/design_checks.dart';
 import 'helpers/fakes.dart';
 import 'helpers/real_fonts.dart';
 
+// `/tmdb/search` passes TMDB's items through.
 Map<String, Object?> _film(int id, String title) =>
     {'id': id, 'title': title, 'poster_path': '/p.jpg', 'release_date': '2023-01-01'};
 
-final _trending = [_film(11, 'Aftersun'), _film(12, 'Anatomy of a Fall'), _film(13, 'Perfect Days')];
+// `/movies/trending` maps them to its own shape.
+Map<String, Object?> _trend(int id, String title) =>
+    {'tmdbId': id, 'title': title, 'poster': '/p.jpg', 'releaseDate': '2023-01-01', 'popularity': 9.1};
+
+final _trending = [_trend(11, 'Aftersun'), _trend(12, 'Anatomy of a Fall'), _trend(13, 'Perfect Days')];
 const _longClub = 'The Extremely Long Named Midnight Cinema Appreciation Society of Lagos';
 final _clubs = [
   fakeClub('c1', 'Cinema Sundays', members: 8),
@@ -37,6 +43,7 @@ FakeApiClient _api({FutureOr<Object?> Function(String path, Map<String, dynamic>
           final q = params!['query'] as String;
           return {'success': true, 'data': q == 'zzzz' ? [] : [_film(21, 'Arrival')]};
         }
+        if (path == '/movies/list') return <Object>[];
         return {'success': true, 'data': _trending};
       },
       onPost: onPost ?? (_, __) => {'ok': true},
@@ -169,6 +176,32 @@ void main() {
     expect(api.calls.where((c) => c.method == 'POST'), hasLength(2));
     expect(find.byType(BottomSheet), findsNothing);
     expect(find.text('Suggested Aftersun to Cinema Sundays.'), findsOneWidget);
+  });
+
+  testWidgets('a duplicate suggestion says the club has it, with no retry that would fail', (t) async {
+    final api = _api(onPost: (path, __) {
+      if (path == '/communities/c1/suggest') {
+        throw ApiException(
+          message: 'conflict',
+          statusCode: 409,
+          responseBody: {'success': false, 'code': 'DUPLICATE_SUGGESTION', 'message': 'Movie already suggested in this community'},
+        );
+      }
+      return {'ok': true};
+    });
+    await _pump(t, _app(api));
+    await _openSheet(t, 'Aftersun');
+    await _tapInSheet(t, find.text('Cinema Sundays'));
+    await _tapInSheet(t, find.text('Suggest'));
+    expect(find.text('Cinema Sundays already has Aftersun. Pick another club to suggest it there.'), findsOneWidget);
+    expect(find.text('Try again'), findsNothing);
+    expect(find.textContaining("Couldn't send"), findsNothing);
+    expect(t.widget<ClButton>(_submit).onPressed, isNull, reason: 'resubmitting would 409 again');
+    // Another club works.
+    await _tapInSheet(t, find.text('Night Owls'));
+    expect(t.widget<ClButton>(_submit).onPressed, isNotNull);
+    await _tapInSheet(t, find.text('Suggest'));
+    expect(find.text('Suggested Aftersun to Night Owls.'), findsOneWidget);
   });
 
   testWidgets('the submit says what it does, starting with its visible text', (t) async {
