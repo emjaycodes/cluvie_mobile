@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
@@ -227,16 +229,19 @@ class _DiscussionThreadScreenState extends ConsumerState<DiscussionThreadScreen>
       ),
     );
 
-    return Column(children: [
+    // The body's height is what the app bar and keyboard leave (the
+    // Scaffold strips the keyboard inset from MediaQuery here).
+    return LayoutBuilder(builder: (context, box) => Column(children: [
       Expanded(child: content),
       _Composer(
+        bodyHeight: box.maxHeight,
         controller: _draft,
         focusNode: _focus,
         sending: _sending,
         enabled: posts.hasValue,
         onSend: () => _send(movieId),
       ),
-    ]);
+    ]));
   }
 }
 
@@ -364,6 +369,7 @@ class _PostCard extends StatelessWidget {
 
 class _Composer extends StatelessWidget {
   const _Composer({
+    required this.bodyHeight,
     required this.controller,
     required this.focusNode,
     required this.sending,
@@ -371,6 +377,8 @@ class _Composer extends StatelessWidget {
     required this.onSend,
   });
 
+  /// Height of the screen body the composer shares with the posts.
+  final double bodyHeight;
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool sending;
@@ -382,6 +390,15 @@ class _Composer extends StatelessWidget {
     final length = controller.text.characters.length;
     final canSend = enabled && !sending && controller.text.trim().isNotEmpty;
     final nearLimit = length >= kMaxPostLength - 200;
+
+    // Cap the field's height, not its line count: at large text five lines
+    // are taller than the space above a keyboard on a small phone, which
+    // pushed Post under the keyboard and squeezed the posts to nothing.
+    // Up to five lines, but never more than 35% of the body (what the app
+    // bar and keyboard leave); past that the field scrolls inside.
+    const style = AppTextStyles.body;
+    final line = MediaQuery.textScalerOf(context).scale(style.fontSize!) * (style.height ?? 1.2);
+    final fieldMax = math.max(AppSpacing.minTouch, math.min(5 * line + 2 * AppSpacing.md, bodyHeight * 0.35));
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -395,22 +412,25 @@ class _Composer extends StatelessWidget {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Expanded(
-                child: TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  enabled: enabled && !sending,
-                  minLines: 1,
-                  maxLines: 5,
-                  keyboardType: TextInputType.multiline,
-                  textCapitalization: TextCapitalization.sentences,
-                  inputFormatters: [LengthLimitingTextInputFormatter(kMaxPostLength)],
-                  style: AppTextStyles.body,
-                  decoration: InputDecoration(
-                    hintText: 'Add to the discussion',
-                    border: const OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.borderInput)),
-                    enabledBorder: const OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.borderInput)),
-                    focusedBorder: const OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.focusRing, width: 2)),
-                    disabledBorder: const OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.border)),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: fieldMax),
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    enabled: enabled && !sending,
+                    minLines: 1,
+                    maxLines: null,
+                    keyboardType: TextInputType.multiline,
+                    textCapitalization: TextCapitalization.sentences,
+                    inputFormatters: [LengthLimitingTextInputFormatter(kMaxPostLength)],
+                    style: AppTextStyles.body,
+                    decoration: InputDecoration(
+                      hintText: 'Add to the discussion',
+                      border: const OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.borderInput)),
+                      enabledBorder: const OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.borderInput)),
+                      focusedBorder: const OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.focusRing, width: 2)),
+                      disabledBorder: const OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.border)),
+                    ),
                   ),
                 ),
               ),
@@ -422,7 +442,8 @@ class _Composer extends StatelessWidget {
                   tooltip: 'Post',
                   onPressed: canSend ? onSend : null,
                   style: IconButton.styleFrom(
-                    backgroundColor: AppColors.purple,
+                    // purple has no on-colour; purpleBadge carries white (tokens.md).
+                    backgroundColor: AppColors.purpleBadge,
                     disabledBackgroundColor: AppColors.surfaceRaised,
                     shape: const CircleBorder(),
                   ),

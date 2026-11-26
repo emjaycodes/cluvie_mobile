@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cluvie_mobile/core/api/api_client_provider.dart';
 import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/theme/app_theme.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
@@ -545,6 +546,38 @@ void main() {
       await _pump(t, _app(threadApi(), initial: '/discussionThread', extra: extra(), viewInsets: const EdgeInsets.only(bottom: 300)));
       expect(t.getRect(find.byType(TextField)).bottom, lessThanOrEqualTo(844 - 300));
     });
+
+    // B2, round 7: a long draft at large text must not push Post under the
+    // keyboard or squeeze the posts to nothing.
+    // With the keyboard up the bottom inset is 0; the small phones have a
+    // 20pt status bar.
+    for (final (size, keyboard, top) in [(const Size(320, 568), 260.0, 20.0), (const Size(375, 667), 260.0, 20.0), (const Size(390, 844), 300.0, 47.0)]) {
+      for (final scale in [1.0, 1.3, 2.0]) {
+        testWidgets('${size.width.toInt()}x${size.height.toInt()} @${scale}x, keyboard up, 5-line draft: Post stays reachable', (t) async {
+          await _pump(
+            t,
+            _app(
+              threadApi(),
+              initial: '/discussionThread',
+              extra: extra(),
+              size: size,
+              scale: scale,
+              padding: EdgeInsets.only(top: top),
+              viewInsets: EdgeInsets.only(bottom: keyboard),
+            ),
+            size: size,
+          );
+          await t.enterText(find.byType(TextField), 'One\ntwo\nthree\nfour\nfive, and a longer last line to wrap');
+          await t.pumpAndSettle();
+          expect(t.takeException(), isNull);
+          final keyboardTop = size.height - keyboard;
+          expect(t.getRect(find.byTooltip('Post')).bottom, lessThanOrEqualTo(keyboardTop));
+          expect(t.getRect(find.byType(TextField)).bottom, lessThanOrEqualTo(keyboardTop));
+          expect(t.getSize(find.byType(ListView)).height, greaterThanOrEqualTo(48), reason: 'the posts keep at least a row');
+          expect(t.widget<IconButton>(find.widgetWithIcon(IconButton, AppIcons.send)).onPressed, isNotNull);
+        });
+      }
+    }
 
     testWidgets('send and like are at least 48dp', (t) async {
       await _pump(t, _app(threadApi(), initial: '/discussionThread', extra: extra()));
