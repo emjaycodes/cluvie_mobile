@@ -14,10 +14,12 @@ typedef ApiCall = ({String method, String path, Map<String, dynamic>? params, Ma
 /// [onGet] / [onPost] return the response body, or throw to simulate a
 /// failure. They may return a Future to hold a request open.
 class FakeApiClient implements ApiClient {
-  FakeApiClient({this.onGet, this.onPost});
+  FakeApiClient({this.onGet, this.onPost, this.onPatch, this.onDelete});
 
   FutureOr<Object?> Function(String path, Map<String, dynamic>? params)? onGet;
   FutureOr<Object?> Function(String path, Map<String, dynamic>? data)? onPost;
+  FutureOr<Object?> Function(String path, Map<String, dynamic>? data)? onPatch;
+  FutureOr<Object?> Function(String path)? onDelete;
   final calls = <ApiCall>[];
 
   Response<dynamic> _ok(String path, Object? data) =>
@@ -33,6 +35,19 @@ class FakeApiClient implements ApiClient {
   Future<Response> post(String path, {Map<String, dynamic>? data}) async {
     calls.add((method: 'POST', path: path, params: null, data: data));
     return _ok(path, await (onPost?.call(path, data)));
+  }
+
+  @override
+  Future<Response> patch(String path, {Map<String, dynamic>? data}) async {
+    calls.add((method: 'PATCH', path: path, params: null, data: data));
+    return _ok(path, await (onPatch?.call(path, data)));
+  }
+
+  @override
+  Future<Response> delete(String path) async {
+    calls.add((method: 'DELETE', path: path, params: null, data: null));
+    if (onDelete == null) throw UnimplementedError('FakeApiClient: DELETE $path');
+    return _ok(path, await onDelete!(path));
   }
 
   @override

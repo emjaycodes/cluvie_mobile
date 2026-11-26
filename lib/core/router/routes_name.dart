@@ -32,6 +32,7 @@ class RouteNames {
 
   static const watchParty = 'watchParty';
   static const watchPartyList = 'watchPartyList';
+  static const watchPartyDetail = 'watchPartyDetail';
 
   static const profile = 'profile';
   static const userProfile = 'userProfile';

@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/router/routes_name.dart';
+import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/forgot_password_screen.dart';
@@ -27,6 +28,7 @@ import 'package:cluvie_mobile/features/suggest/presentation/suggestion_screen.da
 import 'package:cluvie_mobile/features/user_profile/presentation/profile_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_list_screen.dart';
+import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -117,6 +119,7 @@ final router = GoRouter(
         return WatchPartyScreen(
           title: extra['title'] is String ? extra['title'] as String : null,
           minutesLeft: extra['minutesLeft'] is int ? extra['minutesLeft'] as int : null,
+          partyId: extra['id'] is String ? extra['id'] as String : null,
         );
       },
     ),
@@ -132,6 +135,14 @@ final router = GoRouter(
         return WatchPartyListScreen(focus: focus is Map ? Map<String, dynamic>.from(focus) : null);
       },
     ),
+    GoRoute(
+      path: '/watch-parties/:id',
+      name: RouteNames.watchPartyDetail,
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => WatchPartyDetailScreen(partyId: state.pathParameters['id']!),
+    ),
+    // Backend notification links (`/watchparty/:id`).
+    GoRoute(path: '/watchparty/:id', redirect: (context, state) => '/watch-parties/${state.pathParameters['id']}'),
     GoRoute(
       name: RouteNames.movieDetails,
       path: '/movie/:id',
@@ -366,7 +377,9 @@ class _ChatUnavailableScreen extends StatelessWidget {
     final id = communityId;
     return Scaffold(
       appBar: ClAppBar(title: 'Club chat', fallbackRoute: id == null ? '/communities' : '/communities/$id'),
-      body: ClEmptyState(
+      body: ListView(padding: const EdgeInsets.all(AppSpacing.gutter), children: [
+        const SizedBox(height: AppSpacing.xl),
+        ClEmptyState(
         illustration: ClIllustration.discussions,
         title: "Club chat isn't open yet",
         message: 'Talk about each film in its discussion for now.',
@@ -374,6 +387,7 @@ class _ChatUnavailableScreen extends StatelessWidget {
         actionVariant: ClButtonVariant.secondary,
         onAction: id == null ? null : () => context.pushReplacement('/communities/$id/discussion'),
       ),
+      ]),
     );
   }
 }

@@ -1,218 +1,54 @@
+import 'package:cluvie_mobile/core/theme/app_spacing.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/features/watch_party/data/watch_parties.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+/// The live co-watching room (`/watchParty`). It needs the socket events
+/// (`watchparty:join`, presence) and the app has no socket client yet, so
+/// while [kWatchPartyRoomAvailable] is false this says so plainly instead of
+/// showing a room where nothing works (audit 1.29, P0-4).
 class WatchPartyScreen extends StatelessWidget {
-  const WatchPartyScreen({super.key, this.title, this.minutesLeft});
+  const WatchPartyScreen({
+    super.key,
+    this.title,
+    this.minutesLeft,
+    this.partyId,
+  });
 
-  /// The film being watched; the demo room shows "Arrival" when not given.
+  /// Kept for old callers (Home's demo cards); unused.
   final String? title;
   final int? minutesLeft;
 
+  /// The party to go back to, when known.
+  final String? partyId;
+
   @override
   Widget build(BuildContext context) {
+    final id = partyId;
     return Scaffold(
-      backgroundColor: const Color(0xFF0E0C1E),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            children: [
-              _TopBar(title: title ?? 'Arrival', minutesLeft: minutesLeft ?? 42),
-              const SizedBox(height: 24),
-              const Expanded(child: _AvatarSection()),
-              const _ControlPanel(),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
+      appBar: ClAppBar(
+        title: 'Live room',
+        fallbackRoute: id == null ? '/watch-parties' : '/watch-parties/$id',
       ),
-    );
-  }
-}
-
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.title, required this.minutesLeft});
-
-  final String title;
-  final int minutesLeft;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Flexible(
-          child: Text(title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              )),
-        ),
-        Text(
-          '${minutesLeft}m remaining',
-          style: const TextStyle(color: Colors.white54),
-        ),
-      ],
-    );
-  }
-}
-
-class _AvatarSection extends StatelessWidget {
-  const _AvatarSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const SizedBox(height: 12),
-        const EmojiReactionBar(),
-        const SizedBox(height: 16),
-        Expanded(
-          child: Center(
-            child: Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 24,
-              runSpacing: 24,
-              children: const [
-                VoiceAvatar(
-                  imageUrl: 'https://randomuser.me/api/portraits/women/2.jpg',
-                  isSpeaking: true,
+      body: ListView(
+        padding: const EdgeInsets.all(AppSpacing.gutter),
+        children: [
+          const SizedBox(height: AppSpacing.xl),
+          ClEmptyState(
+            illustration: ClIllustration.parties,
+            title: "Live rooms aren't open yet",
+            message:
+                'RSVP to a watch party and meet up at the time it says. Watching together in the app is coming.',
+            actionLabel: id == null ? 'See watch parties' : 'Open the party',
+            actionVariant: ClButtonVariant.secondary,
+            onAction:
+                () => context.pushReplacement(
+                  id == null ? '/watch-parties' : '/watch-parties/$id',
                 ),
-                VoiceAvatar(
-                  imageUrl: 'https://randomuser.me/api/portraits/men/65.jpg',
-                  isMuted: true,
-                ),
-                VoiceAvatar(
-                  imageUrl: 'https://randomuser.me/api/portraits/men/75.jpg',
-                ),
-                VoiceAvatar(
-                  imageUrl: 'https://randomuser.me/api/portraits/women/42.jpg',
-                ),
-              ],
-            ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-
-class VoiceAvatar extends StatelessWidget {
-  final String imageUrl;
-  final bool isSpeaking;
-  final bool isMuted;
-
-  const VoiceAvatar({
-    super.key,
-    required this.imageUrl,
-    this.isSpeaking = false,
-    this.isMuted = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Container(
-          padding: isSpeaking ? const EdgeInsets.all(3) : EdgeInsets.zero,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: isSpeaking ? Border.all(color: Colors.purpleAccent, width: 2) : null,
-          ),
-          child: CircleAvatar(
-            radius: 40,
-            backgroundImage: NetworkImage(imageUrl),
-          ),
-        ),
-        if (isMuted)
-          const Positioned(
-            bottom: 4,
-            right: 4,
-            child: CircleAvatar(
-              radius: 12,
-              backgroundColor: Colors.black87,
-              child: Icon(Icons.mic_off, size: 14, color: Colors.amber),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-
-class EmojiReactionBar extends StatelessWidget {
-  const EmojiReactionBar({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text('😍', style: TextStyle(fontSize: 30)),
-        SizedBox(width: 12),
-        Text('😧', style: TextStyle(fontSize: 30)),
-        SizedBox(width: 12),
-        Text('🥲', style: TextStyle(fontSize: 30)),
-      ],
-    );
-  }
-}
-
-
-class _ControlPanel extends StatelessWidget {
-  const _ControlPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            ControlButton(icon: Icons.mic_off),
-            SizedBox(width: 16),
-            ControlButton(icon: Icons.message),
-            SizedBox(width: 16),
-            ControlButton(icon: Icons.local_fire_department),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white10,
-            borderRadius: BorderRadius.circular(32),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: const [
-              Icon(Icons.volume_up, color: Colors.white),
-              Icon(Icons.chat_bubble_outline, color: Colors.white),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-
-
-class ControlButton extends StatelessWidget {
-  final IconData icon;
-
-  const ControlButton({super.key, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return CircleAvatar(
-      backgroundColor: Colors.white12,
-      radius: 24,
-      child: Icon(icon, color: Colors.white, size: 20),
+        ],
+      ),
     );
   }
 }

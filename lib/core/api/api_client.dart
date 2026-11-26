@@ -111,6 +111,14 @@ class ApiClient {
     }
   }
 
+  Future<Response> patch(String path, {Map<String, dynamic>? data}) async {
+    try {
+      return await _dio.patch(path, data: data);
+    } catch (e) {
+      throw _checked(e);
+    }
+  }
+
   Future<Response> delete(String path) async {
     try {
       return await _dio.delete(path);
