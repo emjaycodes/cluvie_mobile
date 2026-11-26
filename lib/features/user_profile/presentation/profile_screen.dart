@@ -11,18 +11,17 @@ import 'package:cluvie_mobile/features/user_profile/data/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart' show DateFormat;
 
 /// Profile (tab 5, `/profile`): who you are, your activity, your watchlist,
 /// and log out.
 ///
 /// * Identity, XP and counts come from `GET /users/me`; the watchlist from
 ///   `GET /watchlist`. Removing a film is immediate, with Undo.
-/// * No Edit: the backend has no profile update or avatar endpoint, so the
-///   avatar shows initials. No levels: the backend has XP only.
-/// * `/users/:id` (someone else) has no backend endpoint yet, so it says so
-///   instead of showing made-up data.
+/// * Edit opens `/profile/edit` for username, bio and avatar.
+/// * `/users/:id` shows someone else's public profile, with Follow.
 ///
-/// Gold budget: none.
+/// Gold budget: none on either profile screen. The edit screen owns its Save.
 class UserProfileScreen extends ConsumerWidget {
   const UserProfileScreen({super.key, this.userId});
 
@@ -33,29 +32,174 @@ class UserProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(currentUserIdProvider).valueOrNull;
     final id = userId;
-    if (id != null && id != me) return const _OtherProfile();
+    if (id != null && id != me) return _OtherProfile(id: id);
     return const _MyProfile();
   }
 }
 
-class _OtherProfile extends StatelessWidget {
-  const _OtherProfile();
+class _OtherProfile extends ConsumerStatefulWidget {
+  const _OtherProfile({required this.id});
+  final String id;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  ConsumerState<_OtherProfile> createState() => _OtherProfileState();
+}
+
+class _OtherProfileState extends ConsumerState<_OtherProfile> {
+  bool _busy = false;
+
+  Future<void> _toggle(PublicProfile profile) async {
+    if (_busy) return;
+    final following = ref.read(followOverrideProvider(widget.id)) ?? profile.isFollowing;
+    setState(() => _busy = true);
+    final outcome = await setFollowing(ref, widget.id, following: !following);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    final message = switch (outcome) {
+      FollowOutcome.done || FollowOutcome.cannotFollowSelf => null,
+      FollowOutcome.notFound => "This profile isn't available.",
+      FollowOutcome.failed => following ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again.",
+    };
+    if (message != null) ClSnackbar.show(context, message: message, type: ClSnackbarType.error);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = ref.watch(userProfileProvider(widget.id));
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    return profile.when(
+      skipLoadingOnRefresh: profile.hasValue,
+      skipError: profile.hasValue,
+      loading: () => Scaffold(
         appBar: const ClAppBar(title: 'Profile', fallbackRoute: '/home'),
-        body: ListView(padding: const EdgeInsets.all(AppSpacing.gutter), children: [
-          const SizedBox(height: AppSpacing.xl),
-          ClEmptyState(
-            illustration: ClIllustration.clubs,
-            title: "Member profiles aren't available yet",
-            message: 'For now you can see who is in a club on its About page.',
-            actionLabel: 'Go to Clubs',
-            actionVariant: ClButtonVariant.secondary,
-            onAction: () => context.go('/communities'),
+        body: Semantics(
+          label: 'Loading this profile',
+          liveRegion: true,
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, AppSpacing.xxl + bottom),
+            children: const [
+              Row(children: [
+                ClSkeleton(width: 72, height: 72, circle: true),
+                SizedBox(width: AppSpacing.lg),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    ClSkeleton(height: 22, width: 180),
+                    SizedBox(height: AppSpacing.sm),
+                    ClSkeleton(height: 14, width: 120),
+                  ]),
+                ),
+              ]),
+              SizedBox(height: AppSpacing.xl),
+              ClSkeleton(height: 64),
+              SizedBox(height: AppSpacing.md),
+              ClSkeleton(height: 88),
+            ],
           ),
-        ]),
-      );
+        ),
+      ),
+      error: (error, _) => Scaffold(
+        appBar: const ClAppBar(title: 'Profile', fallbackRoute: '/home'),
+        body: error is ProfileNotFound
+            ? ListView(
+                padding: EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.xl, AppSpacing.gutter, AppSpacing.xxl + bottom),
+                children: [
+                  ClEmptyState(
+                    icon: AppIcons.profile,
+                    title: "This profile isn't available.",
+                    message: 'The link may be broken, or the account may have been deleted.',
+                    actionLabel: 'Go home',
+                    actionVariant: ClButtonVariant.secondary,
+                    onAction: () => context.go('/home'),
+                  ),
+                ],
+              )
+            : ListView(
+                padding: EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.xl, AppSpacing.gutter, AppSpacing.xxl + bottom),
+                children: [
+                  ClErrorState(
+                    title: "Couldn't load this profile",
+                    onRetry: () => ref.invalidate(userProfileProvider(widget.id)),
+                  ),
+                ],
+              ),
+      ),
+      data: (p) {
+        // The backend is the authority: someone opening their own link sees
+        // their own profile (with Edit) rather than a Follow button.
+        if (p.isMe) return const _MyProfile();
+        return _buildProfile(context, p, bottom);
+      },
+    );
+  }
+
+  Widget _buildProfile(BuildContext context, PublicProfile p, double bottom) {
+    final override = ref.watch(followOverrideProvider(widget.id));
+    final following = override ?? p.isFollowing;
+    final delta = override == null || override == p.isFollowing ? 0 : (override ? 1 : -1);
+    final roomy = MediaQuery.textScalerOf(context).scale(1) <= 1.3;
+    final joined = p.joinedAt;
+
+    final identity = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Semantics(
+        header: true,
+        child: FitWordsText(breakableTokens(p.username), styles: const [AppTextStyles.h2, AppTextStyles.h3, AppTextStyles.title]),
+      ),
+      if (joined != null) ...[
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Joined ${DateFormat.yMMMM().format(joined.toLocal())}',
+          style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+        ),
+      ],
+    ]);
+
+    return Scaffold(
+      appBar: const ClAppBar(title: 'Profile', fallbackRoute: '/home'),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, AppSpacing.xxl + bottom),
+        children: [
+          if (roomy)
+            Row(children: [
+              ClAvatar(imageUrl: p.avatarUrl, name: p.username, radius: 36, ring: true),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(child: identity),
+            ])
+          else ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ClAvatar(imageUrl: p.avatarUrl, name: p.username, radius: 36, ring: true),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            identity,
+          ],
+          if (p.bio.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(breakableTokens(p.bio), style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+          ],
+          const SizedBox(height: AppSpacing.lg),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ClButton(
+              label: following ? 'Following' : 'Follow',
+              icon: following ? AppIcons.check : AppIcons.add,
+              variant: ClButtonVariant.secondary,
+              expand: false,
+              isLoading: _busy,
+              semanticLabel: following ? 'Unfollow ${p.username}' : 'Follow ${p.username}',
+              onPressed: () => _toggle(p),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          _Stats(stats: [
+            (value: p.followers + delta, label: p.followers + delta == 1 ? 'Follower' : 'Followers'),
+            (value: p.following, label: 'Following'),
+            (value: p.suggestions, label: p.suggestions == 1 ? 'Film suggested' : 'Films suggested'),
+            (value: p.clubs, label: p.clubs == 1 ? 'Club' : 'Clubs'),
+          ]),
+        ],
+      ),
+    );
+  }
 }
 
 class _MyProfile extends ConsumerWidget {
@@ -178,6 +322,10 @@ class _Header extends StatelessWidget {
         const SizedBox(height: AppSpacing.xxs),
         Text(breakableTokens(p.email!), style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary)),
       ],
+      if (p.bio.isNotEmpty) ...[
+        const SizedBox(height: AppSpacing.xs),
+        Text(breakableTokens(p.bio), style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+      ],
       if (p.isAdmin) ...[const SizedBox(height: AppSpacing.xs), const ClBadge('Admin')],
     ]);
     final stats = [
@@ -191,53 +339,78 @@ class _Header extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (roomy)
         Row(children: [
-          ClAvatar(name: p.username, radius: 36, ring: true),
+          ClAvatar(imageUrl: p.avatarUrl, name: p.username, radius: 36, ring: true),
           const SizedBox(width: AppSpacing.lg),
           Expanded(child: identity),
         ])
       else ...[
-        Align(alignment: Alignment.centerLeft, child: ClAvatar(name: p.username, radius: 36, ring: true)),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ClAvatar(imageUrl: p.avatarUrl, name: p.username, radius: 36, ring: true),
+        ),
         const SizedBox(height: AppSpacing.md),
         identity,
       ],
+      const SizedBox(height: AppSpacing.md),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: ClButton(
+          label: 'Edit profile',
+          icon: AppIcons.edit,
+          variant: ClButtonVariant.secondary,
+          expand: false,
+          onPressed: () => context.push('/profile/edit'),
+        ),
+      ),
       const SizedBox(height: AppSpacing.xl),
-      LayoutBuilder(builder: (context, box) {
-        // The most columns in which every label still fits whole.
-        final scaler = MediaQuery.textScalerOf(context);
-        final labelStyle = AppTextStyles.caption;
-        double widthFor(int n) => (box.maxWidth - AppSpacing.md * (n - 1)) / n;
-        bool fits(int n) {
-          // Card padding, plus a little for its border.
-          final inner = widthFor(n) - 2 * AppSpacing.md - 4;
-          return stats.expand((s) => s.label.split(' ')).every((w) {
-            final tp = TextPainter(text: TextSpan(text: w, style: labelStyle), textScaler: scaler, textDirection: TextDirection.ltr)..layout();
-            final ok = tp.width <= inner;
-            tp.dispose();
-            return ok;
-          });
-        }
+      _Stats(stats: stats),
+    ]);
+  }
+}
 
-        final columns = fits(3) ? 3 : (fits(2) ? 2 : 1);
-        final w = widthFor(columns);
-        return Wrap(spacing: AppSpacing.md, runSpacing: AppSpacing.md, children: [
-          for (final s in stats)
-            SizedBox(
-              width: w,
-              child: ClCard(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Semantics(
-                  label: '${s.label}: ${s.value}',
-                  excludeSemantics: true,
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${s.value}', style: AppTextStyles.h3),
-                    Text(s.label, style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
-                  ]),
-                ),
+/// The responsive count cards shared by your profile and someone else's.
+class _Stats extends StatelessWidget {
+  const _Stats({required this.stats});
+  final List<({int value, String label})> stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, box) {
+      // The most columns in which every label still fits whole.
+      final scaler = MediaQuery.textScalerOf(context);
+      final labelStyle = AppTextStyles.caption;
+      double widthFor(int n) => (box.maxWidth - AppSpacing.md * (n - 1)) / n;
+      bool fits(int n) {
+        // Card padding, plus a little for its border.
+        final inner = widthFor(n) - 2 * AppSpacing.md - 4;
+        return stats.expand((s) => s.label.split(' ')).every((w) {
+          final tp = TextPainter(text: TextSpan(text: w, style: labelStyle), textScaler: scaler, textDirection: TextDirection.ltr)..layout();
+          final ok = tp.width <= inner;
+          tp.dispose();
+          return ok;
+        });
+      }
+
+      final columns = fits(3) ? 3 : (fits(2) ? 2 : 1);
+      final w = widthFor(columns);
+      return Wrap(spacing: AppSpacing.md, runSpacing: AppSpacing.md, children: [
+        for (final s in stats)
+          SizedBox(
+            width: w,
+            child: ClCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Semantics(
+                label: '${s.label}: ${s.value}',
+                excludeSemantics: true,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${s.value}', style: AppTextStyles.h3),
+                  Text(s.label, style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
+                ]),
               ),
             ),
-        ]);
-      }),
-    ]);
+          ),
+      ]);
+    });
   }
 }
 
