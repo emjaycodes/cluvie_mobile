@@ -114,7 +114,10 @@ class _DiscussionThreadScreenState extends ConsumerState<DiscussionThreadScreen>
           message: "Couldn't post. Your text is still here.",
           type: ClSnackbarType.error,
           actionLabel: 'Retry',
-          onAction: () => _send(movieId),
+          // The snackbar can outlive the screen; then there's nothing to retry.
+          onAction: () {
+            if (mounted) _send(movieId);
+          },
         );
       }
     } finally {
@@ -166,8 +169,10 @@ class _DiscussionThreadScreenState extends ConsumerState<DiscussionThreadScreen>
     final posts = ref.watch(discussionProvider(movieId));
     final me = ref.watch(currentUserIdProvider).valueOrNull;
 
+    // Retrying after an error shows the skeleton. Pull-to-refresh goes
+    // through reload(), which never enters loading, so posts don't flash.
     final Widget content = posts.when(
-      skipLoadingOnRefresh: true,
+      skipLoadingOnRefresh: false,
       loading: () => ListView(
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.all(AppSpacing.gutter),

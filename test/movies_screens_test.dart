@@ -357,6 +357,90 @@ void main() {
       expect(find.text('Retry'), findsOneWidget);
     });
 
+    testWidgets('a failed vote\'s Retry votes again', (t) async {
+      var fail = true;
+      final api = pollsApi(onPost: (_, __) {
+        if (fail) throw _apiError(500);
+        return {'success': true};
+      });
+      await _pump(t, _app(api, initial: '/communities/$_club/vote'));
+      await _scrollTo(t, find.bySemanticsLabel('Vote for Past Lives'));
+      await t.tap(find.bySemanticsLabel('Vote for Past Lives'));
+      await t.pumpAndSettle();
+      fail = false;
+      await t.tap(find.text('Retry'));
+      await t.pumpAndSettle();
+      expect(api.calls.where((c) => c.method == 'POST'), hasLength(2));
+      expect(find.text('Voted for Past Lives'), findsOneWidget);
+    });
+
+    testWidgets('a non-member is told to join, not to retry (403)', (t) async {
+      final api = pollsApi(onPost: (_, __) => throw _apiError(403, {'success': false, 'message': 'You must be a member of this community to vote'}));
+      await _pump(t, _app(api, initial: '/communities/$_club/vote', extra: {'club': 'Cinema Sundays'}));
+      await _scrollTo(t, find.bySemanticsLabel('Vote for Past Lives'));
+      await t.tap(find.bySemanticsLabel('Vote for Past Lives'));
+      await t.pumpAndSettle();
+      expect(find.text('Join Cinema Sundays to vote'), findsOneWidget);
+      expect(find.text('Retry'), findsNothing);
+      expect(find.text('3 votes'), findsOneWidget, reason: 'rolled back');
+      await t.tap(find.text('Open club'));
+      await t.pumpAndSettle();
+      expect(find.text('club $_club'), findsOneWidget);
+    });
+
+    testWidgets('row labels start with the visible title, and give no rank', (t) async {
+      final handle = t.ensureSemantics();
+      await _pump(t, _app(pollsApi(), initial: '/communities/$_club/vote'));
+      String label(String title) =>
+          t.getSemantics(find.ancestor(of: find.text(title), matching: find.byType(ClPressable)).first).label;
+      expect(label('Oppenheimer'), 'Oppenheimer, 5 votes, Leading. Open film details');
+      expect(label('Past Lives'), 'Past Lives, 3 votes. Open film details');
+      await _scrollTo(t, find.bySemanticsLabel('Vote for Past Lives'));
+      await t.tap(find.bySemanticsLabel('Vote for Past Lives'));
+      await t.pumpAndSettle();
+      expect(label('Past Lives'), 'Past Lives, 4 votes, your vote. Open film details');
+      for (final title in ['Oppenheimer', 'Poor Things', 'Past Lives']) {
+        expect(label(title), isNot(contains('Number')));
+      }
+      handle.dispose();
+    });
+
+    testWidgets('a failed pull-to-refresh keeps the vote on screen and says so', (t) async {
+      var fail = false;
+      final api = pollsApi(polls: () {
+        if (fail) throw _apiError(503);
+        return [_poll()];
+      });
+      await _pump(t, _app(api, initial: '/communities/$_club/vote'));
+      fail = true;
+      await t.fling(find.byType(ListView), const Offset(0, 400), 1000);
+      await t.pumpAndSettle();
+      expect(find.text("Couldn't load the vote"), findsNothing);
+      expect(find.text('Friday night pick'), findsOneWidget);
+      expect(find.text("Couldn't refresh. Showing the earlier vote."), findsOneWidget);
+    });
+
+    testWidgets('retrying a failed load shows the skeleton', (t) async {
+      var calls = 0;
+      Completer<Object?>? held;
+      final api = pollsApi(polls: () => throw StateError('unused'));
+      api.onGet = (path, _) {
+        calls++;
+        if (calls == 1) throw _apiError(503);
+        held = Completer<Object?>();
+        return held!.future;
+      };
+      await _pump(t, _app(api, initial: '/communities/$_club/vote'));
+      expect(find.text("Couldn't load the vote"), findsOneWidget);
+      await t.tap(_button('Try again'));
+      await t.pump();
+      expect(find.text("Couldn't load the vote"), findsNothing);
+      expect(find.byType(ClSkeletonRow), findsWidgets);
+      held!.complete([_poll()]);
+      await t.pumpAndSettle();
+      expect(find.text('Friday night pick'), findsOneWidget);
+    });
+
     testWidgets('"already voted" reloads the poll and says so', (t) async {
       var loads = 0;
       final api = pollsApi(
@@ -579,6 +663,26 @@ void main() {
       }
     }
 
+    testWidgets('retrying a failed load shows the skeleton', (t) async {
+      var calls = 0;
+      Completer<Object?>? held;
+      final api = FakeApiClient(onGet: (path, _) {
+        calls++;
+        if (calls == 1) throw _apiError(503);
+        held = Completer<Object?>();
+        return held!.future;
+      });
+      await _pump(t, _app(api, initial: '/discussionThread', extra: extra()));
+      expect(find.text("Couldn't load the discussion"), findsOneWidget);
+      await t.tap(_button('Try again'));
+      await t.pump();
+      expect(find.text("Couldn't load the discussion"), findsNothing);
+      expect(find.byType(ClSkeletonRow), findsWidgets);
+      held!.complete([_post('a', 'Back again')]);
+      await t.pumpAndSettle();
+      expect(find.text('Back again'), findsOneWidget);
+    });
+
     testWidgets('send and like are at least 48dp', (t) async {
       await _pump(t, _app(threadApi(), initial: '/discussionThread', extra: extra()));
       final send = t.getSize(find.ancestor(of: find.byTooltip('Post'), matching: find.byType(SizedBox)).first);
@@ -625,6 +729,40 @@ void main() {
       expect(t.widget<DiscussionThreadScreen>(find.byType(DiscussionThreadScreen)).movieId, _catalogId);
     });
 
+    testWidgets('a failed pull-to-refresh keeps the films and says so', (t) async {
+      var fail = false;
+      final api = FakeApiClient(onGet: (path, _) {
+        if (fail) throw _apiError(503);
+        return {'success': true, 'data': [_catalog(376867)]};
+      });
+      await _pump(t, _app(api, initial: '/communities/$_club/discussion'));
+      fail = true;
+      await t.fling(find.byType(ListView), const Offset(0, 400), 1000);
+      await t.pumpAndSettle();
+      expect(find.text("Couldn't load discussions"), findsNothing);
+      expect(find.text('Moonlight'), findsOneWidget);
+      expect(find.text("Couldn't refresh. Showing earlier discussions."), findsOneWidget);
+    });
+
+    testWidgets('retrying a failed load shows the skeleton', (t) async {
+      var calls = 0;
+      Completer<Object?>? held;
+      final api = FakeApiClient(onGet: (path, _) {
+        calls++;
+        if (calls == 1) throw _apiError(503);
+        held = Completer<Object?>();
+        return held!.future;
+      });
+      await _pump(t, _app(api, initial: '/communities/$_club/discussion'));
+      await t.tap(_button('Try again'));
+      await t.pump();
+      expect(find.text("Couldn't load discussions"), findsNothing);
+      expect(find.byType(ClSkeletonRow), findsWidgets);
+      held!.complete({'success': true, 'data': [_catalog(376867)]});
+      await t.pumpAndSettle();
+      expect(find.text('Moonlight'), findsOneWidget);
+    });
+
     testWidgets('no films: empty state with suggest', (t) async {
       await _pump(t, _app(FakeApiClient(onGet: (_, __) => {'success': true, 'data': []}), initial: '/communities/$_club/discussion'));
       expect(find.text('No discussions yet'), findsOneWidget);
@@ -647,6 +785,15 @@ void main() {
               return [
                 _poll(options: [_option('o1', longTitle, 2), _option('o2', 'Oppenheimer', 1)]),
               ];
+            }
+            if (path == '/communities/$_club/movies') {
+              return {
+                'success': true,
+                'data': [
+                  {..._catalog(376867), 'title': longTitle, 'releaseDate': '2007-09-21'},
+                  {..._catalog(2), '_id': '64d000000000000000000002', 'title': 'Moonlight'},
+                ],
+              };
             }
             throw UnimplementedError(path);
           },
@@ -673,6 +820,14 @@ void main() {
           expectNoBrokenWords(t);
           expectNotTruncated(t, [longTitle, 'Oppenheimer']);
           expect(goldViolations(t, allowed: [find.widgetWithText(ClBadge, 'Leading')]), isEmpty);
+        });
+
+        testWidgets('$name: Club discussions fits; no gold', (t) async {
+          await _pump(t, _app(api(), initial: '/communities/$_club/discussion', size: size, scale: scale, padding: padding), size: size);
+          expect(t.takeException(), isNull);
+          expectNoBrokenWords(t);
+          expectNotTruncated(t, [longTitle, 'Moonlight']);
+          expect(goldViolations(t), isEmpty);
         });
 
         testWidgets('$name: Discussion fits; no gold', (t) async {

@@ -152,7 +152,10 @@ enum VoteRefusal {
   /// The poll closed or expired (`POLL_CLOSED`).
   closed,
 
-  /// Anything else: network, server, not a member.
+  /// The user isn't in the club (403). Retrying can't help.
+  notMember,
+
+  /// Anything else: network, server.
   failed,
 }
 
@@ -166,6 +169,7 @@ Future<VoteRefusal?> castVote(WidgetRef ref, {required String pollId, required S
     final code = body is Map ? body['code'] : null;
     if (code == 'ALREADY_VOTED') return VoteRefusal.alreadyVoted;
     if (code == 'POLL_CLOSED') return VoteRefusal.closed;
+    if (e.statusCode == 403) return VoteRefusal.notMember;
     return VoteRefusal.failed;
   } catch (_) {
     return VoteRefusal.failed;

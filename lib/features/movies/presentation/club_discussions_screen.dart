@@ -3,6 +3,7 @@ import 'package:cluvie_mobile/core/theme/app_color.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/core/utils/fit_text.dart';
 import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
 import 'package:cluvie_mobile/features/movies/data/polls.dart';
 import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
@@ -41,11 +42,15 @@ class ClubDiscussionsScreen extends ConsumerWidget {
     final bottom = MediaQuery.paddingOf(context).bottom;
 
     Future<void> reload() async {
-      ref.invalidate(clubFilmsProvider(communityId));
+      final hadFilms = ref.read(clubFilmsProvider(communityId)).hasValue;
       try {
+        ref.invalidate(clubFilmsProvider(communityId));
         await ref.read(clubFilmsProvider(communityId).future);
       } catch (_) {
-        // The error state says it.
+        // With nothing on screen the error state says it.
+        if (hadFilms && context.mounted) {
+          ClSnackbar.show(context, message: "Couldn't refresh. Showing earlier discussions.", type: ClSnackbarType.error);
+        }
       }
     }
 
@@ -62,10 +67,14 @@ class ClubDiscussionsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: ClAppBar(title: 'Discussions', frosted: true, fallbackRoute: '/communities/$communityId'),
+      // With films on screen, refreshing or a failed refresh keeps them.
+      // Without, a retry shows the skeleton so the tap visibly works.
       body: films.when(
-        skipLoadingOnRefresh: false,
+        skipLoadingOnRefresh: films.hasValue,
+        skipError: true,
         loading: () => Semantics(
           label: 'Loading discussions',
+          liveRegion: true,
           child: ListView(
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.all(AppSpacing.gutter),
@@ -115,6 +124,9 @@ class _FilmRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final film = entry.film;
+    // Above 1.6× text the poster and the "Open" hint step aside so long
+    // titles fit without breaking words (the whole row opens it anyway).
+    final roomy = MediaQuery.textScalerOf(context).scale(16) / 16 <= 1.6;
     return ClCard(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: ClPressable(
@@ -131,18 +143,20 @@ class _FilmRow extends StatelessWidget {
         excludeChildSemantics: true,
         borderRadius: AppRadius.mdAll,
         child: Row(children: [
-          ClPosterImage(url: film.posterUrl('w185'), width: 48, height: 72, radius: AppRadius.sm, decorative: true),
-          const SizedBox(width: AppSpacing.md),
+          if (roomy) ...[
+            ClPosterImage(url: film.posterUrl('w185'), width: 48, height: 72, radius: AppRadius.sm, decorative: true),
+            const SizedBox(width: AppSpacing.md),
+          ],
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(film.title, style: AppTextStyles.title),
+              FitWordsText(film.title, styles: const [AppTextStyles.title, AppTextStyles.label, AppTextStyles.bodySm]),
               if (film.year != null) ...[
                 const SizedBox(height: AppSpacing.xxs),
                 Text(film.year!, style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary)),
               ],
             ]),
           ),
-          Text('Open', style: AppTextStyles.label.copyWith(color: AppColors.purpleText)),
+          if (roomy) Text('Open', style: AppTextStyles.label.copyWith(color: AppColors.purpleText)),
         ]),
       ),
     );

@@ -63,14 +63,25 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
     super.dispose();
   }
 
+  /// Refetches the polls. With polls on screen they stay put while this
+  /// runs, and stay if it fails (with a snackbar saying so); local votes and
+  /// the frozen row order reset only once fresh data arrives.
   Future<void> _reload() async {
-    _local.clear();
-    _order.clear();
-    ref.invalidate(activePollsProvider(widget.communityId));
+    final provider = activePollsProvider(widget.communityId);
+    final hadPolls = ref.read(provider).hasValue;
     try {
-      await ref.read(activePollsProvider(widget.communityId).future);
+      ref.invalidate(provider);
+      await ref.read(provider.future);
+      if (!mounted) return;
+      setState(() {
+        _local.clear();
+        _order.clear();
+      });
     } catch (_) {
-      // The error state says it.
+      // With nothing on screen the error state says it.
+      if (mounted && hadPolls) {
+        ClSnackbar.show(context, message: "Couldn't refresh. Showing the earlier vote.", type: ClSnackbarType.error);
+      }
     }
   }
 
@@ -105,6 +116,18 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
       case VoteRefusal.closed:
         ClSnackbar.show(context, message: 'This poll has closed', type: ClSnackbarType.warning);
         await _reload();
+      case VoteRefusal.notMember:
+        setState(() => _local[poll.id] = before);
+        final club = widget.clubName;
+        ClSnackbar.show(
+          context,
+          message: club == null ? 'Join this club to vote' : 'Join $club to vote',
+          type: ClSnackbarType.info,
+          actionLabel: 'Open club',
+          onAction: () {
+            if (mounted) context.go('/communities/${widget.communityId}');
+          },
+        );
       case VoteRefusal.failed:
         setState(() => _local[poll.id] = before);
         ClSnackbar.show(
@@ -112,7 +135,10 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
           message: "Couldn't count your vote. Try again.",
           type: ClSnackbarType.error,
           actionLabel: 'Retry',
-          onAction: () => _vote(poll, option),
+          // The snackbar can outlive the screen; then there's nothing to retry.
+          onAction: () {
+            if (mounted) _vote(poll, option);
+          },
         );
     }
   }
@@ -120,7 +146,11 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     final polls = ref.watch(activePollsProvider(widget.communityId));
-    final me = ref.watch(currentUserIdProvider).valueOrNull;
+    final meAsync = ref.watch(currentUserIdProvider);
+    final me = meAsync.valueOrNull;
+    // Until we know who's voting, voting waits (no false "Sign in to vote",
+    // no Vote buttons flashing for people who already voted).
+    final resolvingMe = meAsync.isLoading && !meAsync.hasValue;
     final title = widget.clubName != null ? '${widget.clubName} vote' : 'Club vote';
     final bottom = MediaQuery.paddingOf(context).bottom;
 
@@ -137,10 +167,14 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
 
     return Scaffold(
       appBar: ClAppBar(title: title, frosted: true, fallbackRoute: '/communities/${widget.communityId}'),
+      // With polls on screen, refreshing or a failed refresh keeps them.
+      // Without, a retry shows the skeleton so the tap visibly works.
       body: polls.when(
-        skipLoadingOnRefresh: false,
+        skipLoadingOnRefresh: polls.hasValue,
+        skipError: true,
         loading: () => Semantics(
           label: 'Loading the vote',
+          liveRegion: true,
           child: ListView(
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.all(AppSpacing.gutter),
@@ -181,7 +215,7 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
                 poll: _current(p),
                 rows: _rows(_current(p)),
                 me: me,
-                busy: _voting.contains(p.id),
+                busy: _voting.contains(p.id) || resolvingMe,
                 onVote: (o) => _vote(p, o),
                 showGold: i == 0,
               ),
@@ -267,7 +301,6 @@ class _PollSection extends StatelessWidget {
         if (i > 0) const SizedBox(height: AppSpacing.md),
         _OptionRow(
           option: o,
-          rank: poll.ranked.indexOf(o) + 1,
           share: total == 0 ? 0 : o.voteCount / total,
           isLeader: leader?.id == o.id,
           leaderLabel: open ? 'Leading' : 'Winner',
@@ -302,7 +335,6 @@ class _PollSection extends StatelessWidget {
 class _OptionRow extends StatelessWidget {
   const _OptionRow({
     required this.option,
-    required this.rank,
     required this.share,
     required this.isLeader,
     required this.leaderLabel,
@@ -314,7 +346,6 @@ class _OptionRow extends StatelessWidget {
   });
 
   final PollOption option;
-  final int rank;
   final double share;
   final bool isLeader;
   final String leaderLabel;
@@ -328,8 +359,9 @@ class _OptionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final votes = option.voteCount;
     final votesText = '$votes ${votes == 1 ? 'vote' : 'votes'}';
+    // Starts with the visible title (label in name). No rank: none is shown,
+    // and the rows keep their order while live counts move.
     final spoken = [
-      'Number $rank',
       option.title,
       votesText,
       if (isLeader) leaderLabel,

@@ -345,6 +345,7 @@ class _Loading extends StatelessWidget {
       extendBodyBehindAppBar: true,
       body: Semantics(
         label: 'Loading film',
+        liveRegion: true,
         child: ListView(
           physics: const NeverScrollableScrollPhysics(),
           padding: EdgeInsets.zero,
