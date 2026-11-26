@@ -81,6 +81,8 @@ void main() {
       expect(dayAndTime(DateTime(2026, 11, 27, 0, 5), now: DateTime(2026, 11, 26, 23, 50)), 'tomorrow at 00:05');
     });
 
+    // Only bites in a timezone with the EU transition: run with
+    // TZ=Europe/London to catch a regression (in UTC the old code passes).
     test('dayAndTime counts calendar days, not 24h spans (DST-safe)', () {
       // Across the EU spring-forward night the local midnights are 23h apart;
       // inDays on local DateTimes gave 0 ("today"). Calendar days must give 1.

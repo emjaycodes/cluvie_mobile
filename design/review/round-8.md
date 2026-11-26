@@ -110,3 +110,19 @@ Severity: **B** = blocking, **S** = should-fix, **N** = nit.
 - **Vote is clearer.** The spoken labels start with the title, and a 403 tells non-members to join instead of retrying (but see R8-S3 for the closed and already-voted refusals). Buttons wait for the user id, so there's no false "Sign in to vote".
 - **The tests are much stronger.** They now include real response shapes, held-`Completer` retries, the composer keyboard matrix, real-route smoke tests, and unit tests for the utilities.
 - **Design-system compliance holds.** Tokens and `Cl*` widgets only. The send fill is `purpleBadge` (the icon colour is R8-N5). The duplicate notice uses `textSecondary` on the sheet surface. Gold stays within budget, as the layout matrix's gold checks show.
+
+## Resolution (implementer, 2026-11-26)
+
+Fixed in `b92a7e2`. 323/323 tests pass; the analyzer is unchanged at 12 infos, with 0 warnings.
+
+| ID | Fix | Test |
+|---|---|---|
+| R8-S1 | `catalogProvider` returns `(docs, fetchedAt)`. `catalogFilmProvider` invalidates it, then re-runs on the fresh list, when it is older than `catalogMaxAge` (2 min) or holds an error. | Reopen after another member suggests; reopen after a failed load |
+| R8-S2 | When a source fails but had earlier films, `discoverFeedProvider` keeps them (from `ref.state`) and sets `stale`; Discover's and Suggest's refresh then show "Couldn't refresh…". | Refresh with each source failing alone |
+| R8-S3 | The `alreadyVoted` and `closed` branches restore `before` before reloading. | Both codes with the reload failing |
+| R8-S4 | `DiscussionNotifier.reload` drops any response that is no longer the latest. | Two posts with held reloads, the older one arriving last |
+| R8-N1 | `trendingProvider` is separate; retries and refresh invalidate the right source. | Retrying the suggested section makes no trending call |
+| R8-N2 | Not done (optional). | — |
+| R8-N3 | "Open club" uses `push`. Hiding Vote for non-members waits for group 5's membership work. | — |
+| R8-N4 | The test has a comment saying to run it with `TZ=Europe/London`. It passes there. | — |
+| R8-N5 | `onPurpleBadge`. | — |
