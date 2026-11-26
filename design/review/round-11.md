@@ -201,3 +201,29 @@ All of these refer to `3c0c346`.
 - **R11-S3:** the party in progress isn't "next".
 
 Then adopt the backend's roster and reaction event (R11-N3) and its list filters, which removes the `here` workaround and the "A club member" placeholder.
+
+## Resolution (2026-11-26)
+
+An independent verification pass re-ran the checks and confirmed the round-11 fixes, then the five remaining items were closed. Fixes: `ecd1c9a` (room), `87dfad7` (Home S3, N1), `259f206` (profiles), `d5cb5d3` (make-admin codes), `14e0998` (Home S2, N2, N3, N5 redirect, N14). 585 of 585 tests pass; `flutter analyze` reports no issues.
+
+| id | resolution |
+|---|---|
+| R11-S1 | While `reconnecting`, a `ConnectFailed(unauthorized: false)` keeps the room and the "Reconnecting…" banner; only the first connect or the manager's final failure shows the error. `ecd1c9a`. |
+| R11-S2 | Home arms staleness from `build` as well as a provider change, so a remount with the cached non-autoDispose feed is handled. A next change already in the past forces one post-frame refetch (loop-guarded), and `closesInLabel` is nullable: a closed vote reads "Voting closed", never "closes in 1 minute". Resume refresh and the suggest (`suggest_sheet.dart:87`) and discussion (`discussions.dart:127`) invalidations are in. Tests: "a cached feed whose next change already passed refetches on mount, without a pull"; "a poll whose closesAt is past never renders a countdown". `14e0998`. |
+| R11-S3 | `happening` splits by time as well as status (`live`, or `scheduled` at/past its start and not over); every happening party is shown, the hero is the first future one, and the empty copy is "Nothing else planned yet." `87dfad7`. |
+| R11-N1 | Each join carries a generation and a link identity; a stale ack can't overwrite a newer join or a swapped link. `87dfad7`. |
+| R11-N2 | Leave answering 400 `NOT_PARTICIPANT` is treated as done and reloads the party, like `ALREADY_PARTICIPANT`. Test. `14e0998`. |
+| R11-N3 | `_here` seeds from the join ack's `roster`; names come from `roster` and `joined.username`; reactions use `watchparty:reaction`. An unknown person is "Someone" with a neutral avatar and no fake initials. `ecd1c9a`, `14e0998`. |
+| R11-N4 | `ConnectFailed(unauthorized: true)` routes through `ApiClient.onSessionEnded`, so the session ends everywhere instead of stranding the room. `ecd1c9a`. |
+| R11-N5 | **Partially resolved.** The legacy `/watchParty` deep link now lands on `/watch-parties/:id`, so the party page applies `canEnterRoom`. The room screen itself still gates only on `p.isOver()`; a pasted/stale room link can still join a cancelled or not-yet-open party. Left open because applying the 30-minute rule there needs a new "opens 30 minutes before" room state, which is a round-12 design question. |
+| R11-N6 | The room says "Starts …" and no screen calls `timeAgo` on a future time. The backend still records no actual start time, so Home's live card can only show the scheduled time; that ask stands. `ecd1c9a`. |
+| R11-N7 | A `live` party's host page offers "End party" (same confirm as the room); only a non-live party offers "Cancel party". `ecd1c9a`. |
+| R11-N8 | Home's Live badge is `ClBadgeTone.purpleSolid`, matching list, detail and room. `87dfad7`. |
+| R11-N9 | The poll total uses the server's `totalVotes`; a discussion's count is labelled "comments on the film"; a post without `createdAt` hides its time. `87dfad7`. |
+| R11-N10 | `socketEndpoint` strips a trailing slash and puts any remaining path prefix into `setPath('<prefix>/socket.io')` with namespace `/`. Unit tests cover `/api`, `/api/`, `/x/api` and a bare origin. `ecd1c9a`. |
+| R11-N11 | `signOut` navigates to Welcome before clearing state, so mounted tabs don't refetch without a token. `ecd1c9a`. |
+| R11-N12 | The hero leads with the party title and shows the film as support when they differ. `87dfad7`. |
+| R11-N13 | Reaction buttons use the `h3` token style and the shared disabled treatment; no raw `fontSize: 24` or `Opacity(0.4)`. `ecd1c9a`. |
+| R11-N14 | The 320×568 Home layout test scrolls with `scrollUntilVisible` on the horizontal `Scrollable`; the fake room emits `ConnectFailed` before and after `Disconnected`; `socketEndpoint` has unit tests. `14e0998`. |
+
+Backend asks still open: an actual start time on the party (`startedAt`), and the list filters from round 10. Also outstanding: the decision to delete or keep the local-only chat mock in `community_chat_screen.dart`.
