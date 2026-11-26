@@ -19,6 +19,7 @@ abstract final class AppIcons {
 
   // Actions
   static const IconData back = PhosphorIconsRegular.caretLeft;
+  static const IconData forward = PhosphorIconsRegular.caretRight;
   static const IconData close = PhosphorIconsRegular.x;
   static const IconData search = PhosphorIconsRegular.magnifyingGlass;
   static const IconData share = PhosphorIconsRegular.shareNetwork;

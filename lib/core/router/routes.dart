@@ -1,8 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/router/routes_name.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_bottom_nav_bar.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_empty_state.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/forgot_password_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/login_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/onboarding_screen.dart';
@@ -156,10 +156,10 @@ final router = GoRouter(
       path: '/communityChat',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        final community = state.extra as Community?;
-        if (community == null) {
-          return const _MissingExtraScreen(hint: 'CommunityChat');
-        }
+        final community = state.extra is Community ? state.extra as Community : null;
+        // No chat backend yet: say so rather than show a local-only mock.
+        if (!kClubChatAvailable) return _ChatUnavailableScreen(communityId: community?.id);
+        if (community == null) return const _MissingExtraScreen(title: 'Club chat');
         return CommunityChatScreen(community: community);
       },
     ),
@@ -167,17 +167,23 @@ final router = GoRouter(
       name: RouteNames.communityInfo,
       path: '/communityInfo',
       parentNavigatorKey: _rootNavigatorKey,
+      // Legacy: takes `extra: Community`. Prefer /communities/:id/about.
       builder: (context, state) {
-        final community = state.extra as Community?;
-        if (community == null) return const _MissingExtraScreen(hint: 'CommunityInfo');
-        return CommunityInfoScreen(community: community);
+        final id = state.extra is Community ? (state.extra as Community).id : null;
+        if (id == null) return const _MissingExtraScreen(title: 'About');
+        return CommunityInfoScreen(communityId: id);
       },
     ),
     GoRoute(
       name: RouteNames.communitySettings,
       path: '/communitySettings',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const ClubSettingsScreen(),
+      // Legacy: takes `extra: Community`. Prefer /communities/:id/settings.
+      builder: (context, state) {
+        final id = state.extra is Community ? (state.extra as Community).id : null;
+        if (id == null) return const _MissingExtraScreen(title: 'Membership');
+        return ClubSettingsScreen(communityId: id);
+      },
     ),
 
     // ── 5-tab ShellRoute ────────────────────────────────────────────
@@ -282,6 +288,16 @@ final router = GoRouter(
           },
         ),
         GoRoute(
+          name: RouteNames.communityAbout,
+          path: 'about',
+          builder: (context, state) => CommunityInfoScreen(communityId: state.pathParameters['id']!),
+        ),
+        GoRoute(
+          name: RouteNames.communityMembership,
+          path: 'settings',
+          builder: (context, state) => ClubSettingsScreen(communityId: state.pathParameters['id']!),
+        ),
+        GoRoute(
           name: RouteNames.discussion,
           path: 'discussion',
           builder: (context, state) {
@@ -305,14 +321,37 @@ final router = GoRouter(
 );
 
 class _MissingExtraScreen extends StatelessWidget {
-  final String hint;
-  const _MissingExtraScreen({required this.hint});
+  final String title;
+  const _MissingExtraScreen({required this.title});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(hint)),
-      body: const ClEmptyState(message: 'CL* — Missing navigation data. Go back and try again.'),
+      appBar: ClAppBar(title: title, fallbackRoute: '/communities'),
+      body: const ClEmptyState(
+        title: "Couldn't open this page",
+        message: 'Go back and try again.',
+      ),
     );
   }
 }
 
+class _ChatUnavailableScreen extends StatelessWidget {
+  const _ChatUnavailableScreen({this.communityId});
+  final String? communityId;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = communityId;
+    return Scaffold(
+      appBar: ClAppBar(title: 'Club chat', fallbackRoute: id == null ? '/communities' : '/communities/$id'),
+      body: ClEmptyState(
+        illustration: ClIllustration.discussions,
+        title: "Club chat isn't open yet",
+        message: 'Talk about each film in its discussion for now.',
+        actionLabel: id == null ? null : 'Open discussions',
+        actionVariant: ClButtonVariant.secondary,
+        onAction: id == null ? null : () => context.pushReplacement('/communities/$id/discussion'),
+      ),
+    );
+  }
+}

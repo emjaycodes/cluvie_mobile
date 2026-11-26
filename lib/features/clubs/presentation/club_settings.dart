@@ -1,128 +1,137 @@
+import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
+import 'package:cluvie_mobile/core/theme/app_spacing.dart';
+import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/core/utils/fit_text.dart';
+import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
+import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/club_scaffold.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class ClubSettingsScreen extends StatelessWidget {
-  const ClubSettingsScreen({super.key});
+/// Your membership of a club (`/communities/:id/settings`): your role, and
+/// leaving.
+///
+/// The backend can't rename, re-cover, moderate or delete a club, so none of
+/// those rows are offered. Owners can't leave (the backend refuses), so the
+/// screen says that up front instead of failing after the tap.
+///
+/// Gold budget: none. Leaving is a danger action.
+class ClubSettingsScreen extends ConsumerStatefulWidget {
+  const ClubSettingsScreen({super.key, required this.communityId});
+  final String communityId;
+
+  @override
+  ConsumerState<ClubSettingsScreen> createState() => _ClubSettingsScreenState();
+}
+
+class _ClubSettingsScreenState extends ConsumerState<ClubSettingsScreen> {
+  bool _leaving = false;
+
+  void _confirmLeave(Community club) {
+    showClDialog(
+      context: context,
+      title: 'Leave ${club.displayName}?',
+      message: "You'll stop seeing its votes and can't suggest films to it. You can join again later.",
+      confirmText: 'Leave club',
+      closeText: 'Stay',
+      showConfirm: true,
+      destructive: true,
+      onConfirm: () => _leave(club),
+    );
+  }
+
+  Future<void> _leave(Community club) async {
+    setState(() => _leaving = true);
+    final refusal = await leaveClub(ref, widget.communityId);
+    if (!mounted) return;
+    setState(() => _leaving = false);
+    switch (refusal) {
+      case null:
+        ClSnackbar.show(context, message: 'You left ${club.displayName}.', type: ClSnackbarType.success);
+        context.go('/communities');
+      case ClubActionRefusal.ownerCannotLeave:
+        ClSnackbar.show(context, message: "Owners can't leave their own club.", type: ClSnackbarType.error);
+      case ClubActionRefusal.notFound:
+        ClSnackbar.show(context, message: 'This club no longer exists.', type: ClSnackbarType.error);
+        context.go('/communities');
+      case ClubActionRefusal.failed:
+        ClSnackbar.show(context, message: "Couldn't leave. Check your connection and try again.", type: ClSnackbarType.error);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0F), // Night Slate
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              _Header(),
-              SizedBox(height: 12),
-              _LeaveClubButton(),
-              SizedBox(height: 24),
-              _SettingItem(label: 'Edit club Name'),
-              _SettingItem(label: 'Change Cover Image'),
-              _SettingItem(label: 'Membership', trailing: Text('Open to everyone', style: TextStyle(color: Colors.white38))),
-              _SettingItem(label: 'Role Management'),
-              _SettingItem(label: 'Pinned Content'),
-              _SettingItem(
-                label: 'Weekly Cycle',
-                trailing: Text('Votes: Mon-Wed • Watch: Fri', style: TextStyle(color: Colors.white38)),
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    return ClubScaffold(
+      communityId: widget.communityId,
+      title: 'Membership',
+      builder: (context, club) {
+        final me = ref.watch(currentUserIdProvider).valueOrNull;
+        final membership = membershipIn(ref, club);
+        final owner = club.isOwner(me);
+        final role = owner ? 'Owner' : (club.isAdmin(me) ? 'Admin' : 'Member');
+
+        final children = <Widget>[
+          Semantics(
+            header: true,
+            child: FitWordsText(club.displayName, styles: const [AppTextStyles.h2, AppTextStyles.h3, AppTextStyles.title]),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+        ];
+
+        if (membership == ClubMembership.notMember) {
+          children.add(ClEmptyState(
+            compact: true,
+            icon: AppIcons.clubs,
+            title: "You're not in this club",
+            message: 'Open the club to join it.',
+            actionLabel: 'Open club',
+            actionVariant: ClButtonVariant.secondary,
+            onAction: () => context.go('/communities/${widget.communityId}'),
+          ));
+        } else {
+          children.addAll([
+            ClCard(
+              child: Row(children: [
+                Icon(owner ? AppIcons.crown : AppIcons.user, color: AppColors.purpleText, size: 22),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Your role', style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
+                    Text(role, style: AppTextStyles.title),
+                  ]),
+                ),
+              ]),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+            if (owner) ...[
+              ClButton(label: 'Leave club', icon: AppIcons.signOut, variant: ClButtonVariant.danger, onPressed: null),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                "You started this club, so you can't leave it.",
+                style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
               ),
-              _SettingItem(label: 'Club Rules'),
-              _SettingItem(label: 'Mute Notifications', hasArrow: true),
-              Spacer(),
-              _ReportButton(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+            ] else if (membership == ClubMembership.member)
+              ClButton(
+                label: 'Leave club',
+                icon: AppIcons.signOut,
+                variant: ClButtonVariant.danger,
+                isLoading: _leaving,
+                onPressed: _leaving ? null : () => _confirmLeave(club),
+              ),
+          ]);
+        }
 
-class _Header extends StatelessWidget {
-  const _Header();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: const [
-        Icon(Icons.movie_filter, size: 30, color: Color(0xFFFFD27D)), // Gold Accent
-        SizedBox(width: 12),
-        Text(
-          'Cinephiles Unite',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SettingItem extends StatelessWidget {
-  final String label;
-  final Widget? trailing;
-  final bool hasArrow;
-
-  const _SettingItem({
-    required this.label,
-    this.trailing,
-    this.hasArrow = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const Divider(color: Colors.white12, height: 1),
-        ListTile(
-          title: Text(
-            label,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-          ),
-          trailing: trailing ??
-              (hasArrow
-                  ? const Icon(Icons.chevron_right, color: Colors.white38)
-                  : null),
-          contentPadding: EdgeInsets.zero,
-        ),
-      ],
-    );
-  }
-}
-class _ReportButton extends StatelessWidget {
-  const _ReportButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(bottom: 20),
-      child: Text(
-        'Report club',
-        style: TextStyle(
-          color: Color(0xFFFFD27D), // Gold Accent for warning
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
-class _LeaveClubButton extends StatelessWidget {
-  const _LeaveClubButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Text(
-      'Leave Club',
-      style: TextStyle(
-        color: AppColors.softRed, 
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-      ),
+        return ListView(
+          padding: EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, AppSpacing.xxl + bottom),
+          children: children,
+        );
+      },
     );
   }
 }

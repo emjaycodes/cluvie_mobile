@@ -8,6 +8,7 @@ import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/core/utils/fit_text.dart';
 import 'package:cluvie_mobile/core/utils/relative_time.dart';
 import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
+import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
 import 'package:cluvie_mobile/features/movies/data/polls.dart';
 import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
 import 'package:flutter/material.dart';
@@ -93,6 +94,21 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
     return [for (final id in order) if (byId[id] != null) byId[id]!];
   }
 
+  bool _joining = false;
+
+  Future<void> _join() async {
+    setState(() => _joining = true);
+    final refusal = await joinClub(ref, widget.communityId);
+    if (!mounted) return;
+    setState(() => _joining = false);
+    final club = widget.clubName ?? 'the club';
+    ClSnackbar.show(
+      context,
+      message: refusal == null ? 'You joined $club. Cast your vote.' : "Couldn't join $club. Try again.",
+      type: refusal == null ? ClSnackbarType.success : ClSnackbarType.error,
+    );
+  }
+
   Future<void> _vote(Poll poll, PollOption option) async {
     final me = ref.read(currentUserIdProvider).valueOrNull;
     if (me == null) {
@@ -155,6 +171,10 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
     // no Vote buttons flashing for people who already voted).
     final resolvingMe = meAsync.isLoading && !meAsync.hasValue;
     final title = widget.clubName != null ? '${widget.clubName} vote' : 'Club vote';
+    // Non-members get one "Join" card instead of Vote buttons that can only
+    // be refused. Unknown (loading, failed) keeps the buttons: the server
+    // still answers 403 with "Join … to vote".
+    final notMember = ref.watch(clubMembershipProvider(widget.communityId)) == ClubMembership.notMember;
     final bottom = MediaQuery.paddingOf(context).bottom;
 
     Widget scroll(List<Widget> children) => RefreshIndicator(
@@ -212,6 +232,10 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
             ]);
           }
           return scroll([
+            if (notMember) ...[
+              _JoinToVote(clubName: widget.clubName, joining: _joining, onJoin: _join),
+              const SizedBox(height: AppSpacing.section),
+            ],
             for (final (i, p) in list.indexed) ...[
               if (i > 0) const SizedBox(height: AppSpacing.section),
               _PollSection(
@@ -219,6 +243,7 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
                 rows: _rows(_current(p)),
                 me: me,
                 busy: _voting.contains(p.id) || resolvingMe,
+                member: !notMember,
                 onVote: (o) => _vote(p, o),
                 showGold: i == 0,
               ),
@@ -238,6 +263,7 @@ class _PollSection extends StatelessWidget {
     required this.busy,
     required this.onVote,
     required this.showGold,
+    this.member = true,
   });
 
   final Poll poll;
@@ -245,6 +271,9 @@ class _PollSection extends StatelessWidget {
   final String? me;
   final bool busy;
   final ValueChanged<PollOption> onVote;
+
+  /// False when the user is known not to be in the club: no Vote buttons.
+  final bool member;
 
   /// Only the first poll's leader gets the gold badge (gold budget).
   final bool showGold;
@@ -261,6 +290,8 @@ class _PollSection extends StatelessWidget {
     final String rule;
     if (!open) {
       rule = 'Voting has closed.';
+    } else if (!member) {
+      rule = 'Only club members can vote.';
     } else if (poll.allowMultiple) {
       rule = 'Vote for as many films as you like. Votes are final.';
     } else if (voted) {
@@ -310,7 +341,7 @@ class _PollSection extends StatelessWidget {
           gold: showGold,
           mine: me != null && o.voterIds.contains(me),
           canVote: open && !busy && (poll.allowMultiple ? !(me != null && o.voterIds.contains(me)) : !voted),
-          showVote: open && (poll.allowMultiple || !voted),
+          showVote: member && open && (poll.allowMultiple || !voted),
           onVote: () => onVote(o),
         ),
       ],
@@ -430,6 +461,37 @@ class _OptionRow extends StatelessWidget {
             onPressed: canVote ? onVote : null,
           ),
         ],
+      ]),
+    );
+  }
+}
+
+class _JoinToVote extends StatelessWidget {
+  const _JoinToVote({required this.clubName, required this.joining, required this.onJoin});
+  final String? clubName;
+  final bool joining;
+  final VoidCallback onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final club = clubName ?? 'this club';
+    return ClCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Join $club to vote', style: AppTextStyles.title),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Members vote on which suggested film the club watches.',
+          style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        ClButton(
+          label: 'Join club',
+          semanticLabel: 'Join $club',
+          icon: AppIcons.add,
+          variant: ClButtonVariant.purple,
+          isLoading: joining,
+          onPressed: joining ? null : onJoin,
+        ),
       ]),
     );
   }

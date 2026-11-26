@@ -1,97 +1,47 @@
 import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/models/community.dart';
-import 'package:cluvie_mobile/core/utils/build_config.dart';
 
+/// The backend's `/communities` routes. The backend has no update, delete,
+/// invite-code or chat routes, so none are offered here.
 class CommunityRepository {
-  // final Dio _dio;
-   final ApiClient _apiClient;
+  CommunityRepository({required ApiClient apiClient}) : _apiClient = apiClient;
+  final ApiClient _apiClient;
 
-    CommunityRepository({required ApiClient apiClient}) : _apiClient = apiClient;
-
- 
-
-
-  // Fetch all communities
-  Future<List<Community>> fetchJoinedCommunities() async {
-    try {
-      final response = await _apiClient.get('/communities/joined');
-      final data = response.data;
-      final communityList = data['communities'] as List;
-      final communities = communityList.map((json) => Community.fromJson(json)).toList();
-      return communities;
-    } catch (e) {
-      log('Error fetching communities: $e');
-      rethrow;
-    }
+  static List<Community> _list(Object? body, String key) {
+    final raw = body is Map ? (body[key] ?? body['data']) : body;
+    return [
+      for (final json in raw is List ? raw : const [])
+        if (json is Map) Community.fromJson(Map<String, dynamic>.from(json)),
+    ];
   }
 
-  Future<List<Community>> fetchAllCommunities() async {
-    try {
-      final response = await _apiClient.get('/communities/all');
-      final data = response.data;
-      final communityList = data['communities'] as List;
-      final communities = communityList.map((json) => Community.fromJson(json)).toList();
-      return communities;
-    } catch (e) {
-      log('Error fetching communities: $e');
-      rethrow;
-    }
-  }
+  /// Clubs the signed-in user belongs to (`GET /communities/joined`).
+  Future<List<Community>> fetchJoinedCommunities() async =>
+      _list((await _apiClient.get('/communities/joined')).data, 'communities');
 
+  /// Every club, newest first (`GET /communities/all`).
+  Future<List<Community>> fetchAllCommunities() async =>
+      _list((await _apiClient.get('/communities/all')).data, 'communities');
 
-  // Fetch a single community by ID
+  /// One club (`GET /communities/:id`, `{success, data}`).
   Future<Community> fetchCommunityById(String id) async {
-    try {
-      final response = await _apiClient.get('/communities/$id');
-      return Community.fromJson(response.data);
-    } catch (e) {
-      log('Error fetching community: $e');
-      rethrow;
-    }
+    final body = (await _apiClient.get('/communities/$id')).data;
+    final json = body is Map && body['data'] is Map ? body['data'] : body;
+    if (json is! Map) throw StateError('Unexpected club response');
+    return Community.fromJson(Map<String, dynamic>.from(json));
   }
 
-  // Create a new community
+  /// Creates a club; the caller becomes its owner (`POST /communities`).
   Future<Community> createCommunity(String name, String description) async {
-    try {
-      final response = await _apiClient.post(
-        '/communities',
-        data: {
-          'name': name,
-          'description': description,
-        }
-      );
-      final data = response.data;
-      final community= data['community'];
-      log('✅ Success: ${response.data}');
-      return Community.fromJson(community);
-      
-    } catch (e) {
-      log('Error creating community: $e');
-      rethrow;
-    }
+    final body = (await _apiClient.post('/communities', data: {'name': name, 'description': description})).data;
+    final json = body is Map ? (body['community'] ?? body['data']) : null;
+    if (json is! Map) throw StateError('Unexpected create response');
+    return Community.fromJson(Map<String, dynamic>.from(json));
   }
 
-  // Update a community
-  Future<Community> updateCommunity(String id, Community community) async {
-    try {
-      final response = await _apiClient.put(
-        '/communities/$id',
-        data: community.toJson(),
-      );
-      return Community.fromJson(response.data);
-    } catch (e) {
-      log('Error updating a community: $e');
-      rethrow;
-    }
-  }
+  /// `POST /communities/:id/join`
+  Future<void> join(String id) => _apiClient.post('/communities/$id/join');
 
-  // Delete a community
-  Future<void> deleteCommunity(String id) async {
-    try {
-      await _apiClient.delete('/communities/$id');
-    } catch (e) {
-      log('Error deleting a community: $e');
-      rethrow;
-    }
-  }
+  /// `POST /communities/:id/leave`
+  Future<void> leave(String id) => _apiClient.post('/communities/$id/leave');
 }

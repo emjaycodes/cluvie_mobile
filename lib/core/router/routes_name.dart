@@ -14,6 +14,8 @@ class RouteNames {
   static const communityChat = 'communityChat';
   static const communityInfo = 'communityInfo';
   static const communitySettings = 'communitySettings';
+  static const communityAbout = 'communityAbout';
+  static const communityMembership = 'communityMembership';
   static const createCommunity = 'createCommunity';
 
   static const movies = 'movies';

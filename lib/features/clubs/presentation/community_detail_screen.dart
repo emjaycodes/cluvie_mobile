@@ -1,278 +1,214 @@
-// ignore_for_file: deprecated_member_use
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
+import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_chip.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_empty_state.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/core/utils/fit_text.dart';
+import 'package:cluvie_mobile/core/utils/relative_time.dart';
+import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/widgets/club_tile.dart';
+import 'package:cluvie_mobile/features/discover/presentation/movie_poster_tile.dart';
+import 'package:cluvie_mobile/features/movies/data/polls.dart';
+import 'package:cluvie_mobile/features/movies/presentation/club_discussions_screen.dart';
+import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:intl/intl.dart';
 
-/// Community Detail — CF-04/05/06
-/// Route: /communities/:id
-/// Shows name/desc, members+roles, movie_suggestions, active poll, discussions.
-/// Per PRD-012, handles loading/error/empty per section with CL* widgets.
-class CommunityDetailScreen extends StatelessWidget {
-  final String communityId;
+/// The club hub (`/communities/:id`): who the club is, its open vote and the
+/// films it has suggested.
+///
+/// * Club from `GET /communities/:id`, vote from `/polls/active`, films from
+///   `/communities/:id/movies`. Each section loads, fails and retries on
+///   its own; a failed refresh keeps what's on screen.
+/// * Non-members get one "Join club" action; suggest needs membership. While
+///   membership is unknown, neither shows.
+/// * Members are ids only on the backend, so the screen shows counts, not
+///   names.
+///
+/// Gold budget: "Join club" for non-members, "Suggest a film" for members.
+class CommunityDetailScreen extends ConsumerStatefulWidget {
   const CommunityDetailScreen({super.key, required this.communityId});
+  final String communityId;
+
+  @override
+  ConsumerState<CommunityDetailScreen> createState() => _CommunityDetailScreenState();
+}
+
+class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
+  bool _joining = false;
+
+  String get _id => widget.communityId;
+
+  Future<void> _refresh() async {
+    final hadClub = ref.read(communityProvider(_id)).hasValue;
+    ref.invalidate(communityProvider(_id));
+    ref.invalidate(activePollsProvider(_id));
+    ref.invalidate(clubFilmsProvider(_id));
+    try {
+      await ref.read(communityProvider(_id).future);
+    } catch (_) {
+      if (hadClub && mounted) {
+        ClSnackbar.show(context, message: "Couldn't refresh. Showing earlier details.", type: ClSnackbarType.error);
+      }
+    }
+    // The sections show their own errors.
+    await Future.wait([
+      ref.read(activePollsProvider(_id).future).then((_) {}, onError: (_) {}),
+      ref.read(clubFilmsProvider(_id).future).then((_) {}, onError: (_) {}),
+    ]);
+  }
+
+  Future<void> _join(Community club) async {
+    setState(() => _joining = true);
+    final refusal = await joinClub(ref, _id);
+    if (!mounted) return;
+    setState(() => _joining = false);
+    switch (refusal) {
+      case null:
+        ClSnackbar.show(context, message: 'Welcome to ${club.displayName}.', type: ClSnackbarType.success);
+      case ClubActionRefusal.notFound:
+        ClSnackbar.show(context, message: 'This club no longer exists.', type: ClSnackbarType.error);
+      case ClubActionRefusal.ownerCannotLeave:
+      case ClubActionRefusal.failed:
+        ClSnackbar.show(context, message: "Couldn't join. Check your connection and try again.", type: ClSnackbarType.error);
+    }
+  }
+
+  void _openMenu(Community club, ClubMembership membership) {
+    showClSheet<void>(
+      context,
+      title: club.displayName,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        _MenuRow(
+          icon: AppIcons.info,
+          label: 'About this club',
+          onTap: () {
+            Navigator.pop(context);
+            context.push('/communities/$_id/about');
+          },
+        ),
+        _MenuRow(
+          icon: AppIcons.chats,
+          label: 'Discussions',
+          onTap: () {
+            Navigator.pop(context);
+            context.push('/communities/$_id/discussion');
+          },
+        ),
+        if (membership == ClubMembership.member)
+          _MenuRow(
+            icon: AppIcons.settings,
+            label: 'Membership',
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/communities/$_id/settings');
+            },
+          ),
+      ]),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Demo community — in real app fetch via GET /api/communities/:id
-    final demo = Community(
-      id: communityId,
-      name: 'Cinema Sundays 🌅',
-      description: 'Weekly watch + vote + discuss. Host: Carmen. 12 members.',
-      members: ['u1', 'u2', 'u3'],
-      admins: ['u1'],
-      votes: [],
-      movieSuggestions: [],
-      createdAt: DateTime.now().subtract(const Duration(days: 30)),
-    );
-    // Helper for role display
-    String roleFor(String? uid) => (demo.admins.contains(uid) ? 'admin' : 'member');
+    final clubAsync = ref.watch(communityProvider(_id));
+    final club = clubAsync.valueOrNull;
+    final membership = club == null ? ClubMembership.unknown : membershipIn(ref, club);
+    final bottom = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(demo.name ?? 'Community', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
+      appBar: ClAppBar(
+        title: club?.displayName ?? 'Club',
+        frosted: true,
+        fallbackRoute: '/communities',
         actions: [
-          IconButton(icon: const Icon(Icons.info_outline), onPressed: () => context.push('/communityInfo', extra: demo)),
-          IconButton(icon: const Icon(Icons.chat_bubble_outline), onPressed: () => context.push('/communityChat', extra: demo)),
-          IconButton(icon: const Icon(Icons.settings_outlined), onPressed: () => context.push('/communitySettings')),
+          if (club != null)
+            ClIconButton(icon: AppIcons.more, tooltip: 'Club menu', onPressed: () => _openMenu(club, membership)),
+          const SizedBox(width: AppSpacing.sm),
         ],
       ),
-      body: RefreshIndicator(
-        color: AppColors.accent,
-        onRefresh: () async => await Future.delayed(const Duration(milliseconds: 600)),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      body: clubAsync.when(
+        skipLoadingOnRefresh: clubAsync.hasValue,
+        skipError: clubAsync.hasValue,
+        loading: () => Semantics(
+          label: 'Loading club',
+          liveRegion: true,
+          child: ListView(
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(AppSpacing.gutter),
+            children: const [
+              Row(children: [
+                ClSkeleton(width: 72, height: 72, circle: true),
+                SizedBox(width: AppSpacing.lg),
+                Expanded(child: ClSkeleton(height: 28)),
+              ]),
+              SizedBox(height: AppSpacing.xl),
+              ClSkeleton(height: 48),
+              SizedBox(height: AppSpacing.xl),
+              ClSkeleton(height: 140),
+            ],
+          ),
+        ),
+        error: (e, _) => ListView(
+          padding: const EdgeInsets.all(AppSpacing.gutter),
+          children: [
+            const SizedBox(height: AppSpacing.xxl),
+            if (e is ClubNotFound)
+              ClEmptyState(
+                illustration: ClIllustration.clubs,
+                title: "This club doesn't exist",
+                message: 'It may have been removed, or the link is wrong.',
+                actionLabel: 'Browse clubs',
+                actionVariant: ClButtonVariant.secondary,
+                onAction: () => context.go('/communities'),
+              )
+            else
+              ClErrorState(title: "Couldn't load this club", onRetry: () => ref.invalidate(communityProvider(_id))),
+          ],
+        ),
+        data: (club) => RefreshIndicator(
+          onRefresh: _refresh,
+          color: AppColors.purple,
+          backgroundColor: AppColors.surfaceRaised,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.xxl + bottom),
             children: [
-              // Header card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: AppColors.cinematicGradient,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(20)),
-                          child: Row(children: [
-                            const Icon(Icons.verified, size: 14, color: Colors.white),
-                            const SizedBox(width: 6),
-                            Text('${demo.members.length} members', style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-                          ]),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(8)),
-                          child: Text('Invite code: CLUV-${communityId.substring(0, 4).toUpperCase()}',
-                              style: AppTextStyles.caption.copyWith(color: Colors.black, fontWeight: FontWeight.w700, fontSize: 11)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(demo.description ?? '', style: AppTextStyles.body.copyWith(color: Colors.white.withOpacity(0.9))),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ClButton(
-                            label: 'Suggest a Movie',
-                            onPressed: () => context.push('/communities/$communityId/suggest'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ClButton(
-                            label: 'Vote now',
-                            isSecondary: true,
-                            onPressed: () => context.push('/communities/$communityId/vote'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Members + roles
-              Text('Members', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: demo.members.map((uid) {
-                  final role = roleFor(uid);
-                  final isAdmin = role == 'admin';
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.darkSurface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isAdmin ? AppColors.accent.withOpacity(0.5) : Colors.white10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircleAvatar(
-                          radius: 14,
-                          backgroundImage: CachedNetworkImageProvider('https://randomuser.me/api/portraits/${isAdmin ? 'women' : 'men'}/${isAdmin ? 44 : 32}.jpg'),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(uid ?? 'user', style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
-                        const SizedBox(width: 6),
-                        ClChip(label: role, isSelected: isAdmin),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 20),
-
-              // Movie suggestions — empty CTA per PRD
-              Text('Movie Suggestions', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-              const SizedBox(height: 10),
-              if (demo.movieSuggestions.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: AppColors.darkSurface, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)),
-                  child: Column(
-                    children: [
-                      const ClEmptyState(message: 'No suggestions yet — be the first!', icon: Icons.movie_outlined),
-                      const SizedBox(height: 12),
-                      ClButton(label: 'Suggest a Film', onPressed: () => context.push('/communities/$communityId/suggest')),
-                    ],
-                  ),
-                )
-              else
-                SizedBox(
-                  height: 180,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: 3,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (_, i) => ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: CachedNetworkImage(
-                        imageUrl: 'https://image.tmdb.org/t/p/w300/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg',
-                        width: 120,
-                        fit: BoxFit.cover,
-                        placeholder: (c, u) => Shimmer.fromColors(
-                          baseColor: Colors.grey.shade800,
-                          highlightColor: Colors.grey.shade700,
-                          child: Container(width: 120, height: 180, color: Colors.white),
-                        ),
-                        errorWidget: (_, __, ___) => Container(width: 120, color: AppColors.darkSurface, child: const Icon(Icons.broken_image, color: Colors.white30)),
+              Padding(padding: AppSpacing.screen, child: _Header(club: club, membership: membership)),
+              const SizedBox(height: AppSpacing.xl),
+              Padding(
+                padding: AppSpacing.screen,
+                child: switch (membership) {
+                  ClubMembership.notMember => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      ClButton(
+                        label: 'Join club',
+                        icon: AppIcons.add,
+                        variant: ClButtonVariant.primary,
+                        isLoading: _joining,
+                        onPressed: _joining ? null : () => _join(club),
                       ),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 20),
-
-              // Active poll
-              Text('Active Poll', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.darkSurface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.accent.withOpacity(0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.how_to_vote, color: AppColors.accent, size: 18),
-                        const SizedBox(width: 8),
-                        Text('Vote for this week’s pick', style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
-                          child: Text('Ends in 18h', style: AppTextStyles.caption.copyWith(color: AppColors.accent, fontWeight: FontWeight.w700)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _PollRow(title: 'Past Lives', votes: 7, isWinner: true),
-                    _PollRow(title: 'Oppenheimer', votes: 5),
-                    _PollRow(title: 'The Zone of Interest', votes: 2),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => context.push('/communities/$communityId/vote'),
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                        child: const Text('Open Voting', style: TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'Join to suggest films and vote on what the club watches.',
+                        style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                        textAlign: TextAlign.center,
                       ),
+                    ]),
+                  ClubMembership.member => ClButton(
+                      label: 'Suggest a film',
+                      icon: AppIcons.popcorn,
+                      variant: ClButtonVariant.primary,
+                      onPressed: () => context.push('/communities/$_id/suggest'),
                     ),
-                  ],
-                ),
+                  ClubMembership.unknown => const SizedBox.shrink(),
+                },
               ),
-              const SizedBox(height: 20),
-
-              // Discussions preview
-              Row(
-                children: [
-                  Text('Discussions', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-                  const Spacer(),
-                  TextButton(onPressed: () => context.push('/communities/$communityId/discussion'), child: Text('View all', style: TextStyle(color: AppColors.accent))),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.darkSurface, borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  children: [
-                    const CircleAvatar(backgroundImage: NetworkImage('https://randomuser.me/api/portraits/women/68.jpg'), radius: 18),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('What did everyone think of the ending?', style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        Text('2 replies · 4h ago', style: AppTextStyles.caption.copyWith(color: AppColors.darkTextSecondary)),
-                      ]),
-                    ),
-                    const Icon(Icons.chevron_right, color: Colors.white30),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.darkSurface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.accent.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(6)),
-                      child: Text('PINNED', style: AppTextStyles.caption.copyWith(color: Colors.black, fontWeight: FontWeight.w800, fontSize: 10)),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text('📌 Watch party rules — please read before RSVP', style: AppTextStyles.body.copyWith(color: Colors.white))),
-                  ],
-                ),
-              ),
+              const SizedBox(height: AppSpacing.section),
+              _VoteSection(communityId: _id, clubName: club.displayName, membership: membership),
+              const SizedBox(height: AppSpacing.section),
+              _FilmsSection(communityId: _id, membership: membership),
             ],
           ),
         ),
@@ -281,34 +217,258 @@ class CommunityDetailScreen extends StatelessWidget {
   }
 }
 
-class _PollRow extends StatelessWidget {
-  final String title;
-  final int votes;
-  final bool isWinner;
-  const _PollRow({required this.title, required this.votes, this.isWinner = false});
+class _Header extends StatelessWidget {
+  const _Header({required this.club, required this.membership});
+  final Community club;
+  final ClubMembership membership;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: isWinner ? AppColors.accent.withOpacity(0.12) : Colors.white.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isWinner ? AppColors.accent.withOpacity(0.4) : Colors.white10),
+    final since = club.createdAt;
+    final description = club.description;
+    // Above 1.3× text the monogram sits above the name, giving it the
+    // full width.
+    final roomy = MediaQuery.textScalerOf(context).scale(16) / 16 <= 1.3;
+    final avatar = ClAvatar(name: club.displayName, radius: 32, ring: true);
+    final title = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Semantics(
+        header: true,
+        child: FitWordsText(club.displayName, styles: const [AppTextStyles.h2, AppTextStyles.h3, AppTextStyles.title]),
       ),
-      child: Row(
-        children: [
-          Expanded(child: Text(title, style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: isWinner ? FontWeight.w700 : FontWeight.w400))),
-          if (isWinner)
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(20)),
-              child: Text('WINNER', style: AppTextStyles.caption.copyWith(color: Colors.black, fontWeight: FontWeight.w800, fontSize: 10)),
-            ),
-          Text('$votes votes', style: AppTextStyles.caption.copyWith(color: AppColors.darkTextSecondary)),
-        ],
+      const SizedBox(height: AppSpacing.xxs),
+      Text(
+        [clubStats(club), if (since != null) 'Since ${DateFormat.yMMM().format(since)}'].join(' · '),
+        style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
       ),
-    );
+    ]);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (roomy)
+        Row(children: [avatar, const SizedBox(width: AppSpacing.lg), Expanded(child: title)])
+      else ...[
+        avatar,
+        const SizedBox(height: AppSpacing.md),
+        title,
+      ],
+      if (membership == ClubMembership.member) ...[
+        const SizedBox(height: AppSpacing.md),
+        const ClBadge('You’re a member', tone: ClBadgeTone.success, icon: AppIcons.check, uppercase: false),
+      ],
+      if (description != null) ...[
+        const SizedBox(height: AppSpacing.md),
+        Text(description, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary), maxLines: 4, overflow: TextOverflow.ellipsis),
+      ],
+    ]);
   }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title, {this.actionLabel, this.onAction});
+  final String title;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) => ClSectionHeader(
+        title: title,
+        actionLabel: actionLabel,
+        onAction: onAction,
+        padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, 0, AppSpacing.gutter, AppSpacing.md),
+      );
+}
+
+/// The club's open vote, soonest to close first.
+class _VoteSection extends ConsumerWidget {
+  const _VoteSection({required this.communityId, required this.clubName, required this.membership});
+  final String communityId;
+  final String clubName;
+  final ClubMembership membership;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final polls = ref.watch(activePollsProvider(communityId));
+    void openVote() => context.push('/communities/$communityId/vote', extra: {'club': clubName});
+
+    final body = polls.when(
+      skipLoadingOnRefresh: polls.hasValue,
+      skipError: polls.hasValue,
+      loading: () => const ClSkeleton(height: 120),
+      error: (_, __) => ClErrorState(
+        title: "Couldn't load the vote",
+        compact: true,
+        onRetry: () => ref.invalidate(activePollsProvider(communityId)),
+      ),
+      data: (list) {
+        final now = DateTime.now();
+        final open = list.where((p) => p.isOpenAt(now)).toList();
+        if (open.isEmpty) {
+          return ClCard(
+            child: Row(children: [
+              const Icon(AppIcons.poll, color: AppColors.textSecondary, size: 24),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('No vote open', style: AppTextStyles.title),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    'When the club opens a vote on its suggestions, it shows here.',
+                    style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                  ),
+                ]),
+              ),
+            ]),
+          );
+        }
+        final poll = open.first;
+        final leader = poll.leader;
+        final left = timeLeft(poll.expiresAt, now: now);
+        final total = poll.totalVotes;
+        return ClCard(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.xs, children: [
+              if (left != null) ClBadge('Closes in $left', tone: ClBadgeTone.purple, icon: AppIcons.clock, uppercase: false),
+              if (open.length > 1) ClBadge('${open.length} votes open', tone: ClBadgeTone.glass, uppercase: false),
+            ]),
+            const SizedBox(height: AppSpacing.md),
+            Text(poll.question, style: AppTextStyles.title),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              leader == null
+                  ? '${poll.options.length} film${poll.options.length == 1 ? '' : 's'} · no votes yet'
+                  : '${leader.title} leads · $total vote${total == 1 ? '' : 's'}',
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ClButton(
+              label: membership == ClubMembership.member ? 'Vote' : 'See the vote',
+              icon: AppIcons.poll,
+              variant: ClButtonVariant.inverse,
+              onPressed: openVote,
+            ),
+          ]),
+        );
+      },
+    );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const _SectionTitle('Vote'),
+      Padding(padding: AppSpacing.screen, child: body),
+    ]);
+  }
+}
+
+/// Films the club has suggested; each opens its discussion.
+class _FilmsSection extends ConsumerWidget {
+  const _FilmsSection({required this.communityId, required this.membership});
+  final String communityId;
+  final ClubMembership membership;
+
+  static const _width = 112.0;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final films = ref.watch(clubFilmsProvider(communityId));
+    final hasFilms = films.valueOrNull?.isNotEmpty ?? false;
+
+    final Widget body = films.when(
+      skipLoadingOnRefresh: films.hasValue,
+      skipError: films.hasValue,
+      loading: () => SizedBox(
+        height: _width * 3 / 2,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: AppSpacing.screen,
+          children: [
+            for (var i = 0; i < 4; i++) ...[
+              if (i > 0) const SizedBox(width: AppSpacing.md),
+              const ClSkeleton(width: _width, height: _width * 3 / 2),
+            ],
+          ],
+        ),
+      ),
+      error: (_, __) => Padding(
+        padding: AppSpacing.screen,
+        child: ClErrorState(
+          title: "Couldn't load the club's films",
+          compact: true,
+          onRetry: () => ref.invalidate(clubFilmsProvider(communityId)),
+        ),
+      ),
+      data: (list) {
+        if (list.isEmpty) {
+          return Padding(
+            padding: AppSpacing.screen,
+            child: ClCard(
+              child: ClEmptyState(
+                compact: true,
+                illustration: ClIllustration.discussions,
+                title: 'No films yet',
+                message: membership == ClubMembership.member
+                    ? 'Suggest the first one. Each film gets its own discussion.'
+                    : 'Films the club suggests show here, each with its own discussion.',
+              ),
+            ),
+          );
+        }
+        return SizedBox(
+          height: _width * 3 / 2 + MoviePosterTile.textHeight(context),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: AppSpacing.screen,
+            itemCount: list.length,
+            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+            itemBuilder: (context, i) {
+              final entry = list[i];
+              return MoviePosterTile(
+                movie: entry.film,
+                width: _width,
+                onTap: () => context.push(
+                  '/discussionThread',
+                  extra: DiscussionThreadScreen.extraFor(
+                    movieId: entry.movieId,
+                    title: entry.film.title,
+                    posterUrl: entry.film.posterUrl('w185'),
+                    tmdbId: entry.film.id,
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _SectionTitle(
+        'Club films',
+        actionLabel: hasFilms ? 'Discussions' : null,
+        onAction: hasFilms ? () => context.push('/communities/$communityId/discussion') : null,
+      ),
+      body,
+    ]);
+  }
+}
+
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ClPressable(
+        onTap: onTap,
+        borderRadius: AppRadius.mdAll,
+        semanticLabel: label,
+        excludeChildSemantics: true,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: AppSpacing.minTouch + 8),
+          child: Row(children: [
+            Icon(icon, color: AppColors.textSecondary, size: 22),
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(child: Text(label, style: AppTextStyles.body)),
+            const Icon(AppIcons.forward, color: AppColors.textMuted, size: 18),
+          ]),
+        ),
+      );
 }

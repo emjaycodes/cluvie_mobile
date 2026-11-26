@@ -1,250 +1,121 @@
-
-// ignore_for_file: unused_element
-
 import 'package:cluvie_mobile/core/models/community.dart';
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
+import 'package:cluvie_mobile/core/theme/app_spacing.dart';
+import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/core/utils/fit_text.dart';
+import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
+import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/club_scaffold.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
-
-class CommunityInfoScreen extends StatelessWidget {
-  final Community community;
-
-  const CommunityInfoScreen({super.key, required this.community});
+/// About a club (`/communities/:id/about`): its full description and the
+/// facts the backend has (members, admins, films, founded).
+///
+/// Gold budget: "Join club" for non-members. Otherwise none.
+class CommunityInfoScreen extends ConsumerStatefulWidget {
+  const CommunityInfoScreen({super.key, required this.communityId});
+  final String communityId;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 240,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              centerTitle:false,
-              collapseMode: CollapseMode.pin,
-              title: Text(community.name!),
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset(
-                  'assets/images/dis.png',
-                    fit: BoxFit.cover,
-                  ),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [Colors.black87, Colors.transparent],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    // community.category.toUpperCase(),
-                    "horror".toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    community.description!,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 12),
-
-                  Divider(),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _InfoTile(
-                        icon: Icons.people,
-                        label: "Members",
-                        value: "${community.members.length}",
-                      ),
-                      _InfoTile(
-                        icon: Icons.chat_bubble_outline,
-                        label: "Posts",
-                        value: "800",
-                      ),
-                      _InfoTile(
-                        icon: Icons.calendar_today,
-                        label: "Created",
-                        value: DateFormat.yMMM().format(community.createdAt),
-                      ),
-                    ],
-                  ),
-
-                   Divider(),
-
-                  const SizedBox(height: 24),
-                  //   final bool isMember = community.members.contains(); 
-                  // community.
-                      _MemberFeatures(),
-                      // : _JoinPrompt(community: community),
-
-                  const SizedBox(height: 24),
-
-                  // 🔸 Recent Topics Preview
-                  Text(
-                    "Trending Topics",
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  ...List.generate(
-                    10,
-                    (index) => _DiscussionPreview(
-                      title: "Should we watch Dune this weekend?",
-                      replies: 48,
-                      lastActive: "1h ago",
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  ConsumerState<CommunityInfoScreen> createState() => _CommunityInfoScreenState();
 }
 
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
+class _CommunityInfoScreenState extends ConsumerState<CommunityInfoScreen> {
+  bool _joining = false;
 
-  const _InfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, size: 20, color: Colors.grey),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-      ],
+  Future<void> _join(Community club) async {
+    setState(() => _joining = true);
+    final refusal = await joinClub(ref, widget.communityId);
+    if (!mounted) return;
+    setState(() => _joining = false);
+    ClSnackbar.show(
+      context,
+      message: refusal == null ? 'Welcome to ${club.displayName}.' : "Couldn't join. Check your connection and try again.",
+      type: refusal == null ? ClSnackbarType.success : ClSnackbarType.error,
     );
   }
-}
 
-class _MemberFeatures extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Member Features", style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    return ClubScaffold(
+      communityId: widget.communityId,
+      title: 'About',
+      builder: (context, club) {
+        final membership = membershipIn(ref, club);
+        final since = club.createdAt;
+        final facts = [
+          (icon: AppIcons.clubs, value: '${club.members.length}', label: club.members.length == 1 ? 'Member' : 'Members'),
+          (icon: AppIcons.crown, value: '${club.admins.length}', label: club.admins.length == 1 ? 'Admin' : 'Admins'),
+          (icon: AppIcons.filmStrip, value: '${club.movieSuggestions.length}', label: club.movieSuggestions.length == 1 ? 'Film' : 'Films'),
+          if (since != null) (icon: AppIcons.calendar, value: DateFormat.yMMM().format(since), label: 'Founded'),
+        ];
+        return ListView(
+          padding: EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, AppSpacing.xxl + bottom),
           children: [
-            _ActionChip(label: "View Discussions", icon: Icons.forum),
-            _ActionChip(label: "Create Post", icon: Icons.add),
-            _ActionChip(label: "Community Analytics", icon: Icons.bar_chart),
-            _ActionChip(label: "Moderation", icon: Icons.admin_panel_settings),
+            Semantics(
+              header: true,
+              child: FitWordsText(club.displayName, styles: const [AppTextStyles.h2, AppTextStyles.h3, AppTextStyles.title]),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              club.description ?? 'This club has no description yet.',
+              style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            LayoutBuilder(builder: (context, box) {
+              final columns = box.maxWidth >= 300 && MediaQuery.textScalerOf(context).scale(1) <= 1.5 ? 2 : 1;
+              final w = (box.maxWidth - AppSpacing.md * (columns - 1)) / columns;
+              return Wrap(spacing: AppSpacing.md, runSpacing: AppSpacing.md, children: [
+                for (final f in facts)
+                  SizedBox(
+                    width: w,
+                    child: ClCard(
+                      child: Semantics(
+                        label: '${f.label}: ${f.value}',
+                        excludeSemantics: true,
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Icon(f.icon, color: AppColors.purpleText, size: 20),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(f.value, style: AppTextStyles.h3),
+                          Text(f.label, style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
+                        ]),
+                      ),
+                    ),
+                  ),
+              ]);
+            }),
+            const SizedBox(height: AppSpacing.xl),
+            if (membership == ClubMembership.member)
+              ClCard(
+                child: Row(children: [
+                  const Icon(AppIcons.success, color: AppColors.success, size: 22),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      club.isOwner(_me(ref)) ? 'You started this club.' : "You're a member of this club.",
+                      style: AppTextStyles.body,
+                    ),
+                  ),
+                ]),
+              )
+            else if (membership == ClubMembership.notMember)
+              ClButton(
+                label: 'Join club',
+                icon: AppIcons.add,
+                variant: ClButtonVariant.primary,
+                isLoading: _joining,
+                onPressed: _joining ? null : () => _join(club),
+              ),
           ],
-        ),
-      ],
-    );
-  }
-}
-
-class _JoinPrompt extends StatelessWidget {
-  final Community community;
-
-  const _JoinPrompt({required this.community});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const Text(
-          "You're not a member of this community yet.",
-          style: TextStyle(fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: () {
-          },
-          icon: const Icon(Icons.group_add),
-          label: const Text("Join Community"),
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 48),
-            backgroundColor: AppColors.cinematicPurple,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ActionChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-
-  const _ActionChip({required this.label, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 174,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ActionChip(
-        label: Text(label),
-        avatar: Icon(icon, size: 18),
-        onPressed: () {},
-      ),
-    );
-  }
-}
-
-class _DiscussionPreview extends StatelessWidget {
-  final String title;
-  final int replies;
-  final String lastActive;
-
-  const _DiscussionPreview({
-    required this.title,
-    required this.replies,
-    required this.lastActive,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(title),
-      subtitle: Text("$replies replies • Active $lastActive"),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-      onTap: () {
+        );
       },
     );
   }
 }
+
+String? _me(WidgetRef ref) => ref.watch(currentUserIdProvider).valueOrNull;

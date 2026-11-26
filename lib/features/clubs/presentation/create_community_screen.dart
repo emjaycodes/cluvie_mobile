@@ -1,132 +1,141 @@
-// ignore_for_file: use_build_context_synchronously
 import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// Create community — validates 3–40 chars per PRD-010 / US-008.
+const kClubNameMin = 3;
+const kClubNameMax = 40;
+const kClubDescriptionMax = 200;
+
+String? validateClubName(String? v) {
+  final t = v?.trim() ?? '';
+  if (t.isEmpty) return 'Give your club a name';
+  if (t.length < kClubNameMin) return 'Use at least $kClubNameMin characters';
+  if (t.length > kClubNameMax) return 'Use at most $kClubNameMax characters';
+  return null;
+}
+
+/// The backend requires a description.
+String? validateClubDescription(String? v) {
+  final t = v?.trim() ?? '';
+  if (t.isEmpty) return 'Say what the club is about';
+  if (t.length > kClubDescriptionMax) return 'Use at most $kClubDescriptionMax characters';
+  return null;
+}
+
+/// Create a club (`/createCommunity`). The creator becomes its owner and
+/// lands on the new club.
+///
+/// Gold budget: "Create club".
 class CreateCommunityScreen extends ConsumerStatefulWidget {
   const CreateCommunityScreen({super.key});
   @override
-  ConsumerState<CreateCommunityScreen> createState() => _CreateCommunityScreenConsumerState();
+  ConsumerState<CreateCommunityScreen> createState() => _CreateCommunityScreenState();
 }
 
-class _CreateCommunityScreenConsumerState extends ConsumerState<CreateCommunityScreen> {
+class _CreateCommunityScreenState extends ConsumerState<CreateCommunityScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  bool _isSubmitting = false;
+  final _descFocus = FocusNode();
+  bool _submitting = false;
+  String? _error;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _descCtrl.dispose();
+    _descFocus.dispose();
     super.dispose();
   }
 
   Future<void> _create() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isSubmitting = true);
+    if (_submitting) return;
+    setState(() => _error = null);
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _submitting = true);
+    final name = _nameCtrl.text.trim();
     try {
-      await ref.read(joinedCommunitiesProvider.notifier).createCommunity(_nameCtrl.text.trim(), _descCtrl.text.trim());
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Community "${_nameCtrl.text.trim()}" created ✓'), backgroundColor: AppColors.success));
+      final club = await ref.read(joinedCommunitiesProvider.notifier).createCommunity(name, _descCtrl.text.trim());
+      if (!mounted) return;
+      ClSnackbar.show(context, message: '$name is ready. Invite your friends to join.', type: ClSnackbarType.success);
+      if (club.id != null) {
+        context.pushReplacement('/communities/${club.id}');
+      } else {
         context.pop();
       }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _error = "Couldn't create the club. Check your connection and try again.";
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final nameLen = _nameCtrl.text.length;
+    final nameLen = _nameCtrl.text.trim().length;
+    final descLen = _descCtrl.text.trim().length;
+    final bottom = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      appBar: AppBar(title: Text('Create Community', style: AppTextStyles.heading2.copyWith(color: Colors.white))),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: AppSpacing.clPadding,
-          child: Form(
-            key: _formKey,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.10), borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.accent.withOpacity(0.3))),
-                child: Row(children: [
-                  const Icon(Icons.info_outline, size: 16, color: AppColors.accent),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text('Name must be 3–40 characters, unique per owner. You become admin.', style: AppTextStyles.caption.copyWith(color: AppColors.accent, fontWeight: FontWeight.w600))),
-                ]),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nameCtrl,
-                style: const TextStyle(color: Colors.white),
-                maxLength: 40,
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  labelText: 'Community name *',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  hintText: 'e.g. Cinema Sundays',
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  filled: true,
-                  fillColor: AppColors.darkSurface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white10)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white10)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.accent)),
-                  counterText: '$nameLen / 40',
-                  counterStyle: TextStyle(color: nameLen > 40 || (nameLen > 0 && nameLen < 3) ? AppColors.error : Colors.white38, fontSize: 11),
-                ),
-                validator: (v) {
-                  final t = v?.trim() ?? '';
-                  if (t.isEmpty) return 'Please enter a community name';
-                  if (t.length < 3) return 'Name must be at least 3 characters';
-                  if (t.length > 40) return 'Name must be at most 40 characters';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _descCtrl,
-                style: const TextStyle(color: Colors.white),
-                maxLines: 4,
-                maxLength: 200,
-                decoration: InputDecoration(
-                  labelText: 'Description (optional)',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  hintText: 'What is this club about?',
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  filled: true,
-                  fillColor: AppColors.darkSurface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white10)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white10)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.accent)),
-                ),
-                validator: (v) {
-                  if (v != null && v.length > 200) return 'Description max 200 chars';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 8),
-              Text('You can generate an invite code after creation to add members.', style: AppTextStyles.caption.copyWith(color: AppColors.darkTextSecondary)),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ClButton(label: _isSubmitting ? 'Creating…' : 'Create Community', onPressed: _isSubmitting ? () {} : _create, isLoading: _isSubmitting),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(onPressed: () => context.pop(), style: OutlinedButton.styleFrom(foregroundColor: Colors.white70, side: BorderSide(color: Colors.white12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)), child: const Text('Cancel')),
-              ),
-            ]),
-          ),
+      appBar: const ClAppBar(title: 'New club', frosted: true, fallbackRoute: '/communities'),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, AppSpacing.xxl + bottom),
+          children: [
+            Text(
+              "Start a club for the people you watch films with. You'll be its owner.",
+              style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            ClTextField(
+              label: 'Club name',
+              controller: _nameCtrl,
+              hintText: 'e.g. Cinema Sundays',
+              prefixIcon: AppIcons.clubs,
+              textInputAction: TextInputAction.next,
+              helperText: '$nameLen / $kClubNameMax',
+              inputFormatters: [LengthLimitingTextInputFormatter(kClubNameMax)],
+              validator: validateClubName,
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) => _descFocus.requestFocus(),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ClTextField(
+              label: 'What is it about?',
+              controller: _descCtrl,
+              focusNode: _descFocus,
+              hintText: 'e.g. One film a week, then we argue about it',
+              maxLines: 4,
+              keyboardType: TextInputType.multiline,
+              helperText: '$descLen / $kClubDescriptionMax',
+              inputFormatters: [LengthLimitingTextInputFormatter(kClubDescriptionMax)],
+              validator: validateClubDescription,
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            if (_error != null) ...[
+              ClStatusBanner(type: ClStatusType.error, message: _error!),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+            ClButton(
+              label: 'Create club',
+              variant: ClButtonVariant.primary,
+              isLoading: _submitting,
+              onPressed: _submitting ? null : _create,
+            ),
+          ],
         ),
       ),
     );
