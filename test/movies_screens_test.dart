@@ -582,10 +582,19 @@ void main() {
     });
 
     testWidgets('posting sends the text and shows the post; Enter adds a line', (t) async {
-      final api = threadApi(onPost: (path, data) => {
+      // Like the server: the POST answers with an unpopulated author, and
+      // the next GET lists the post with the author's name.
+      final stored = <Map<String, Object?>>[];
+      final api = threadApi(
+        posts: () => [...stored, _post('a', 'Older post', hoursAgo: 5)],
+        onPost: (path, data) {
+          stored.add(_post('new', data!['text'] as String, user: 'Me', hoursAgo: 0));
+          return {
             'message': 'Discussion created',
-            'discussion': {'_id': 'new', 'text': data!['text'], 'userId': _me, 'createdAt': DateTime.now().toUtc().toIso8601String()},
-          });
+            'discussion': {'_id': 'new', 'text': data['text'], 'userId': _me, 'createdAt': DateTime.now().toUtc().toIso8601String()},
+          };
+        },
+      );
       await _pump(t, _app(api, initial: '/discussionThread', extra: extra()));
       final field = find.byType(TextField);
       expect(t.widget<TextField>(field).keyboardType, TextInputType.multiline);
@@ -598,6 +607,11 @@ void main() {
       expect(post.data, {'movieId': _catalogId, 'text': 'Line one\nline two'});
       expect(find.text('Line one\nline two'), findsOneWidget);
       expect(t.widget<TextField>(field).controller!.text, isEmpty);
+      // No name was known locally (cold start), so the thread reloaded to
+      // show the author's name rather than "Cluvie member" (N6).
+      expect(api.calls.where((c) => c.method == 'GET'), hasLength(2));
+      expect(find.text('Me'), findsOneWidget);
+      expect(find.text('Cluvie member'), findsNothing);
     });
 
     testWidgets('a failed post keeps the draft and offers retry', (t) async {

@@ -107,6 +107,11 @@ class _DiscussionThreadScreenState extends ConsumerState<DiscussionThreadScreen>
           );
       _draft.clear();
       if (mounted) ClSnackbar.show(context, message: 'Posted', type: ClSnackbarType.success);
+      // After a cold start the user's name isn't loaded, so the new post has
+      // no author name; a quiet reload picks it up from the server.
+      if (user?.name == null) {
+        ref.read(discussionProvider(movieId).notifier).reload().catchError((Object _) {});
+      }
     } catch (_) {
       if (mounted) {
         ClSnackbar.show(
