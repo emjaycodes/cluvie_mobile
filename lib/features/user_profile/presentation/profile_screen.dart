@@ -1,570 +1,358 @@
-// ignore_for_file: deprecated_member_use
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cluvie_mobile/core/api/api_client.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
+import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_empty_state.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_snackbar.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_dialog.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/core/utils/fit_text.dart';
+import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
 import 'package:cluvie_mobile/features/authentication/data/sign_out.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cluvie_mobile/features/home/data/home_feed.dart';
+import 'package:cluvie_mobile/features/user_profile/data/profile.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
 
-/// Profile + Watchlist — CF-02
-/// Shows avatar, bio, XP/followers/watchlist, follow graph, editable fields, follower counts.
-/// Watchlist CRUD via GET /api/watchlist with pop + empty CTA.
-class UserProfileScreen extends ConsumerStatefulWidget {
-  final String? userId;
+/// Profile (tab 5, `/profile`): who you are, your activity, your watchlist,
+/// and log out.
+///
+/// * Identity, XP and counts come from `GET /users/me`; the watchlist from
+///   `GET /watchlist`. Removing a film is immediate, with Undo.
+/// * No Edit: the backend has no profile update or avatar endpoint, so the
+///   avatar shows initials. No levels: the backend has XP only.
+/// * `/users/:id` (someone else) has no backend endpoint yet, so it says so
+///   instead of showing made-up data.
+///
+/// Gold budget: none.
+class UserProfileScreen extends ConsumerWidget {
   const UserProfileScreen({super.key, this.userId});
 
+  /// Someone else's profile; null for your own.
+  final String? userId;
+
   @override
-  ConsumerState<UserProfileScreen> createState() => _UserProfileScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(currentUserIdProvider).valueOrNull;
+    final id = userId;
+    if (id != null && id != me) return const _OtherProfile();
+    return const _MyProfile();
+  }
 }
 
-class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
-  final _api = ApiClient();
-  bool _isEditing = false;
-  final _bioCtrl = TextEditingController(text: 'Ada. Indie. True stories win me.');
-  final _nameCtrl = TextEditingController(text: 'Charlottie Cooper');
+class _OtherProfile extends StatelessWidget {
+  const _OtherProfile();
 
-  // Demo watchlist — would be from GET /api/watchlist
-  List<Map<String, dynamic>> _watchlist = [
-    {
-      'title': 'Past Lives',
-      'year': '2023',
-      'poster': 'https://image.tmdb.org/t/p/w200/kAellTx1ukNtc42BP1kcnHPCG5e.jpg',
-    },
-    {
-      'title': 'Oppenheimer',
-      'year': '2023',
-      'poster': 'https://image.tmdb.org/t/p/w200/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
-    },
-  ];
-  bool _watchlistLoading = false;
-  int _followers = 248;
-  int _following = 86;
-  bool _isFollowing = false;
-  int _xp = 1240;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: const ClAppBar(title: 'Profile', fallbackRoute: '/home'),
+        body: ListView(padding: const EdgeInsets.all(AppSpacing.gutter), children: [
+          const SizedBox(height: AppSpacing.xl),
+          ClEmptyState(
+            illustration: ClIllustration.clubs,
+            title: "Member profiles aren't available yet",
+            message: 'For now you can see who is in a club on its About page.',
+            actionLabel: 'Go to Clubs',
+            actionVariant: ClButtonVariant.secondary,
+            onAction: () => context.go('/communities'),
+          ),
+        ]),
+      );
+}
 
-  Future<void> _loadWatchlist() async {
-    setState(() => _watchlistLoading = true);
+class _MyProfile extends ConsumerWidget {
+  const _MyProfile();
+
+  Future<void> _refresh(BuildContext context, WidgetRef ref) async {
+    final had = ref.read(myProfileProvider).hasValue;
+    ref.invalidate(myProfileProvider);
+    ref.invalidate(watchlistProvider);
     try {
-      final res = await _api.get('/watchlist');
-      final data = res.data is List ? res.data as List : (res.data['watchlist'] ?? res.data['movies'] ?? []) as List;
-      if (data.isNotEmpty && mounted) {
-        setState(() => _watchlist = data.cast<Map<String, dynamic>>());
-      }
+      await Future.wait([ref.read(myProfileProvider.future), ref.read(watchlistProvider.future)]);
     } catch (_) {
-      // keep demo data
-    } finally {
-      if (mounted) setState(() => _watchlistLoading = false);
-    }
-  }
-
-  Future<void> _removeFromWatchlist(int index) async {
-    final removed = _watchlist[index];
-    setState(() => _watchlist.removeAt(index));
-    ClSnackbar.show(context, message: 'Removed "${removed['title']}"', type: ClSnackbarType.success);
-    try {
-      await _api.delete('/watchlist/${removed['id'] ?? removed['tmdbId'] ?? ''}');
-    } catch (_) {
-      // rollback on failure
-      if (mounted) {
-        setState(() => _watchlist.insert(index, removed));
-        ClSnackbar.show(context, message: "Couldn't remove — restored", type: ClSnackbarType.error);
+      if (had && context.mounted) {
+        ClSnackbar.show(context, message: "Couldn't refresh. Showing earlier details.", type: ClSnackbarType.error);
       }
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadWatchlist();
-  }
+  void _confirmLogOut(BuildContext context, WidgetRef ref) => showClDialog(
+        context: context,
+        title: 'Log out of Cluvie?',
+        message: "You'll need your email and password to log back in.",
+        confirmText: 'Log out',
+        closeText: 'Cancel',
+        showConfirm: true,
+        destructive: true,
+        // Clears the token, auth state and user-scoped caches (review round 3, B3).
+        onConfirm: () => signOut(context, ref),
+      );
 
   @override
-  void dispose() {
-    _bioCtrl.dispose();
-    _nameCtrl.dispose();
-    super.dispose();
-  }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(myProfileProvider);
+    final unread = ref.watch(unreadCountProvider);
+    final bottom = MediaQuery.paddingOf(context).bottom;
 
-  @override
-  Widget build(BuildContext context) {
-    final isOwnProfile = widget.userId == null;
-    return Scaffold(
-      appBar: AppBar(
-        leading: isOwnProfile ? null : const BackButton(color: Colors.white),
-        automaticallyImplyLeading: isOwnProfile ? false : true,
-        title: Text(isOwnProfile ? 'CLUVIE' : 'Profile', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-        centerTitle: true,
-        actions: [
-          if (isOwnProfile)
-            TextButton(
-              onPressed: () => setState(() => _isEditing = !_isEditing),
-              child: Text(
-                _isEditing ? 'Done' : 'Edit',
-                style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700),
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _isFollowing = !_isFollowing;
-                    _followers += _isFollowing ? 1 : -1;
-                  });
-                  ClSnackbar.show(
-                    context,
-                    message: _isFollowing ? 'Following' : 'Unfollowed',
-                    type: ClSnackbarType.success,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isFollowing ? Colors.white12 : AppColors.accent,
-                  foregroundColor: _isFollowing ? Colors.white : Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                ),
-                child: Text(_isFollowing ? 'Following' : 'Follow'),
-              ),
-            ),
-        ],
+    final header = profile.when(
+      skipLoadingOnRefresh: profile.hasValue,
+      skipError: profile.hasValue,
+      loading: () => Semantics(
+        label: 'Loading your profile',
+        liveRegion: true,
+        child: const Column(children: [
+          ClSkeletonRow(thumbWidth: 72, thumbHeight: 72),
+          SizedBox(height: AppSpacing.lg),
+          ClSkeleton(height: 88),
+        ]),
       ),
+      error: (_, __) => ClErrorState(
+        title: "Couldn't load your profile",
+        compact: true,
+        onRetry: () => ref.invalidate(myProfileProvider),
+      ),
+      data: (p) => _Header(profile: p),
+    );
+
+    return Scaffold(
       body: RefreshIndicator(
-        color: AppColors.accent,
-        onRefresh: _loadWatchlist,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + MediaQuery.paddingOf(context).bottom),
-          children: [
-            // Avatar + name + bio — editable fields
-            Center(
-              child: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 44,
-                    backgroundColor: Colors.grey.shade800,
-                    backgroundImage: const CachedNetworkImageProvider(
-                      'https://randomuser.me/api/portraits/women/79.jpg',
-                    ),
-                  ),
-                  if (_isEditing)
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
-                        child: const Icon(Icons.edit, size: 14, color: Colors.black),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (_isEditing) ...[
-              TextField(
-                controller: _nameCtrl,
-                style: const TextStyle(color: Colors.white),
-                textAlign: TextAlign.center,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppColors.darkSurface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        onRefresh: () => _refresh(context, ref),
+        color: AppColors.purple,
+        backgroundColor: AppColors.surfaceRaised,
+        edgeOffset: MediaQuery.paddingOf(context).top + kToolbarHeight,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              automaticallyImplyLeading: false,
+              backgroundColor: AppColors.bg,
+              scrolledUnderElevation: 0,
+              titleSpacing: AppSpacing.gutter,
+              title: Semantics(header: true, child: Text('Profile', style: AppTextStyles.h2)),
+              actions: [
+                ClIconButton(
+                  icon: AppIcons.bell,
+                  tooltip: 'Notifications',
+                  badge: unread > 0,
+                  badgeLabel: '$unread unread',
+                  onPressed: () => context.push('/notifications'),
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _bioCtrl,
-                style: const TextStyle(color: Colors.white70),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppColors.darkSurface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-              ),
-            ] else ...[
-              Center(
-                child: Text(_nameCtrl.text, style: AppTextStyles.heading2.copyWith(color: Colors.white, fontSize: 22)),
-              ),
-              Center(
-                child: Text(
-                  _bioCtrl.text,
-                  style: AppTextStyles.body.copyWith(color: Colors.white60),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
-            const SizedBox(height: 14),
-            // XP + followers + watchlist counts
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.darkSurface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: Row(
-                children: [
-                  _Stat(label: 'XP', value: '$_xp', icon: Icons.bolt_rounded, color: AppColors.accent),
-                  _DividerVert(),
-                  _Stat(label: 'Followers', value: '$_followers', icon: Icons.people_rounded, color: AppColors.success),
-                  _DividerVert(),
-                  _Stat(
-                    label: 'Following',
-                    value: '$_following',
-                    icon: Icons.person_add_rounded,
-                    color: Colors.white70,
-                  ),
-                  _DividerVert(),
-                  _Stat(
-                    label: 'Watchlist',
-                    value: '${_watchlist.length}',
-                    icon: Icons.bookmark_rounded,
-                    color: AppColors.warning,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Follow graph preview
-            Row(
-              children: [
-                Text(
-                  'Follow graph',
-                  style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {},
-                  child: Text('View all', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700)),
-                ),
+                const SizedBox(width: AppSpacing.md),
               ],
             ),
-            SizedBox(
-              height: 72,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: 6,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder:
-                    (_, i) => Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 26,
-                          backgroundImage: CachedNetworkImageProvider(
-                            'https://randomuser.me/api/portraits/${i % 2 == 0 ? 'women' : 'men'}/${20 + i}.jpg',
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          ['Ava', 'Ben', 'Carmen', 'Dev', 'Mina', 'Leo'][i],
-                          style: AppTextStyles.caption.copyWith(color: Colors.white70, fontSize: 11),
-                        ),
-                      ],
-                    ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // XP bar
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(gradient: AppColors.cinematicGradient, borderRadius: BorderRadius.circular(14)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.emoji_events_rounded, color: AppColors.accent, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Level 7 — Cinephile',
-                        style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
-                      ),
-                      const Spacer(),
-                      Text('$_xp / 1500 XP', style: AppTextStyles.caption.copyWith(color: Colors.white70)),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: _xp / 1500,
-                      minHeight: 8,
-                      backgroundColor: Colors.white12,
-                      valueColor: AlwaysStoppedAnimation(AppColors.accent),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '12 XP to next badge · Vote or comment to earn',
-                    style: AppTextStyles.caption.copyWith(color: Colors.white60, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Watchlist CRUD — GET /api/watchlist with pop + empty CTA
-            Row(
-              children: [
-                Text('Watchlist', style: AppTextStyles.heading2.copyWith(color: Colors.white, fontSize: 18)),
-                const Spacer(),
-                if (_watchlistLoading)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
-                  ),
-                IconButton(icon: const Icon(Icons.refresh, color: Colors.white54, size: 18), onPressed: _loadWatchlist),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (_watchlist.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.darkSurface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white10),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.sm, AppSpacing.gutter, AppSpacing.xxl + bottom),
+              sliver: SliverList.list(children: [
+                header,
+                const SizedBox(height: AppSpacing.section),
+                const _Watchlist(),
+                const SizedBox(height: AppSpacing.section),
+                ClButton(
+                  label: 'Log out',
+                  icon: AppIcons.signOut,
+                  variant: ClButtonVariant.danger,
+                  onPressed: () => _confirmLogOut(context, ref),
                 ),
-                child: Column(
-                  children: [
-                    const ClEmptyState(
-                      message: 'Your watchlist is empty.\nAdd films from Discover to save for later.',
-                      icon: Icons.bookmark_border_rounded,
-                    ),
-                    const SizedBox(height: 14),
-                    ClButton(label: 'Discover Movies', onPressed: () => context.go('/discover')),
-                  ],
-                ),
-              )
-            else
-              ..._watchlist.asMap().entries.map((e) {
-                final idx = e.key;
-                final m = e.value;
-                return Dismissible(
-                  key: ValueKey(m['title']),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(Icons.delete_rounded, color: Colors.white),
-                  ),
-                  onDismissed: (_) => _removeFromWatchlist(idx),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.darkSurface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: CachedNetworkImage(
-                            imageUrl: m['poster'],
-                            width: 50,
-                            height: 70,
-                            fit: BoxFit.cover,
-                            placeholder:
-                                (c, u) => Shimmer.fromColors(
-                                  baseColor: Colors.grey.shade800,
-                                  highlightColor: Colors.grey.shade700,
-                                  child: Container(width: 50, height: 70, color: Colors.white),
-                                ),
-                            errorWidget:
-                                (_, __, ___) => Container(
-                                  width: 50,
-                                  height: 70,
-                                  color: Colors.white10,
-                                  child: const Icon(Icons.broken_image, color: Colors.white30),
-                                ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                m['title'],
-                                style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
-                              ),
-                              Text(
-                                m['year'],
-                                style: AppTextStyles.caption.copyWith(color: AppColors.darkTextSecondary),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white10,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      'Cluvie 4.8',
-                                      style: AppTextStyles.caption.copyWith(color: Colors.white, fontSize: 11),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white10,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      'TMDB 7.4',
-                                      style: AppTextStyles.caption.copyWith(color: Colors.white, fontSize: 11),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white30, size: 18),
-                          onPressed: () => _removeFromWatchlist(idx),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-            const SizedBox(height: 22),
-
-            // Recent Votes — existing UI preserved
-            Text('Recent Votes', style: AppTextStyles.heading2.copyWith(color: Colors.white, fontSize: 18)),
-            const SizedBox(height: 10),
-            _VoteCard(
-              title: 'Everything Everywhere All At Once',
-              stars: 5,
-              imageUrl: 'https://image.tmdb.org/t/p/w500/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg',
+              ]),
             ),
-            _VoteCard(
-              title: 'Past Lives',
-              stars: 4,
-              imageUrl: 'https://image.tmdb.org/t/p/w500/kAellTx1ukNtc42BP1kcnHPCG5e.jpg',
-            ),
-            const SizedBox(height: 16),
-            // Sign out
-            if (isOwnProfile) ...[
-              OutlinedButton(
-                onPressed:
-                    () => showClDialog(
-                      context: context,
-                      title: 'Log out of Cluvie?',
-                      message: "You'll need your email and password to log back in.",
-                      confirmText: 'Log out',
-                      closeText: 'Cancel',
-                      showConfirm: true,
-                      destructive: true,
-                      // Clears the token, auth state and user-scoped caches (review round 3, B3).
-                      onConfirm: () => signOut(context, ref),
-                    ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.error,
-                  side: const BorderSide(color: AppColors.error),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text('Log out', style: TextStyle(fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(height: 24),
-            ],
           ],
         ),
       ),
     );
   }
-
-  Widget _VoteCard({required String title, required int stars, required String imageUrl}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: CachedNetworkImage(
-              imageUrl: imageUrl,
-              width: 50,
-              height: 50,
-              fit: BoxFit.cover,
-              placeholder:
-                  (c, u) => Shimmer.fromColors(
-                    baseColor: Colors.grey.shade800,
-                    highlightColor: Colors.grey.shade700,
-                    child: Container(width: 50, height: 50, color: Colors.white),
-                  ),
-              errorWidget: (_, __, ___) => Container(width: 50, height: 50, color: Colors.white10),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Row(
-                  children: List.generate(
-                    5,
-                    (i) => Icon(i < stars ? Icons.star : Icons.star_border, color: Colors.amber, size: 16),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right, color: Colors.white30),
-        ],
-      ),
-    );
-  }
 }
 
-class _Stat extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-  const _Stat({required this.label, required this.value, required this.icon, required this.color});
+class _Header extends StatelessWidget {
+  const _Header({required this.profile});
+  final MyProfile profile;
+
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(height: 4),
-          Text(value, style: AppTextStyles.heading2.copyWith(color: Colors.white, fontSize: 16)),
-          Text(label, style: AppTextStyles.caption.copyWith(color: AppColors.darkTextSecondary, fontSize: 10)),
-        ],
+    final p = profile;
+    final roomy = MediaQuery.textScalerOf(context).scale(1) <= 1.3;
+    final identity = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Semantics(
+        header: true,
+        child: FitWordsText(breakableTokens(p.username), styles: const [AppTextStyles.h2, AppTextStyles.h3, AppTextStyles.title]),
       ),
-    );
+      if (p.email != null) ...[
+        const SizedBox(height: AppSpacing.xxs),
+        Text(breakableTokens(p.email!), style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary)),
+      ],
+      if (p.isAdmin) ...[const SizedBox(height: AppSpacing.xs), const ClBadge('Admin')],
+    ]);
+    final stats = [
+      (value: p.xp, label: 'XP'),
+      (value: p.suggested, label: p.suggested == 1 ? 'Film suggested' : 'Films suggested'),
+      (value: p.voted, label: p.voted == 1 ? 'Vote' : 'Votes'),
+      (value: p.comments, label: p.comments == 1 ? 'Comment' : 'Comments'),
+      (value: p.followers, label: p.followers == 1 ? 'Follower' : 'Followers'),
+      (value: p.following, label: 'Following'),
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (roomy)
+        Row(children: [
+          ClAvatar(name: p.username, radius: 36, ring: true),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(child: identity),
+        ])
+      else ...[
+        Align(alignment: Alignment.centerLeft, child: ClAvatar(name: p.username, radius: 36, ring: true)),
+        const SizedBox(height: AppSpacing.md),
+        identity,
+      ],
+      const SizedBox(height: AppSpacing.xl),
+      LayoutBuilder(builder: (context, box) {
+        // The most columns in which every label still fits whole.
+        final scaler = MediaQuery.textScalerOf(context);
+        final labelStyle = AppTextStyles.caption;
+        double widthFor(int n) => (box.maxWidth - AppSpacing.md * (n - 1)) / n;
+        bool fits(int n) {
+          // Card padding, plus a little for its border.
+          final inner = widthFor(n) - 2 * AppSpacing.md - 4;
+          return stats.expand((s) => s.label.split(' ')).every((w) {
+            final tp = TextPainter(text: TextSpan(text: w, style: labelStyle), textScaler: scaler, textDirection: TextDirection.ltr)..layout();
+            final ok = tp.width <= inner;
+            tp.dispose();
+            return ok;
+          });
+        }
+
+        final columns = fits(3) ? 3 : (fits(2) ? 2 : 1);
+        final w = widthFor(columns);
+        return Wrap(spacing: AppSpacing.md, runSpacing: AppSpacing.md, children: [
+          for (final s in stats)
+            SizedBox(
+              width: w,
+              child: ClCard(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Semantics(
+                  label: '${s.label}: ${s.value}',
+                  excludeSemantics: true,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${s.value}', style: AppTextStyles.h3),
+                    Text(s.label, style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
+                  ]),
+                ),
+              ),
+            ),
+        ]);
+      }),
+    ]);
   }
 }
 
-class _DividerVert extends StatelessWidget {
+class _Watchlist extends ConsumerWidget {
+  const _Watchlist();
+
+  Future<void> _remove(BuildContext context, WidgetRef ref, SavedFilm item, int index) async {
+    final notifier = ref.read(watchlistProvider.notifier);
+    try {
+      await notifier.remove(item);
+    } catch (_) {
+      if (context.mounted) {
+        ClSnackbar.show(context, message: "Couldn't remove ${item.film.title}. Try again.", type: ClSnackbarType.error);
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    ClSnackbar.show(
+      context,
+      message: 'Removed ${item.film.title}.',
+      type: ClSnackbarType.success,
+      duration: const Duration(seconds: 5),
+      actionLabel: 'Undo',
+      onAction: () => notifier.restore(item, index).catchError((_) {}),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) => Container(width: 1, height: 36, color: Colors.white10);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final list = ref.watch(watchlistProvider);
+    final count = list.valueOrNull?.length;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Semantics(
+        header: true,
+        child: Text(count == null || count == 0 ? 'Watchlist' : 'Watchlist ($count)', style: AppTextStyles.h3),
+      ),
+      const SizedBox(height: AppSpacing.md),
+      list.when(
+        skipLoadingOnRefresh: list.hasValue,
+        skipError: list.hasValue,
+        loading: () => const Column(children: [
+          ClSkeletonRow(thumbWidth: 48, thumbHeight: 72),
+          SizedBox(height: AppSpacing.md),
+          ClSkeletonRow(thumbWidth: 48, thumbHeight: 72),
+        ]),
+        error: (_, __) => ClErrorState(
+          title: "Couldn't load your watchlist",
+          compact: true,
+          onRetry: () => ref.invalidate(watchlistProvider),
+        ),
+        data: (films) {
+          if (films.isEmpty) {
+            return ClCard(
+              child: ClEmptyState(
+                compact: true,
+                icon: AppIcons.bookmark,
+                title: 'Nothing saved yet',
+                message: 'Films you save to watch later show up here.',
+                actionLabel: 'Discover films',
+                actionVariant: ClButtonVariant.secondary,
+                onAction: () => context.go('/discover'),
+              ),
+            );
+          }
+          return ClCard(
+            padding: EdgeInsets.zero,
+            child: Column(children: [
+              for (final (i, f) in films.indexed) ...[
+                if (i > 0) const Divider(height: 1, color: AppColors.border, indent: AppSpacing.lg, endIndent: AppSpacing.lg),
+                _SavedRow(item: f, onRemove: () => _remove(context, ref, f, i)),
+              ],
+            ]),
+          );
+        },
+      ),
+    ]);
+  }
+}
+
+class _SavedRow extends StatelessWidget {
+  const _SavedRow({required this.item, required this.onRemove});
+  final SavedFilm item;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = item.film;
+    final tmdb = f.id;
+    final roomy = MediaQuery.textScalerOf(context).scale(1) <= 1.6;
+    final info = Row(children: [
+      if (roomy) ...[
+        ClPosterImage(url: f.posterUrl('w185'), width: 48, height: 72, radius: AppRadius.sm, decorative: true),
+        const SizedBox(width: AppSpacing.md),
+      ],
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          FitWordsText(f.title, styles: const [AppTextStyles.label, AppTextStyles.bodySm], maxLines: 3),
+          if (f.year != null) Text(f.year!, style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
+        ]),
+      ),
+    ]);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.xs, AppSpacing.sm),
+      child: Row(children: [
+        Expanded(
+          child: tmdb == null
+              ? info
+              : ClPressable(
+                  semanticLabel: [f.title, if (f.year != null) f.year!].join(', '),
+                  onTap: () => context.push('/movie/$tmdb'),
+                  child: info,
+                ),
+        ),
+        ClIconButton(icon: AppIcons.close, tooltip: 'Remove ${f.title} from watchlist', onPressed: onRemove),
+      ]),
+    );
+  }
 }
