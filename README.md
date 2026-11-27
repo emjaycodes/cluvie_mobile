@@ -24,8 +24,8 @@ API base URL is compile-time driven via `--dart-define` (see `lib/core/api/api_c
 | Local (iOS simulator / desktop) | `flutter run --dart-define=API_BASE_URL=http://localhost:5000/api` |
 | Android emulator | `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api` |
 | Physical device (same LAN) | `flutter run --dart-define=API_BASE_URL=http://<lan-ip>:5000/api` |
-| QA / Prod | `flutter build apk --dart-define=API_BASE_URL=https://api.cluvie.com/api` |
+| Hosted API | `flutter run` (the default) |
 
-Default (no flag): `http://localhost:5000/api`
+Default (no flag): `https://cluvie-api.onrender.com/api`. It runs on Render's free plan, which sleeps after 15 idle minutes, so the first request can take about 50 s.
 
 Optional `.env` support: copy `.env.example` to `.env` and set `API_BASE_URL` / `ENV`. `.env` is gitignored — never commit it. The compile-time `--dart-define` takes precedence per OPERATIONS.md §2.3.

@@ -10,10 +10,9 @@ import '../errors/api_exceptions.dart';
 ///   flutter run --dart-define=API_BASE_URL=http://localhost:5000/api           # iOS simulator / local
 ///   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api             # Android emulator (host loopback)
 ///   flutter run --dart-define=API_BASE_URL=http://`lan-ip`:5000/api            # Physical device on same LAN
-///   flutter build apk --dart-define=API_BASE_URL=https://api.cluvie.com/api    # QA / prod flavor
 ///
 /// See OPERATIONS.md §2.3 and README.md "Environment Configuration".
-/// Default is http://localhost:5000/api for local development.
+/// Default is the hosted API, https://cluvie-api.onrender.com/api.
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
 
@@ -21,11 +20,10 @@ class ApiClient {
 
   late final Dio _dio;
 
-  // Compile-time env — prefer --dart-define; fallback to localhost default.
-  // If flutter_dotenv is later adopted, this can be extended with dotenv fallback.
+  // Compile-time env: --dart-define wins; otherwise the hosted API.
   static const String _apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:5000/api',
+    defaultValue: 'https://cluvie-api.onrender.com/api',
   );
 
   /// The API base URL this build talks to (`API_BASE_URL`).
