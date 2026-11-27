@@ -51,3 +51,6 @@ app.*.map.json
 # Third-party design reference images (local only, see design/references/sources.md)
 design/references/screens/
 design/moodboard/refs/
+
+# flutter build --split-debug-info output
+/build-symbols/
