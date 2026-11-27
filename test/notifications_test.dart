@@ -277,6 +277,34 @@ void main() {
     }
   });
 
+  test('R12-N1: a failed mark-all keeps what a refresh brought in meanwhile', () async {
+    final b = _Backend();
+    final container = ProviderContainer(overrides: [apiClientProvider.overrideWithValue(b.api)]);
+    addTearDown(container.dispose);
+    final sub = container.listen(notificationsProvider, (_, __) {});
+    addTearDown(sub.close);
+    await container.read(notificationsProvider.future);
+    final gate = Completer<void>();
+    b.api.onPatch = (_, __) async {
+      await gate.future;
+      throw ApiException(message: 'x', statusCode: 503);
+    };
+    final notifier = container.read(notificationsProvider.notifier);
+    final marking = notifier.markAllRead();
+    // A refresh lands while the request is in flight: the server says the
+    // first one is read (read on another device), so that answer must stand.
+    const readElsewhere = '6e0000000000000000000001';
+    // ignore: invalid_use_of_protected_member
+    notifier.state = AsyncData([
+      for (final n in notifier.state.value!) n.id == readElsewhere ? n.copyWith(isRead: true) : n,
+    ]);
+    gate.complete();
+    await expectLater(marking, throwsA(isA<ApiException>()));
+    final list = container.read(notificationsProvider).value!;
+    expect(list.firstWhere((n) => n.id == readElsewhere).isRead, isTrue, reason: "the server's answer wins");
+    expect(list.firstWhere((n) => n.id == '6e0000000000000000000002').isRead, isFalse, reason: 'our own change is undone');
+  });
+
   test('populated targets open directly, without a lookup', () {
     AppNotification n(Map<String, Object?> extra, [String type = 'VOTE']) =>
         AppNotification.fromJson(_n('6e00000000000000000000aa', type, 't', 'm', '/movies/$_film')..addAll(extra))!;

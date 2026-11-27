@@ -207,7 +207,7 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Edit profile'), findsOneWidget, reason: 'own profile, not a Follow page');
     expect(find.text('Follow'), findsNothing);
-    final back = find.byType(BackButton);
+    final back = find.byType(ClBackButton);
     expect(back, findsOneWidget, reason: 'no dead end');
     await t.tap(back);
     await t.pumpAndSettle();
@@ -382,6 +382,15 @@ void main() {
       await t.pump();
       expect(find.textContaining('Use 160 characters or fewer'), findsOneWidget);
       expect(saveButton(t).onPressed, isNull);
+    });
+
+    testWidgets('a 160-character bio with surrounding spaces can be saved, as the server trims', (t) async {
+      await _pump(t, _app(_Backend(), initial: '/profile/edit'));
+      await t.enterText(_field(1), ' ${'a' * 160}  ');
+      await t.pump();
+      expect(find.textContaining('Use 160 characters or fewer'), findsNothing);
+      expect(find.text('160 / 160'), findsOneWidget);
+      expect(saveButton(t).onPressed, isNotNull);
     });
 
     testWidgets('a non-https avatar URL blocks saving', (t) async {

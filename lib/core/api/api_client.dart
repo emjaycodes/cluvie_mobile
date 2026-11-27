@@ -34,8 +34,12 @@ class ApiClient {
   ApiClient._internal() {
     _dio = Dio(BaseOptions(
       baseUrl: _apiBaseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      // The hosted API (Render free plan) sleeps after 15 idle minutes and
+      // takes about 50 s to answer the first request. Connecting is quick
+      // (Render's proxy accepts at once), so only the wait for a response
+      // needs room for that.
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 75),
     ));
   }
 

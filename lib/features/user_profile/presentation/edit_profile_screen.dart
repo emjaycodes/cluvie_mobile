@@ -97,8 +97,11 @@ class _EditProfileFormState extends ConsumerState<_EditProfileForm> {
     return null;
   }
 
+  // The server trims before checking the 160 limit, so count the same way.
+  int get _bioLength => _bio.text.trim().length;
+
   String? get _bioError =>
-      _bio.text.length > 160 ? 'Use 160 characters or fewer (${_bio.text.length} used)' : null;
+      _bioLength > 160 ? 'Use 160 characters or fewer ($_bioLength used)' : null;
 
   String? get _avatarError {
     final value = _avatar.text.trim();
@@ -197,7 +200,7 @@ class _EditProfileFormState extends ConsumerState<_EditProfileForm> {
           hintText: 'A line or two about the films you love',
           maxLines: 4,
           keyboardType: TextInputType.multiline,
-          helperText: '${_bio.text.length} / 160',
+          helperText: '$_bioLength / 160',
           errorText: _bioError,
           onChanged: (_) => _changed(),
         ),

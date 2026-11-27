@@ -276,9 +276,7 @@ class _MyProfile extends ConsumerWidget {
               pinned: true,
               automaticallyImplyLeading: false,
               leading: showBack
-                  ? BackButton(
-                      onPressed: () => context.canPop() ? context.pop() : context.go('/profile'),
-                    )
+                  ? const ClBackButton(fallbackRoute: '/profile')
                   : null,
               backgroundColor: AppColors.bg,
               scrolledUnderElevation: 0,

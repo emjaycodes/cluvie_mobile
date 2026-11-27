@@ -158,17 +158,22 @@ class NotificationsNotifier extends AutoDisposeAsyncNotifier<List<AppNotificatio
   Future<void> markAllRead() async {
     final before = state.valueOrNull;
     if (before == null || before.every((n) => n.isRead)) return;
-    // Remember exactly which ids were unread when the request started, so a
-    // notification that arrives meanwhile keeps its own read state (R12-N1).
-    final unreadIds = {for (final n in before) if (!n.isRead) n.id};
-    state = AsyncData([for (final n in before) n.isRead ? n : n.copyWith(isRead: true)]);
+    // Keep the exact objects we flipped. On failure, undo only those: an item
+    // a refresh replaced meanwhile carries the server's answer, and a new
+    // notification keeps its own state (R12-N1, same rule as markRead).
+    final flipped = <String, ({AppNotification optimistic, AppNotification original})>{
+      for (final n in before)
+        if (!n.isRead) n.id: (optimistic: n.copyWith(isRead: true), original: n),
+    };
+    state = AsyncData([for (final n in before) flipped[n.id]?.optimistic ?? n]);
     try {
       await _api.patch('/notifications/read-all');
     } catch (_) {
       final now = state.valueOrNull;
       if (now != null) {
         state = AsyncData([
-          for (final n in now) unreadIds.contains(n.id) ? n.copyWith(isRead: false) : n,
+          for (final n in now)
+            if (flipped[n.id] case final f? when identical(n, f.optimistic)) f.original else n,
         ]);
       }
       rethrow;
