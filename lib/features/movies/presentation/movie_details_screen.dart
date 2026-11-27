@@ -11,6 +11,7 @@ import 'package:cluvie_mobile/features/movies/data/discussions.dart';
 import 'package:cluvie_mobile/features/movies/data/film.dart';
 import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
 import 'package:cluvie_mobile/features/suggest/presentation/suggest_sheet.dart';
+import 'package:cluvie_mobile/features/user_profile/data/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -23,7 +24,7 @@ import 'package:go_router/go_router.dart';
 ///   sheet (club picker and note).
 /// * The discussion preview appears once the film is in Cluvie's catalog
 ///   (a club has suggested it); discussions are keyed by the catalog id.
-/// * The watchlist toggle waits on the API ([kWatchlistAvailable]).
+/// * Save or unsave it on the watchlist (by TMDB id; see [kWatchlistAvailable]).
 ///
 /// Gold budget: the "Suggest to a club" button.
 class MovieDetailScreen extends ConsumerWidget {
@@ -128,12 +129,7 @@ class _Loaded extends ConsumerWidget {
               ),
               if (kWatchlistAvailable) ...[
                 const SizedBox(height: AppSpacing.md),
-                ClButton(
-                  label: 'Add to watchlist',
-                  icon: AppIcons.bookmark,
-                  variant: ClButtonVariant.secondary,
-                  onPressed: () {},
-                ),
+                _WatchlistButton(film: film),
               ],
               if (film.tagline != null) ...[
                 const SizedBox(height: AppSpacing.xl),
@@ -162,6 +158,63 @@ class _Loaded extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Save or unsave the film. Reads the saved state from `GET /watchlist`;
+/// while that loads the button spins, and if it failed the button offers
+/// "Add" (the API treats a duplicate as already saved).
+class _WatchlistButton extends ConsumerStatefulWidget {
+  const _WatchlistButton({required this.film});
+  final FilmDetail film;
+
+  @override
+  ConsumerState<_WatchlistButton> createState() => _WatchlistButtonState();
+}
+
+class _WatchlistButtonState extends ConsumerState<_WatchlistButton> {
+  bool _busy = false;
+
+  Future<void> _toggle(SavedFilm? saved) async {
+    final notifier = ref.read(watchlistProvider.notifier);
+    final title = widget.film.title;
+    setState(() => _busy = true);
+    try {
+      if (saved != null) {
+        await notifier.remove(saved);
+      } else {
+        await notifier.add(widget.film.toTmdbMovie());
+      }
+      if (!mounted) return;
+      ClSnackbar.show(
+        context,
+        message: saved != null ? 'Removed $title from your watchlist.' : 'Saved $title to your watchlist.',
+        type: ClSnackbarType.success,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ClSnackbar.show(context, message: "Couldn't update your watchlist. Try again.", type: ClSnackbarType.error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = ref.watch(watchlistProvider);
+    SavedFilm? saved;
+    for (final f in list.valueOrNull ?? const <SavedFilm>[]) {
+      if (f.film.id == widget.film.tmdbId) saved = f;
+    }
+    final loading = _busy || (list.isLoading && !list.hasValue);
+    return ClButton(
+      label: saved != null ? 'On your watchlist' : 'Add to watchlist',
+      icon: saved != null ? AppIcons.bookmarkFill : AppIcons.bookmark,
+      variant: ClButtonVariant.secondary,
+      isLoading: loading,
+      semanticLabel: saved != null ? 'On your watchlist. Tap to remove.' : null,
+      onPressed: loading ? null : () => _toggle(saved),
     );
   }
 }

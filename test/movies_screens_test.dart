@@ -149,6 +149,7 @@ FakeApiClient _detailApi({bool inCatalog = true, List<Map<String, Object?>> post
         if (path == '/tmdb/376867') return _tmdbDetail();
         if (path == '/movies/list') return inCatalog ? [_catalog(376867), _catalog(1)..['_id'] = 'other'] : [];
         if (path == '/discussions/$_catalogId') return posts;
+        if (path == '/watchlist') return <Object>[];
         throw UnimplementedError(path);
       },
     );
@@ -177,11 +178,81 @@ void main() {
     testWidgets('one suggest action, which opens the club picker sheet', (t) async {
       await _pump(t, _app(_detailApi(), initial: '/movie/376867'));
       expect(_button('Suggest to a club'), findsOneWidget);
-      expect(find.textContaining('Watchlist', findRichText: true), findsNothing, reason: 'hidden until the API takes a TMDB id');
       await t.tap(_button('Suggest to a club'));
       await t.pumpAndSettle();
       expect(find.text('Suggest a film'), findsOneWidget);
       expect(find.text('Cinema Sundays'), findsOneWidget);
+    });
+
+    testWidgets('the watchlist button saves by TMDB id, then removes', (t) async {
+      final saved = <Map<String, Object?>>[];
+      final api = FakeApiClient(
+        onGet: (path, _) {
+          if (path == '/tmdb/376867') return _tmdbDetail();
+          if (path == '/movies/list') return <Object>[];
+          if (path == '/watchlist') return List.of(saved);
+          throw UnimplementedError(path);
+        },
+        onPost: (path, data) {
+          if (path == '/watchlist/add') {
+            expect(data, {'tmdbId': 376867});
+            final film = _catalog(376867);
+            saved.add(film);
+            return {'success': true, 'data': film};
+          }
+          if (path == '/watchlist/remove') {
+            expect(data, {'movieId': _catalogId});
+            saved.clear();
+            return {'success': true};
+          }
+          throw UnimplementedError(path);
+        },
+      );
+      await _pump(t, _app(api, initial: '/movie/376867'));
+      expect(_button('Add to watchlist'), findsOneWidget);
+
+      await t.tap(_button('Add to watchlist'));
+      await t.pumpAndSettle();
+      expect(_button('On your watchlist'), findsOneWidget);
+      expect(find.text('Saved Moonlight to your watchlist.'), findsOneWidget);
+
+      await t.tap(_button('On your watchlist'));
+      await t.pumpAndSettle();
+      expect(_button('Add to watchlist'), findsOneWidget);
+      expect(api.calls.where((c) => c.path == '/watchlist/remove'), hasLength(1));
+    });
+
+    testWidgets('a film already saved elsewhere counts as saved', (t) async {
+      final api = FakeApiClient(
+        onGet: (path, _) {
+          if (path == '/tmdb/376867') return _tmdbDetail();
+          if (path == '/movies/list') return <Object>[];
+          if (path == '/watchlist') return <Object>[];
+          throw UnimplementedError(path);
+        },
+        onPost: (path, _) => throw _apiError(400, {'code': 'ALREADY_IN_WATCHLIST', 'data': _catalog(376867)}),
+      );
+      await _pump(t, _app(api, initial: '/movie/376867'));
+      await t.tap(_button('Add to watchlist'));
+      await t.pumpAndSettle();
+      expect(_button('On your watchlist'), findsOneWidget);
+    });
+
+    testWidgets('a failed save keeps the button and says so', (t) async {
+      final api = FakeApiClient(
+        onGet: (path, _) {
+          if (path == '/tmdb/376867') return _tmdbDetail();
+          if (path == '/movies/list') return <Object>[];
+          if (path == '/watchlist') return <Object>[];
+          throw UnimplementedError(path);
+        },
+        onPost: (path, _) => throw _apiError(500),
+      );
+      await _pump(t, _app(api, initial: '/movie/376867'));
+      await t.tap(_button('Add to watchlist'));
+      await t.pumpAndSettle();
+      expect(_button('Add to watchlist'), findsOneWidget);
+      expect(find.text("Couldn't update your watchlist. Try again."), findsOneWidget);
     });
 
     testWidgets('a suggestion is confirmed, and the discussion section picks the film up', (t) async {

@@ -3,13 +3,9 @@ import 'package:cluvie_mobile/core/errors/api_exceptions.dart';
 import 'package:cluvie_mobile/features/discover/data/tmdb.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The watchlist toggle stays hidden until the API can take a TMDB id.
-///
-/// `POST /watchlist/add` and `/watchlist/remove` take the catalog's Mongo
-/// `Movie._id`, and a film opened from Discover only has its TMDB id. Turn
-/// this on once the backend accepts `{tmdbId}` (its `findOrCreateMovie`
-/// already does the lookup for suggestions).
-const kWatchlistAvailable = false;
+/// Shows the watchlist toggle on Movie Detail. `POST /watchlist/add` takes
+/// `{tmdbId}` and adds the film to the catalog when needed.
+const kWatchlistAvailable = true;
 
 /// Thrown when a film doesn't exist (no id, or the API says 404).
 class FilmNotFound implements Exception {

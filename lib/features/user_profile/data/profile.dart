@@ -257,6 +257,34 @@ class WatchlistNotifier extends AutoDisposeAsyncNotifier<List<SavedFilm>> {
     ];
   }
 
+  /// Saves a film by TMDB id and puts it first. The API adds the film to
+  /// the catalog if no club has suggested it yet. "Already saved" counts as
+  /// saved; other failures rethrow and leave the list as it was.
+  Future<void> add(TmdbMovie film) async {
+    final tmdbId = film.id;
+    if (tmdbId == null) return;
+    Object? body;
+    try {
+      body = (await _api.post('/watchlist/add', data: {'tmdbId': tmdbId})).data;
+    } on ApiException catch (e) {
+      final err = e.responseBody;
+      if (err is! Map || err['code'] != 'ALREADY_IN_WATCHLIST') rethrow;
+      body = err;
+    }
+    final doc = body is Map ? body['data'] : null;
+    final id = doc is Map ? doc['_id'] : null;
+    final now = state.valueOrNull;
+    if (id is! String || now == null) {
+      // No film in the reply, or the list never loaded: refetch instead.
+      ref.invalidateSelf();
+      return;
+    }
+    if (now.any((f) => f.movieId == id)) return;
+    final parsed = TmdbMovie.fromJson(Map<String, dynamic>.from(doc as Map));
+    final saved = (movieId: id, film: parsed.id == null ? film : parsed);
+    state = AsyncData([saved, ...now]);
+  }
+
   /// Removes a film at once; puts it back where it was if the request
   /// fails, and rethrows.
   Future<void> remove(SavedFilm item) async {
