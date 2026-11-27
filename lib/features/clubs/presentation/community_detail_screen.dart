@@ -109,6 +109,15 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
           ),
         if (membership == ClubMembership.member)
           _MenuRow(
+            icon: AppIcons.ticket,
+            label: 'Plan a watch party',
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/communities/$_id/watch-party/new');
+            },
+          ),
+        if (membership == ClubMembership.member)
+          _MenuRow(
             icon: AppIcons.settings,
             label: 'Membership',
             onTap: () {
@@ -218,6 +227,13 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
                         icon: AppIcons.chat,
                         variant: ClButtonVariant.secondary,
                         onPressed: () => context.push('/communities/$_id/chat'),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      ClButton(
+                        label: 'Plan a watch party',
+                        icon: AppIcons.ticket,
+                        variant: ClButtonVariant.secondary,
+                        onPressed: () => context.push('/communities/$_id/watch-party/new'),
                       ),
                     ]),
                   ClubMembership.unknown => _MembershipUnknown(communityId: _id),

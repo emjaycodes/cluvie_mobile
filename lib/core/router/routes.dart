@@ -30,6 +30,7 @@ import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_scre
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_list_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_detail_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_room_screen.dart';
+import 'package:cluvie_mobile/features/watch_party/presentation/plan_party_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -303,6 +304,15 @@ final router = GoRouter(
         return CommunityDetailScreen(communityId: id);
       },
       routes: [
+        GoRoute(
+          name: RouteNames.planParty,
+          path: 'watch-party/new',
+          // Optional `?movie=<catalog id>` preselects a club film.
+          builder: (context, state) => PlanPartyScreen(
+            communityId: state.pathParameters['id']!,
+            movieId: state.uri.queryParameters['movie'],
+          ),
+        ),
         GoRoute(
           name: RouteNames.suggestMovie,
           path: 'suggest',

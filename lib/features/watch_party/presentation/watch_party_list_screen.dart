@@ -12,8 +12,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// `GET /watchparties`. Each opens its own page, where RSVP happens (one
 /// RSVP per party, not one shared value: audit P0-8).
 ///
-/// No "create" yet: parties are scheduled from a club's films, which isn't
-/// built. Gold budget: none.
+/// Parties are planned from a club (`/communities/:id/watch-party/new`),
+/// since each is for one of the club's films. Gold budget: none.
 class WatchPartyListScreen extends ConsumerWidget {
   const WatchPartyListScreen({super.key});
 
@@ -100,7 +100,7 @@ class WatchPartyListScreen extends ConsumerWidget {
               const ClEmptyState(
                 illustration: ClIllustration.parties,
                 title: 'No watch parties yet',
-                message: "When a club plans one, it'll show up here.",
+                message: "When a club plans one, it'll show up here. Plan one from a club's page.",
               ),
             ]);
           }
