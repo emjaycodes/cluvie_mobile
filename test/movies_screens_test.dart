@@ -114,6 +114,7 @@ Widget _app(
     GoRoute(path: '/communities/:id/discussion', builder: (_, st) => ClubDiscussionsScreen(communityId: st.pathParameters['id']!)),
     GoRoute(path: '/communities/:id', builder: (_, st) => Scaffold(body: Text('club ${st.pathParameters['id']}'))),
     GoRoute(path: '/communities/:id/suggest', builder: (_, st) => Scaffold(body: Text('suggest ${st.pathParameters['id']}'))),
+    GoRoute(path: '/communities/:id/vote/new', builder: (_, st) => Scaffold(body: Text('start vote ${st.pathParameters['id']}'))),
   ]);
   return ProviderScope(
     overrides: [
@@ -624,19 +625,19 @@ void main() {
       expect(find.text('Winner'), findsOneWidget);
     });
 
-    testWidgets('no polls: the empty state, with a way to suggest', (t) async {
+    testWidgets('no polls: the empty state, with a way to start one', (t) async {
       await _pump(t, _app(pollsApi(polls: () => []), initial: '/communities/$_club/vote'));
-      expect(find.text('Votes are made from the films the club suggests. Suggest one to get started.'), findsOneWidget);
-      await t.tap(_button('Suggest a film'));
+      expect(find.text('Votes are made from the films the club suggests. Start one to pick what to watch.'), findsOneWidget);
+      await t.tap(_button('Start a vote'));
       await t.pumpAndSettle();
-      expect(find.text('suggest $_club'), findsOneWidget);
+      expect(find.text('start vote $_club'), findsOneWidget);
     });
 
     testWidgets('a demo club id is "no polls" without calling the API', (t) async {
       final api = FakeApiClient();
       await _pump(t, _app(api, initial: '/communities/demo/vote'));
       expect(api.calls, isEmpty);
-      expect(find.text('Votes are made from the films the club suggests. Suggest one to get started.'), findsOneWidget);
+      expect(find.text('Votes are made from the films the club suggests. Start one to pick what to watch.'), findsOneWidget);
     });
 
     testWidgets('a load failure shows retry', (t) async {

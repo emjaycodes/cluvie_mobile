@@ -31,6 +31,7 @@ import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_list
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_detail_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_room_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/plan_party_screen.dart';
+import 'package:cluvie_mobile/features/movies/presentation/start_vote_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -320,6 +321,11 @@ final router = GoRouter(
             final id = state.pathParameters['id']!;
             return SuggestMovieScreen(communityId: id);
           },
+        ),
+        GoRoute(
+          name: RouteNames.startVote,
+          path: 'vote/new',
+          builder: (context, state) => StartVoteScreen(communityId: state.pathParameters['id']!),
         ),
         GoRoute(
           name: RouteNames.voting,

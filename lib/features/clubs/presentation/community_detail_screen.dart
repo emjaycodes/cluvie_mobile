@@ -109,6 +109,15 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
           ),
         if (membership == ClubMembership.member)
           _MenuRow(
+            icon: AppIcons.poll,
+            label: 'Start a vote',
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/communities/$_id/vote/new');
+            },
+          ),
+        if (membership == ClubMembership.member)
+          _MenuRow(
             icon: AppIcons.ticket,
             label: 'Plan a watch party',
             onTap: () {
@@ -350,9 +359,23 @@ class _VoteSection extends ConsumerWidget {
                   Text('No vote open', style: AppTextStyles.title),
                   const SizedBox(height: AppSpacing.xxs),
                   Text(
-                    'When the club opens a vote on its suggestions, it shows here.',
+                    membership == ClubMembership.member
+                        ? 'Put the club’s suggestions to a vote to pick what to watch.'
+                        : 'When the club opens a vote on its suggestions, it shows here.',
                     style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
                   ),
+                  if (membership == ClubMembership.member) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: ClButton(
+                        label: 'Start a vote',
+                        variant: ClButtonVariant.secondary,
+                        expand: false,
+                        onPressed: () => context.push('/communities/$communityId/vote/new'),
+                      ),
+                    ),
+                  ],
                 ]),
               ),
             ]),

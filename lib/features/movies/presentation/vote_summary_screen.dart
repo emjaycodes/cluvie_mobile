@@ -223,10 +223,10 @@ class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
                 title: 'No vote running',
                 message: notMember
                     ? 'Members vote on the films the club suggests. Join to take part.'
-                    : 'Votes are made from the films the club suggests. Suggest one to get started.',
-                actionLabel: notMember ? 'Join club' : 'Suggest a film',
+                    : 'Votes are made from the films the club suggests. Start one to pick what to watch.',
+                actionLabel: notMember ? 'Join club' : 'Start a vote',
                 actionVariant: ClButtonVariant.secondary,
-                onAction: notMember ? _join : () => context.push('/communities/${widget.communityId}/suggest'),
+                onAction: notMember ? _join : () => context.push('/communities/${widget.communityId}/vote/new'),
               ),
             ]);
           }
