@@ -5,6 +5,7 @@ export 'cl_bottom_nav_bar.dart';
 export 'cl_bottom_sheet.dart';
 export 'cl_button.dart';
 export 'cl_card.dart';
+export 'cl_chat_composer.dart';
 export 'cl_chip.dart';
 export 'cl_confetti.dart';
 export 'cl_dialog.dart';

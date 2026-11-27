@@ -1,9 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/router/routes_name.dart';
-import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
-import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/forgot_password_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/login_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/reset_password_screen.dart';
@@ -12,7 +10,7 @@ import 'package:cluvie_mobile/features/authentication/presentation/sigup_screen.
 import 'package:cluvie_mobile/features/authentication/presentation/splash_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/welcome_screen.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/club_settings.dart';
-import 'package:cluvie_mobile/features/clubs/presentation/community_chat_screen.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/club_chat_screen.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/community_detail_screen.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/community_info_screen.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/community_list_screen.dart';
@@ -194,13 +192,12 @@ final router = GoRouter(
       name: RouteNames.communityChat,
       path: '/communityChat',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (context, state) {
-        final community = state.extra is Community ? state.extra as Community : null;
-        // No chat backend yet: say so rather than show a local-only mock.
-        if (!kClubChatAvailable) return _ChatUnavailableScreen(communityId: community?.id);
-        if (community == null) return const _MissingExtraScreen(title: 'Club chat');
-        return CommunityChatScreen(community: community);
+      // Legacy: takes `extra: Community`. Prefer /communities/:id/chat.
+      redirect: (context, state) {
+        final id = state.extra is Community ? (state.extra as Community).id : null;
+        return id == null ? null : '/communities/$id/chat';
       },
+      builder: (context, state) => const _MissingExtraScreen(title: 'Club chat'),
     ),
     GoRoute(
       name: RouteNames.communityInfo,
@@ -338,6 +335,11 @@ final router = GoRouter(
           builder: (context, state) => ClubSettingsScreen(communityId: state.pathParameters['id']!),
         ),
         GoRoute(
+          name: RouteNames.clubChat,
+          path: 'chat',
+          builder: (context, state) => ClubChatScreen(communityId: state.pathParameters['id']!),
+        ),
+        GoRoute(
           name: RouteNames.discussion,
           path: 'discussion',
           builder: (context, state) {
@@ -379,30 +381,6 @@ class _MissingExtraScreen extends StatelessWidget {
         title: "Couldn't open this page",
         message: 'Go back and try again.',
       ),
-    );
-  }
-}
-
-class _ChatUnavailableScreen extends StatelessWidget {
-  const _ChatUnavailableScreen({this.communityId});
-  final String? communityId;
-
-  @override
-  Widget build(BuildContext context) {
-    final id = communityId;
-    return Scaffold(
-      appBar: ClAppBar(title: 'Club chat', fallbackRoute: id == null ? '/communities' : '/communities/$id'),
-      body: ListView(padding: const EdgeInsets.all(AppSpacing.gutter), children: [
-        const SizedBox(height: AppSpacing.xl),
-        ClEmptyState(
-        illustration: ClIllustration.discussions,
-        title: "Club chat isn't open yet",
-        message: 'Talk about each film in its discussion for now.',
-        actionLabel: id == null ? null : 'Open discussions',
-        actionVariant: ClButtonVariant.secondary,
-        onAction: id == null ? null : () => context.pushReplacement('/communities/$id/discussion'),
-      ),
-      ]),
     );
   }
 }

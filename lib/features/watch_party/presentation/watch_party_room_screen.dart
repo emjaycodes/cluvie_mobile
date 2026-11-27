@@ -13,7 +13,6 @@ import 'package:cluvie_mobile/features/watch_party/data/party_room.dart';
 import 'package:cluvie_mobile/features/watch_party/data/watch_parties.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/widgets/party_tile.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -461,7 +460,15 @@ class _WatchPartyRoomScreenState extends ConsumerState<WatchPartyRoomScreen> {
     );
     return Column(children: [
       Expanded(child: list),
-      _ChatComposer(controller: _chat, focusNode: _chatFocus, enabled: inRoom, sending: _sending, onSend: _send),
+      ClChatComposer(
+        controller: _chat,
+        focusNode: _chatFocus,
+        enabled: inRoom,
+        sending: _sending,
+        onSend: _send,
+        hintText: 'Message the room',
+        maxLength: kRoomMessageMax,
+      ),
     ]);
   }
 }
@@ -487,85 +494,6 @@ class _ChatLine extends StatelessWidget {
               style: AppTextStyles.label.copyWith(color: mine ? AppColors.purpleText : AppColors.textPrimary),
             ),
             TextSpan(text: breakableTokens(text), style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-class _ChatComposer extends StatelessWidget {
-  const _ChatComposer({
-    required this.controller,
-    required this.focusNode,
-    required this.enabled,
-    required this.sending,
-    required this.onSend,
-  });
-
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final bool enabled;
-  final bool sending;
-  final VoidCallback onSend;
-
-  @override
-  Widget build(BuildContext context) {
-    final canSend = enabled && !sending && controller.text.trim().isNotEmpty;
-    const border = OutlineInputBorder(borderRadius: AppRadius.xlAll, borderSide: BorderSide(color: AppColors.borderInput));
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: AppColors.surface, border: Border(top: BorderSide(color: AppColors.border))),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Expanded(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 120),
-                child: TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  enabled: enabled && !sending,
-                  minLines: 1,
-                  maxLines: null,
-                  textCapitalization: TextCapitalization.sentences,
-                  inputFormatters: [LengthLimitingTextInputFormatter(kRoomMessageMax)],
-                  style: AppTextStyles.body,
-                  decoration: InputDecoration(
-                    hintText: enabled ? 'Message the room' : 'Joining…',
-                    hintMaxLines: 1,
-                    border: border,
-                    enabledBorder: border,
-                    focusedBorder: const OutlineInputBorder(
-                      borderRadius: AppRadius.xlAll,
-                      borderSide: BorderSide(color: AppColors.focusRing, width: 2),
-                    ),
-                    disabledBorder: const OutlineInputBorder(
-                      borderRadius: AppRadius.xlAll,
-                      borderSide: BorderSide(color: AppColors.border),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            SizedBox(
-              width: AppSpacing.minTouch,
-              height: AppSpacing.minTouch,
-              child: IconButton(
-                tooltip: 'Send',
-                onPressed: canSend ? onSend : null,
-                style: IconButton.styleFrom(
-                  backgroundColor: AppColors.purpleBadge,
-                  disabledBackgroundColor: AppColors.surfaceRaised,
-                  shape: const CircleBorder(),
-                ),
-                icon: sending
-                    ? const ClLoading(size: 20, color: AppColors.textPrimary)
-                    : Icon(AppIcons.send, size: 20, color: canSend ? AppColors.onPurpleBadge : AppColors.textSecondary),
-              ),
-            ),
           ]),
         ),
       ),

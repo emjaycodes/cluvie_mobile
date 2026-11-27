@@ -13,6 +13,7 @@ class RouteNames {
   static const communities = 'communities';
   static const communityDetail = 'communityDetail';
   static const communityChat = 'communityChat';
+  static const clubChat = 'clubChat';
   static const communityInfo = 'communityInfo';
   static const communitySettings = 'communitySettings';
   static const communityAbout = 'communityAbout';

@@ -98,6 +98,15 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
             context.push('/communities/$_id/discussion');
           },
         ),
+        if (membership != ClubMembership.notMember)
+          _MenuRow(
+            icon: AppIcons.chat,
+            label: 'Club chat',
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/communities/$_id/chat');
+            },
+          ),
         if (membership == ClubMembership.member)
           _MenuRow(
             icon: AppIcons.settings,
@@ -196,12 +205,21 @@ class _CommunityDetailScreenState extends ConsumerState<CommunityDetailScreen> {
                         textAlign: TextAlign.center,
                       ),
                     ]),
-                  ClubMembership.member => ClButton(
-                      label: 'Suggest a film',
-                      icon: AppIcons.popcorn,
-                      variant: ClButtonVariant.primary,
-                      onPressed: () => context.push('/communities/$_id/suggest'),
-                    ),
+                  ClubMembership.member => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      ClButton(
+                        label: 'Suggest a film',
+                        icon: AppIcons.popcorn,
+                        variant: ClButtonVariant.primary,
+                        onPressed: () => context.push('/communities/$_id/suggest'),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      ClButton(
+                        label: 'Club chat',
+                        icon: AppIcons.chat,
+                        variant: ClButtonVariant.secondary,
+                        onPressed: () => context.push('/communities/$_id/chat'),
+                      ),
+                    ]),
                   ClubMembership.unknown => _MembershipUnknown(communityId: _id),
                 },
               ),

@@ -7,10 +7,6 @@ import 'package:cluvie_mobile/features/home/data/home_feed.dart';
 import 'package:cluvie_mobile/features/movies/data/polls.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Club chat has no backend yet (the socket only carries watch-party events).
-/// While false, nothing links to `/communityChat`.
-const kClubChatAvailable = false;
-
 /// The clubs the signed-in user belongs to.
 final joinedCommunitiesProvider =
     AsyncNotifierProvider<JoinedCommunityNotifier, List<Community>>(JoinedCommunityNotifier.new);
