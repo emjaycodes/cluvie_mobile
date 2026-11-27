@@ -1,245 +1,497 @@
-// ignore_for_file: deprecated_member_use
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cluvie_mobile/core/api/api_client.dart';
-import 'package:cluvie_mobile/core/theme/app_color.dart';
-import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_snackbar.dart';
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
+import 'dart:async';
 
-/// Voting + Poll lifecycle — CF-06
-/// Route: /communities/:id/vote
-/// Poll lifecycle: expiresAt/status, winner = highest votes tie=earliest, vote summary screen.
-/// Shows ranked suggestions, vote counts, winner badge.
-class VoteSummaryScreen extends StatefulWidget {
-  final String? communityId;
-  const VoteSummaryScreen({super.key, this.communityId});
+import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
+import 'package:cluvie_mobile/core/theme/app_spacing.dart';
+import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/core/utils/fit_text.dart';
+import 'package:cluvie_mobile/core/utils/relative_time.dart';
+import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
+import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/join_feedback.dart';
+import 'package:cluvie_mobile/features/movies/data/polls.dart';
+import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+/// A club's vote (`/communities/:id/vote`): its open polls from
+/// `GET /polls/active`.
+///
+/// * One vote per poll (unless the poll allows several), and a vote can't be
+///   changed; the screen says so above the options.
+/// * Voting is optimistic and rolls back on failure. "Already voted" and
+///   "poll closed" reload the poll and say why.
+/// * Rows keep their order while the screen is open, so a row never jumps
+///   from under a finger; pull to refresh re-ranks them.
+/// * The countdown ticks; at zero the poll shows as closed.
+/// * Tapping a film opens Movie Detail.
+///
+/// Gold budget: the leading film's badge.
+class VoteSummaryScreen extends ConsumerStatefulWidget {
+  const VoteSummaryScreen({super.key, required this.communityId, this.clubName});
+
+  final String communityId;
+
+  /// Club name for the title, when the opener knew it.
+  final String? clubName;
+
   @override
-  State<VoteSummaryScreen> createState() => _VoteSummaryScreenState();
+  ConsumerState<VoteSummaryScreen> createState() => _VoteSummaryScreenState();
 }
 
-class _VoteSummaryScreenState extends State<VoteSummaryScreen> {
-  final _api = ApiClient();
-  late List<Map<String, dynamic>> _suggestions;
-  String _status = 'open'; // open | closed | resolved
-  DateTime _expiresAt = DateTime.now().add(const Duration(hours: 18));
+class _VoteSummaryScreenState extends ConsumerState<VoteSummaryScreen> {
+  Timer? _tick;
+
+  /// Polls with votes cast here, until the next reload.
+  final _local = <String, Poll>{};
+
+  /// Row order per poll, fixed at load so rows don't jump.
+  final _order = <String, List<String>>{};
+  final _voting = <String>{};
 
   @override
   void initState() {
     super.initState();
-    _suggestions = [
-      {'id': '1', 'title': 'Past Lives', 'year': '2023', 'poster': 'https://image.tmdb.org/t/p/w200/kAellTx1ukNtc42BP1kcnHPCG5e.jpg', 'votes': 9, 'voters': ['u1', 'u2'], 'createdAt': DateTime.now().subtract(const Duration(hours: 20))},
-      {'id': '2', 'title': 'Oppenheimer', 'year': '2023', 'poster': 'https://image.tmdb.org/t/p/w200/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg', 'votes': 7, 'voters': ['u3'], 'createdAt': DateTime.now().subtract(const Duration(hours: 18))},
-      {'id': '3', 'title': 'The Zone of Interest', 'year': '2023', 'poster': 'https://image.tmdb.org/t/p/w200/hUu9zyZmDd8VZegKi1iK1Vk0RYS.jpg', 'votes': 7, 'voters': ['u4'], 'createdAt': DateTime.now().subtract(const Duration(hours: 10))}, // tie -> earlier wins, so Oppenheimer wins tie
-      {'id': '4', 'title': 'Poor Things', 'year': '2023', 'poster': 'https://image.tmdb.org/t/p/w200/kCGlIMHnOm8JPXq3rXM84hre9Mh.jpg', 'votes': 2, 'voters': [], 'createdAt': DateTime.now().subtract(const Duration(hours: 5))},
-    ];
-    _sortAndResolve();
-  }
-
-  void _sortAndResolve() {
-    // winner = highest votes, tie = earliest createdAt
-    _suggestions.sort((a, b) {
-      final va = a['votes'] as int;
-      final vb = b['votes'] as int;
-      if (vb != va) return vb.compareTo(va);
-      return (a['createdAt'] as DateTime).compareTo(b['createdAt'] as DateTime);
+    _tick = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
     });
   }
 
-  String get _winnerId => _suggestions.isNotEmpty ? _suggestions.first['id'] as String : '';
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
 
-  Duration get _remaining => _expiresAt.difference(DateTime.now());
+  /// Refetches the polls. With polls on screen they stay put while this
+  /// runs, and stay if it fails (with a snackbar saying so); local votes and
+  /// the frozen row order reset only once fresh data arrives.
+  Future<void> _reload() async {
+    final provider = activePollsProvider(widget.communityId);
+    final hadPolls = ref.read(provider).hasValue;
+    try {
+      ref.invalidate(provider);
+      await ref.read(provider.future);
+      if (!mounted) return;
+      setState(() {
+        _local.clear();
+        _order.clear();
+      });
+    } catch (_) {
+      // With nothing on screen the error state says it.
+      if (mounted && hadPolls) {
+        ClSnackbar.show(context, message: "Couldn't refresh. Showing the earlier vote.", type: ClSnackbarType.error);
+      }
+    }
+  }
 
-  Future<void> _toggleVote(int index) async {
-    if (_status != 'open') {
-      ClSnackbar.show(context, message: 'Poll is $_status — voting closed', type: ClSnackbarType.warning);
+  Poll _current(Poll p) => _local[p.id] ?? p;
+
+  List<PollOption> _rows(Poll poll) {
+    final order = _order.putIfAbsent(poll.id, () => [for (final o in poll.ranked) o.id]);
+    final byId = {for (final o in poll.options) o.id: o};
+    return [for (final id in order) if (byId[id] != null) byId[id]!];
+  }
+
+  bool _joining = false;
+
+  Future<void> _join() async {
+    if (_joining) return;
+    setState(() => _joining = true);
+    final (done, refusal) = await joinClub(ref, widget.communityId);
+    if (!mounted) return;
+    setState(() => _joining = false);
+    showJoinResult(context, widget.clubName ?? 'the club', done, refusal);
+  }
+
+  Future<void> _vote(Poll poll, PollOption option) async {
+    final me = ref.read(currentUserIdProvider).valueOrNull;
+    if (me == null) {
+      ClSnackbar.show(context, message: 'Sign in to vote', type: ClSnackbarType.info);
       return;
     }
-    final s = _suggestions[index];
-    final hasVoted = (s['voters'] as List).contains('me');
+    final before = _current(poll);
     setState(() {
-      if (hasVoted) {
-        s['voters'].remove('me');
-        s['votes'] = (s['votes'] as int) - 1;
-      } else {
-        s['voters'].add('me');
-        s['votes'] = (s['votes'] as int) + 1;
-      }
+      _voting.add(poll.id);
+      _local[poll.id] = before.replaceOption(option.withVote(me));
     });
-    _sortAndResolve();
-    setState(() {});
-    ClSnackbar.show(context, message: hasVoted ? 'Vote removed' : 'Voted for "${s['title']}"', type: ClSnackbarType.success);
-    try {
-      await _api.post('/movies/${s['id']}/vote');
-    } catch (_) {
-      // rollback
-      if (mounted) {
-        setState(() {
-          if (hasVoted) {
-            s['voters'].add('me');
-            s['votes'] = (s['votes'] as int) + 1;
-          } else {
-            s['voters'].remove('me');
-            s['votes'] = (s['votes'] as int) - 1;
-          }
-        });
-        _sortAndResolve();
-        setState(() {});
-        ClSnackbar.show(context, message: "Couldn't vote — restored", type: ClSnackbarType.error);
-      }
+    final refusal = await castVote(ref, pollId: poll.id, optionId: option.id);
+    if (!mounted) return;
+    setState(() => _voting.remove(poll.id));
+    switch (refusal) {
+      case null:
+        ClSnackbar.show(context, message: 'Voted for ${option.title}', type: ClSnackbarType.success);
+      case VoteRefusal.alreadyVoted:
+        // Refused: undo the optimistic vote now, in case the reload fails.
+        setState(() => _local[poll.id] = before);
+        ClSnackbar.show(context, message: 'You already voted in this poll', type: ClSnackbarType.info);
+        await _reload();
+      case VoteRefusal.closed:
+        setState(() => _local[poll.id] = before);
+        ClSnackbar.show(context, message: 'This poll has closed', type: ClSnackbarType.warning);
+        await _reload();
+      case VoteRefusal.notMember:
+        setState(() => _local[poll.id] = before);
+        final club = widget.clubName;
+        ClSnackbar.show(
+          context,
+          message: club == null ? 'Join this club to vote' : 'Join $club to vote',
+          type: ClSnackbarType.info,
+          actionLabel: 'Open club',
+          onAction: () {
+            if (mounted) context.push('/communities/${widget.communityId}');
+          },
+        );
+      case VoteRefusal.failed:
+        setState(() => _local[poll.id] = before);
+        ClSnackbar.show(
+          context,
+          message: "Couldn't count your vote. Try again.",
+          type: ClSnackbarType.error,
+          actionLabel: 'Retry',
+          // The snackbar can outlive the screen; then there's nothing to retry.
+          onAction: () {
+            if (mounted) _vote(poll, option);
+          },
+        );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final hours = _remaining.inHours.clamp(0, 999);
-    final mins = (_remaining.inMinutes % 60).clamp(0, 59);
+    final polls = ref.watch(activePollsProvider(widget.communityId));
+    final meAsync = ref.watch(currentUserIdProvider);
+    final me = meAsync.valueOrNull;
+    // Until we know who's voting, voting waits (no false "Sign in to vote",
+    // no Vote buttons flashing for people who already voted).
+    final resolvingMe = meAsync.isLoading && !meAsync.hasValue;
+    final title = widget.clubName != null ? '${widget.clubName} vote' : 'Club vote';
+    // Non-members get one "Join" card instead of Vote buttons that can only
+    // be refused. Unknown (loading, failed) keeps the buttons: the server
+    // still answers 403 with "Join … to vote".
+    final notMember = ref.watch(clubMembershipProvider(widget.communityId)) == ClubMembership.notMember;
+    final bottom = MediaQuery.paddingOf(context).bottom;
+
+    Widget scroll(List<Widget> children) => RefreshIndicator(
+          onRefresh: _reload,
+          color: AppColors.purple,
+          backgroundColor: AppColors.surfaceRaised,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, AppSpacing.xxl + bottom),
+            children: children,
+          ),
+        );
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Voting', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: _status == 'open' ? AppColors.success.withOpacity(0.15) : AppColors.warning.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _status == 'open' ? AppColors.success : AppColors.warning),
-            ),
-            child: Text(_status == 'open' ? 'OPEN · ${hours}h ${mins}m left' : _status.toUpperCase(), style: AppTextStyles.caption.copyWith(color: _status == 'open' ? AppColors.success : AppColors.warning, fontWeight: FontWeight.w800, fontSize: 11)),
+      appBar: ClAppBar(title: title, frosted: true, fallbackRoute: '/communities/${widget.communityId}'),
+      // With polls on screen, refreshing or a failed refresh keeps them.
+      // Without, a retry shows the skeleton so the tap visibly works.
+      body: polls.when(
+        skipLoadingOnRefresh: polls.hasValue,
+        skipError: true,
+        loading: () => Semantics(
+          label: 'Loading the vote',
+          liveRegion: true,
+          child: ListView(
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(AppSpacing.gutter),
+            children: [
+              const ClSkeleton(width: 220, height: 24),
+              const SizedBox(height: AppSpacing.md),
+              const ClSkeleton(width: 160, height: 14),
+              const SizedBox(height: AppSpacing.xl),
+              for (var i = 0; i < 3; i++) ...[
+                const ClSkeletonRow(),
+                const SizedBox(height: AppSpacing.lg),
+              ],
+            ],
+          ),
+        ),
+        error: (_, __) => scroll([
+          const SizedBox(height: AppSpacing.xxl),
+          ClErrorState(title: "Couldn't load the vote", onRetry: _reload),
+        ]),
+        data: (list) {
+          if (list.isEmpty) {
+            return scroll([
+              const SizedBox(height: AppSpacing.xxl),
+              ClEmptyState(
+                illustration: ClIllustration.polls,
+                title: 'No vote running',
+                message: notMember
+                    ? 'Members vote on the films the club suggests. Join to take part.'
+                    : 'Votes are made from the films the club suggests. Start one to pick what to watch.',
+                actionLabel: notMember ? 'Join club' : 'Start a vote',
+                actionVariant: ClButtonVariant.secondary,
+                onAction: notMember ? _join : () => context.push('/communities/${widget.communityId}/vote/new'),
+              ),
+            ]);
+          }
+          return scroll([
+            if (notMember) ...[
+              _JoinToVote(clubName: widget.clubName, joining: _joining, onJoin: _join),
+              const SizedBox(height: AppSpacing.section),
+            ],
+            for (final (i, p) in list.indexed) ...[
+              if (i > 0) const SizedBox(height: AppSpacing.section),
+              _PollSection(
+                poll: _current(p),
+                rows: _rows(_current(p)),
+                me: me,
+                busy: _voting.contains(p.id) || resolvingMe,
+                member: !notMember,
+                onVote: (o) => _vote(p, o),
+                showGold: i == 0,
+              ),
+            ],
+          ]);
+        },
+      ),
+    );
+  }
+}
+
+class _PollSection extends StatelessWidget {
+  const _PollSection({
+    required this.poll,
+    required this.rows,
+    required this.me,
+    required this.busy,
+    required this.onVote,
+    required this.showGold,
+    this.member = true,
+  });
+
+  final Poll poll;
+  final List<PollOption> rows;
+  final String? me;
+  final bool busy;
+  final ValueChanged<PollOption> onVote;
+
+  /// False when the user is known not to be in the club: no Vote buttons.
+  final bool member;
+
+  /// Only the first poll's leader gets the gold badge (gold budget).
+  final bool showGold;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final open = poll.isOpenAt(now);
+    final left = timeLeft(poll.expiresAt, now: now);
+    final voted = poll.hasVoted(me);
+    final leader = poll.leader;
+    final total = poll.totalVotes;
+
+    final String rule;
+    if (!open) {
+      rule = 'Voting has closed.';
+    } else if (!member) {
+      rule = 'Only club members can vote.';
+    } else if (poll.allowMultiple) {
+      rule = 'Vote for as many films as you like. Votes are final.';
+    } else if (voted) {
+      rule = "You've voted. Votes are final.";
+    } else {
+      rule = 'You get one vote, and it’s final.';
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Semantics(header: true, child: FitWordsText(poll.question, styles: const [AppTextStyles.h2, AppTextStyles.h3, AppTextStyles.title])),
+      const SizedBox(height: AppSpacing.sm),
+      Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (open && left != null)
+            ClBadge('Closes in $left', tone: ClBadgeTone.purple, icon: AppIcons.clock, uppercase: false)
+          else
+            const ClBadge('Closed', tone: ClBadgeTone.glass, uppercase: false),
+          Text(
+            '$total ${total == 1 ? 'vote' : 'votes'}',
+            style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        color: AppColors.accent,
-        onRefresh: () async {
-          await Future.delayed(const Duration(milliseconds: 600));
-          if (mounted) setState(() => _expiresAt = DateTime.now().add(const Duration(hours: 18)));
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(gradient: AppColors.cinematicGradient, borderRadius: BorderRadius.circular(14)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Weekly Pick — ${widget.communityId ?? 'Cinema Sundays'}', style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 6),
-                Text('Poll closes ${_expiresAt.toLocal().toString().split(' ').first} · Winner = highest votes, tie = earliest suggestion', style: AppTextStyles.caption.copyWith(color: Colors.white70)),
-                const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(child: ClButton(label: 'Close poll early', onPressed: () => setState(() => _status = 'resolved'), isSecondary: true)),
-                  const SizedBox(width: 10),
-                  Expanded(child: ClButton(label: 'Share', onPressed: () {})),
-                ]),
-              ]),
-            ),
-            const SizedBox(height: 16),
-            Text('Ranked Suggestions', style: AppTextStyles.heading2.copyWith(color: Colors.white, fontSize: 18)),
-            const SizedBox(height: 4),
-            Text('Tap Vote to toggle until expiry', style: AppTextStyles.caption.copyWith(color: AppColors.darkTextSecondary)),
-            const SizedBox(height: 12),
-            ..._suggestions.asMap().entries.map((entry) {
-              final idx = entry.key;
-              final s = entry.value;
-              final isWinner = s['id'] == _winnerId;
-              final hasVoted = (s['voters'] as List).contains('me');
-              final rank = idx + 1;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isWinner ? AppColors.accent.withOpacity(0.10) : AppColors.darkSurface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: isWinner ? AppColors.accent.withOpacity(0.5) : Colors.white10),
-                ),
-                child: Row(children: [
-                  // rank + poster
-                  Stack(children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: CachedNetworkImage(
-                        imageUrl: s['poster'],
-                        width: 64,
-                        height: 84,
-                        fit: BoxFit.cover,
-                        placeholder: (c, u) => Shimmer.fromColors(baseColor: Colors.grey.shade800, highlightColor: Colors.grey.shade700, child: Container(width: 64, height: 84, color: Colors.white)),
-                        errorWidget: (_, __, ___) => Container(width: 64, height: 84, color: Colors.white10, child: const Icon(Icons.broken_image, color: Colors.white30)),
-                      ),
-                    ),
-                    Positioned(
-                      top: 4,
-                      left: 4,
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(color: isWinner ? AppColors.accent : Colors.black.withOpacity(0.7), shape: BoxShape.circle, border: Border.all(color: Colors.white24)),
-                        child: Center(child: Text('$rank', style: TextStyle(color: isWinner ? Colors.black : Colors.white, fontWeight: FontWeight.w900, fontSize: 11))),
-                      ),
-                    ),
-                  ]),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Expanded(child: Text(s['title'], style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w700))),
-                        if (isWinner)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(20)),
-                            child: Text('WINNER', style: AppTextStyles.caption.copyWith(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 9)),
-                          ),
-                      ]),
-                      Text('${s['year']} · ${s['votes']} votes', style: AppTextStyles.caption.copyWith(color: AppColors.darkTextSecondary)),
-                      const SizedBox(height: 8),
-                      Row(children: [
-                        // voter avatars
-                        SizedBox(
-                          width: 60,
-                          height: 22,
-                          child: Stack(
-                            children: List.generate((s['voters'] as List).length.clamp(0, 3), (i) => Positioned(left: i * 14, child: CircleAvatar(radius: 11, backgroundColor: Colors.white, child: CircleAvatar(radius: 10, backgroundImage: CachedNetworkImageProvider('https://randomuser.me/api/portraits/${i % 2 == 0 ? 'women' : 'men'}/${30 + i}.jpg'))))),
-                          ),
-                        ),
-                        const Spacer(),
-                        SizedBox(
-                          height: 34,
-                          child: ElevatedButton(
-                            onPressed: () => _toggleVote(idx),
-                            style: ElevatedButton.styleFrom(backgroundColor: hasVoted ? AppColors.accent : Colors.white, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                            child: Text(hasVoted ? 'Voted ✓' : 'Vote', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-                          ),
-                        ),
-                      ]),
-                    ]),
-                  ),
-                ]),
-              );
-            }),
-            const SizedBox(height: 14),
-            if (_status == 'resolved')
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.success.withOpacity(0.12), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.success.withOpacity(0.4))),
-                child: Row(children: [
-                  const Icon(Icons.emoji_events_rounded, color: AppColors.success),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text('Poll resolved — winner is "${_suggestions.first['title']}". Next: discuss or schedule watch party.', style: AppTextStyles.body.copyWith(color: AppColors.success, fontWeight: FontWeight.w700))),
-                ]),
-              ),
-            const SizedBox(height: 14),
-            Row(children: [
-              Expanded(child: OutlinedButton(onPressed: () => context.push('/discussionThread'), style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: BorderSide(color: AppColors.accent.withOpacity(0.5)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: const Text('Discuss'))),
-              const SizedBox(width: 10),
-              Expanded(child: ElevatedButton(onPressed: () => context.push('/watchParty'), style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: const Text('Schedule Watch Party', style: TextStyle(fontWeight: FontWeight.w800)))),
-            ]),
-            const SizedBox(height: 8),
-            Center(child: Text('Winner logic: highest votes, tie = earliest suggestion · Status: $_status · expiresAt: ${_expiresAt.toLocal()}', style: AppTextStyles.caption.copyWith(color: Colors.white24, fontSize: 10), textAlign: TextAlign.center)),
-          ],
+      if (open) ...[
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Ends ${dayAndTime(poll.expiresAt, now: now, use24h: MediaQuery.alwaysUse24HourFormatOf(context))}',
+          style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
         ),
+      ],
+      const SizedBox(height: AppSpacing.md),
+      Semantics(
+        liveRegion: true,
+        child: Text(rule, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
       ),
+      const SizedBox(height: AppSpacing.lg),
+      for (final (i, o) in rows.indexed) ...[
+        if (i > 0) const SizedBox(height: AppSpacing.md),
+        _OptionRow(
+          option: o,
+          share: total == 0 ? 0 : o.voteCount / total,
+          isLeader: leader?.id == o.id,
+          leaderLabel: open ? 'Leading' : 'Winner',
+          gold: showGold,
+          mine: me != null && o.voterIds.contains(me),
+          canVote: open && !busy && (poll.allowMultiple ? !(me != null && o.voterIds.contains(me)) : !voted),
+          showVote: member && open && (poll.allowMultiple || !voted),
+          onVote: () => onVote(o),
+        ),
+      ],
+      if (leader?.movieId != null) ...[
+        const SizedBox(height: AppSpacing.lg),
+        ClButton(
+          label: 'Discuss ${leader!.title}',
+          icon: AppIcons.chat,
+          variant: ClButtonVariant.ghost,
+          onPressed: () => context.push(
+            '/discussionThread',
+            extra: DiscussionThreadScreen.extraFor(
+              movieId: leader.movieId!,
+              title: leader.title,
+              posterUrl: leader.posterUrl,
+              tmdbId: leader.tmdbId,
+            ),
+          ),
+        ),
+      ],
+    ]);
+  }
+}
+
+class _OptionRow extends StatelessWidget {
+  const _OptionRow({
+    required this.option,
+    required this.share,
+    required this.isLeader,
+    required this.leaderLabel,
+    required this.gold,
+    required this.mine,
+    required this.canVote,
+    required this.showVote,
+    required this.onVote,
+  });
+
+  final PollOption option;
+  final double share;
+  final bool isLeader;
+  final String leaderLabel;
+  final bool gold;
+  final bool mine;
+  final bool canVote;
+  final bool showVote;
+  final VoidCallback onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    final votes = option.voteCount;
+    final votesText = '$votes ${votes == 1 ? 'vote' : 'votes'}';
+    // Starts with the visible title (label in name). No rank: none is shown,
+    // and the rows keep their order while live counts move.
+    final spoken = [
+      option.title,
+      votesText,
+      if (isLeader) leaderLabel,
+      if (mine) 'your vote',
+    ].join(', ');
+
+    // Above 1.6× text the decorative poster steps aside so long words fit.
+    final showPoster = MediaQuery.textScalerOf(context).scale(16) / 16 <= 1.6;
+    final details = Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (showPoster) ...[
+        ClPosterImage(url: option.posterUrl, width: 56, height: 84, radius: AppRadius.sm, decorative: true),
+        const SizedBox(width: AppSpacing.md),
+      ],
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          FitWordsText(option.title, styles: const [AppTextStyles.title, AppTextStyles.label, AppTextStyles.bodySm]),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(votesText, style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary)),
+              if (isLeader)
+                ClBadge(leaderLabel, tone: gold ? ClBadgeTone.gold : ClBadgeTone.purpleSolid, icon: AppIcons.crown, uppercase: false),
+              if (mine) const ClBadge('Your vote', tone: ClBadgeTone.success, icon: AppIcons.check, uppercase: false),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ClipRRect(
+            borderRadius: AppRadius.pillAll,
+            child: LinearProgressIndicator(
+              value: share,
+              minHeight: 6,
+              backgroundColor: AppColors.surfaceRaised,
+              color: mine || isLeader ? AppColors.purple : AppColors.textMuted,
+            ),
+          ),
+        ]),
+      ),
+    ]);
+
+    return ClCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      borderColor: mine ? AppColors.purple : null,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        option.tmdbId == null
+            ? Semantics(label: spoken, excludeSemantics: true, child: details)
+            : ClPressable(
+                onTap: () => context.push('/movie/${option.tmdbId}'),
+                semanticLabel: '$spoken. Open film details',
+                excludeChildSemantics: true,
+                borderRadius: AppRadius.mdAll,
+                child: details,
+              ),
+        if (showVote) ...[
+          const SizedBox(height: AppSpacing.md),
+          ClButton(
+            label: 'Vote',
+            semanticLabel: 'Vote for ${option.title}',
+            icon: AppIcons.poll,
+            variant: ClButtonVariant.secondary,
+            onPressed: canVote ? onVote : null,
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+class _JoinToVote extends StatelessWidget {
+  const _JoinToVote({required this.clubName, required this.joining, required this.onJoin});
+  final String? clubName;
+  final bool joining;
+  final VoidCallback onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final club = clubName ?? 'this club';
+    return ClCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Join $club to vote', style: AppTextStyles.title),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Members vote on which suggested film the club watches.',
+          style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        ClButton(
+          label: 'Join club',
+          semanticLabel: 'Join $club',
+          icon: AppIcons.add,
+          variant: ClButtonVariant.purple,
+          isLoading: joining,
+          onPressed: joining ? null : onJoin,
+        ),
+      ]),
     );
   }
 }

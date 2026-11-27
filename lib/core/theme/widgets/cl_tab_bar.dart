@@ -1,26 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:cluvie_mobile/core/theme/app_color.dart';
 
-class ClTabBar extends StatelessWidget {
-  final List<Tab> tabs;
-  final TabController controller;
-
+/// Tab bar; all styling comes from the theme's TabBarThemeData
+/// (gold underline indicator, textPrimary / textSecondary labels).
+class ClTabBar extends StatelessWidget implements PreferredSizeWidget {
   const ClTabBar({
     super.key,
     required this.tabs,
     required this.controller,
+    this.isScrollable = true,
   });
 
+  final List<Tab> tabs;
+  final TabController controller;
+  final bool isScrollable;
+
   @override
-  Widget build(BuildContext context) {
-    return TabBar(
-      controller: controller,
-      tabs: tabs,
-      labelColor: AppColors.accent,
-      unselectedLabelColor: AppColors.lightTextPrimary,
-      indicatorColor: AppColors.accent,
-      indicatorWeight: 3,
-      labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-    );
-  }
+  Widget build(BuildContext context) => TabBar(
+        controller: controller,
+        tabs: tabs,
+        isScrollable: isScrollable,
+        tabAlignment: isScrollable ? TabAlignment.start : TabAlignment.fill,
+      );
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kTextTabBarHeight);
 }

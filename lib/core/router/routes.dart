@@ -1,36 +1,55 @@
 // ignore_for_file: deprecated_member_use
 import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/router/routes_name.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_bottom_nav_bar.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_empty_state.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/forgot_password_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/login_screen.dart';
+import 'package:cluvie_mobile/features/authentication/presentation/reset_password_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/onboarding_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/sigup_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/splash_screen.dart';
 import 'package:cluvie_mobile/features/authentication/presentation/welcome_screen.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/club_settings.dart';
-import 'package:cluvie_mobile/features/clubs/presentation/community_chat_screen.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/club_chat_screen.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/community_detail_screen.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/community_info_screen.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/community_list_screen.dart';
 import 'package:cluvie_mobile/features/clubs/presentation/create_community_screen.dart';
 import 'package:cluvie_mobile/features/discover/presentation/discover_screen.dart';
 import 'package:cluvie_mobile/features/home/presentation/home_screen.dart';
-import 'package:cluvie_mobile/features/movies/presentation/disscusion_thread.dart';
+import 'package:cluvie_mobile/features/movies/presentation/club_discussions_screen.dart';
+import 'package:cluvie_mobile/features/movies/presentation/discussion_thread_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/movie_details_screen.dart';
-import 'package:cluvie_mobile/features/movies/presentation/movie_search_screen.dart';
 import 'package:cluvie_mobile/features/movies/presentation/vote_summary_screen.dart';
+import 'package:cluvie_mobile/features/notifications/presentation/notification_settings_screen.dart';
 import 'package:cluvie_mobile/features/notifications/presentation/notifications_screen.dart';
 import 'package:cluvie_mobile/features/suggest/presentation/suggestion_screen.dart';
+import 'package:cluvie_mobile/features/user_profile/presentation/edit_profile_screen.dart';
 import 'package:cluvie_mobile/features/user_profile/presentation/profile_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_screen.dart';
 import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_list_screen.dart';
+import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_detail_screen.dart';
+import 'package:cluvie_mobile/features/watch_party/presentation/watch_party_room_screen.dart';
+import 'package:cluvie_mobile/features/watch_party/presentation/plan_party_screen.dart';
+import 'package:cluvie_mobile/features/movies/presentation/start_vote_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+/// The emailed reset link is `cluvie://reset-password?token=…`. In a custom
+/// scheme `reset-password` is the URI's host, not its path, and platforms
+/// pass it on differently (whole URI, or only `?token=…`). Every form lands
+/// on `/reset-password?token=…`. Returns null for anything else.
+String? resetPasswordRedirect(Uri uri) {
+  final token = uri.queryParameters['token'];
+  final isReset = uri.host == 'reset-password' ||
+      (uri.path.isEmpty || uri.path == '/') && token != null && token.isNotEmpty;
+  if (!isReset) return null;
+  return Uri(path: '/reset-password', queryParameters: token == null ? null : {'token': token}).toString();
+}
+
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
-final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
+/// The root navigator, for app-level messages (e.g. "your session ended").
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// M1+M2: 5-tab ShellRoute that satisfies ROADMAP M1 exit criteria.
 /// Tab mapping (ROUTE spec):
@@ -41,79 +60,99 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 ///  Profile   -> /profile        (CF-02)
 /// Auth chain: splash (/splash) -> onboarding (/) -> welcome (/welcome) -> login/signup
 final router = GoRouter(
-  navigatorKey: _rootNavigatorKey,
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/splash',
   // ignore: unused_local_variable is intentional — guard wired for M3 hardening
   redirect: (context, state) {
+    final reset = resetPasswordRedirect(state.uri);
+    if (reset != null) return reset;
     // Auth guard: splash -> onboarding -> welcome -> login/signup -> Shell
     // For M1/M2 keep navigable; M3 will enforce: if (!loggedIn && !isAuthRoute) return '/welcome';
     // ignore: unused_local_variable
     final loggedIn = false; // TODO(M3): replace with token check
     // ignore: unused_local_variable
-    final isAuthRoute = ['/splash', '/', '/welcome', '/login', '/signup', '/forgotPassword'].contains(state.matchedLocation);
+    final isAuthRoute = [
+      '/splash',
+      '/',
+      '/welcome',
+      '/login',
+      '/signup',
+      '/forgotPassword',
+      '/reset-password',
+    ].contains(state.matchedLocation);
     return null;
   },
   routes: [
-    GoRoute(
-      name: RouteNames.splash,
-      path: '/splash',
-      builder: (context, state) => const SplashScreen(),
-    ),
+    GoRoute(name: RouteNames.splash, path: '/splash', builder: (context, state) => const SplashScreen()),
     GoRoute(
       name: RouteNames.onboarding,
       path: '/onboarding-legacy',
       builder: (context, state) => const OnboardingScreen(),
     ),
     // Root is onboarding for first-install flow (splash -> onboarding -> welcome)
-    GoRoute(
-      name: 'onboardingRoot',
-      path: '/',
-      builder: (context, state) => const OnboardingScreen(),
-    ),
-    GoRoute(
-      name: RouteNames.welcome,
-      path: '/welcome',
-      builder: (context, state) => const WelcomeScreen(),
-    ),
-    GoRoute(
-      name: RouteNames.login,
-      path: '/login',
-      builder: (context, state) => const LoginScreen(),
-    ),
-    GoRoute(
-      name: RouteNames.signup,
-      path: '/signup',
-      builder: (context, state) => const SignupScreen(),
-    ),
+    GoRoute(name: 'onboardingRoot', path: '/', builder: (context, state) => const OnboardingScreen()),
+    GoRoute(name: RouteNames.welcome, path: '/welcome', builder: (context, state) => const WelcomeScreen()),
+    GoRoute(name: RouteNames.login, path: '/login', builder: (context, state) => const LoginScreen()),
+    GoRoute(name: RouteNames.signup, path: '/signup', builder: (context, state) => const SignupScreen()),
     GoRoute(
       name: RouteNames.forgotPassword,
       path: '/forgotPassword',
       builder: (context, state) => const ForgotPasswordScreen(),
+    ),
+    GoRoute(
+      name: RouteNames.resetPassword,
+      path: '/reset-password',
+      builder: (context, state) => ResetPasswordScreen(token: state.uri.queryParameters['token']),
     ),
 
     // Deep-link targets that live outside Shell (notifications -> direct)
     GoRoute(
       name: RouteNames.notifications,
       path: '/notifications',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const NotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/notifications/settings',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const NotificationSettingsScreen(),
     ),
     GoRoute(
       path: '/watchParty',
       name: RouteNames.watchParty,
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
+      redirect: (context, state) {
+        final extra = state.extra is Map ? state.extra as Map : const {};
+        final id = extra['id'];
+        // The party page applies `canEnterRoom`; going straight to the live
+        // room let cancelled, ended or too-early parties connect (R11-N5).
+        return id is String && id.isNotEmpty ? '/watch-parties/$id' : null;
+      },
       builder: (context, state) => const WatchPartyScreen(),
     ),
     GoRoute(
       path: '/watch-parties',
       name: RouteNames.watchPartyList,
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const WatchPartyListScreen(),
     ),
     GoRoute(
+      path: '/watch-parties/:id',
+      name: RouteNames.watchPartyDetail,
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => WatchPartyDetailScreen(partyId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/watch-parties/:id/live',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => WatchPartyRoomScreen(partyId: state.pathParameters['id']!),
+    ),
+    // Backend notification links (`/watchparty/:id`).
+    GoRoute(path: '/watchparty/:id', redirect: (context, state) => '/watch-parties/${state.pathParameters['id']}'),
+    GoRoute(
       name: RouteNames.movieDetails,
       path: '/movie/:id',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return MovieDetailScreen(movieId: id);
@@ -123,66 +162,72 @@ final router = GoRouter(
     GoRoute(
       name: 'movieDetailsLegacy',
       path: '/MovieDetails',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const MovieDetailScreen(),
     ),
     GoRoute(
       name: RouteNames.movieSearch,
       path: '/search',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const MovieSearchScreen(),
+      // Film search lives in Discover (debounced, via the backend's TMDB
+      // proxy). The old standalone screen is gone.
+      redirect: (context, state) => '/discover',
     ),
     GoRoute(
       name: 'movieSearchLegacy',
       path: '/MovieSearch',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const MovieSearchScreen(),
+      redirect: (context, state) => '/discover',
     ),
     GoRoute(
       name: RouteNames.createCommunity,
       path: '/createCommunity',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const CreateCommunityScreen(),
     ),
     GoRoute(
       name: RouteNames.discussionThread,
       path: '/discussionThread',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const DiscussionThreadScreen(),
+      parentNavigatorKey: rootNavigatorKey,
+      // Film context in `extra`: DiscussionThreadScreen.extraFor(...).
+      builder: (context, state) => DiscussionThreadScreen.fromExtra(state.extra),
     ),
     GoRoute(
       name: RouteNames.communityChat,
       path: '/communityChat',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final community = state.extra as Community?;
-        if (community == null) {
-          return const _MissingExtraScreen(hint: 'CommunityChat');
-        }
-        return CommunityChatScreen(community: community);
+      parentNavigatorKey: rootNavigatorKey,
+      // Legacy: takes `extra: Community`. Prefer /communities/:id/chat.
+      redirect: (context, state) {
+        final id = state.extra is Community ? (state.extra as Community).id : null;
+        return id == null ? null : '/communities/$id/chat';
       },
+      builder: (context, state) => const _MissingExtraScreen(title: 'Club chat'),
     ),
     GoRoute(
       name: RouteNames.communityInfo,
       path: '/communityInfo',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
+      // Legacy: takes `extra: Community`. Prefer /communities/:id/about.
       builder: (context, state) {
-        final community = state.extra as Community?;
-        if (community == null) return const _MissingExtraScreen(hint: 'CommunityInfo');
-        return CommunityInfoScreen(community: community);
+        final id = state.extra is Community ? (state.extra as Community).id : null;
+        if (id == null) return const _MissingExtraScreen(title: 'About');
+        return CommunityInfoScreen(communityId: id);
       },
     ),
     GoRoute(
       name: RouteNames.communitySettings,
       path: '/communitySettings',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const ClubSettingsScreen(),
+      parentNavigatorKey: rootNavigatorKey,
+      // Legacy: takes `extra: Community`. Prefer /communities/:id/settings.
+      builder: (context, state) {
+        final id = state.extra is Community ? (state.extra as Community).id : null;
+        if (id == null) return const _MissingExtraScreen(title: 'Membership');
+        return ClubSettingsScreen(communityId: id);
+      },
     ),
 
     // ── 5-tab ShellRoute ────────────────────────────────────────────
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state, child) => ClBottomNavBar(child: child),
       routes: [
         // Home Feed — CF-03/CF-07 — route "/"  (also accessible via /home alias)
@@ -243,8 +288,9 @@ final router = GoRouter(
         GoRoute(
           name: 'notificationsShell',
           path: '/notifications-shell',
-          parentNavigatorKey: _shellNavigatorKey,
-          builder: (context, state) => const NotificationsScreen(),
+          // Was a second copy inside the shell that lit up the Home tab
+          // (audit P1-1); there is one Notifications screen.
+          redirect: (context, state) => '/notifications',
         ),
       ],
     ),
@@ -253,34 +299,68 @@ final router = GoRouter(
     GoRoute(
       name: RouteNames.communityDetail,
       path: '/communities/:id',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return CommunityDetailScreen(communityId: id);
       },
       routes: [
         GoRoute(
+          name: RouteNames.planParty,
+          path: 'watch-party/new',
+          // Optional `?movie=<catalog id>` preselects a club film.
+          builder: (context, state) => PlanPartyScreen(
+            communityId: state.pathParameters['id']!,
+            movieId: state.uri.queryParameters['movie'],
+          ),
+        ),
+        GoRoute(
           name: RouteNames.suggestMovie,
           path: 'suggest',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            return SuggestMovieDeepScreen(communityId: id);
+            return SuggestMovieScreen(communityId: id);
           },
+        ),
+        GoRoute(
+          name: RouteNames.startVote,
+          path: 'vote/new',
+          builder: (context, state) => StartVoteScreen(communityId: state.pathParameters['id']!),
         ),
         GoRoute(
           name: RouteNames.voting,
           path: 'vote',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            return VoteSummaryScreen(communityId: id);
+            // Optional: {'club': String}, the club name for the title.
+            final extra = state.extra is Map ? state.extra as Map : const {};
+            return VoteSummaryScreen(
+              communityId: id,
+              clubName: extra['club'] is String ? extra['club'] as String : null,
+            );
           },
+        ),
+        GoRoute(
+          name: RouteNames.communityAbout,
+          path: 'about',
+          builder: (context, state) => CommunityInfoScreen(communityId: state.pathParameters['id']!),
+        ),
+        GoRoute(
+          name: RouteNames.communityMembership,
+          path: 'settings',
+          builder: (context, state) => ClubSettingsScreen(communityId: state.pathParameters['id']!),
+        ),
+        GoRoute(
+          name: RouteNames.clubChat,
+          path: 'chat',
+          builder: (context, state) => ClubChatScreen(communityId: state.pathParameters['id']!),
         ),
         GoRoute(
           name: RouteNames.discussion,
           path: 'discussion',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            return DiscussionThreadScreen(communityId: id);
+            return ClubDiscussionsScreen(communityId: id);
           },
         ),
       ],
@@ -289,44 +369,33 @@ final router = GoRouter(
     GoRoute(
       name: RouteNames.userProfile,
       path: '/users/:id',
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return UserProfileScreen(userId: id);
       },
     ),
+    // Edit your own profile: full-screen, above the tab shell, so the
+    // keyboard never fights the floating nav.
+    GoRoute(
+      name: RouteNames.editProfile,
+      path: '/profile/edit',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const EditProfileScreen(),
+    ),
   ],
 );
 
 class _MissingExtraScreen extends StatelessWidget {
-  final String hint;
-  const _MissingExtraScreen({required this.hint});
+  final String title;
+  const _MissingExtraScreen({required this.title});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(hint)),
-      body: const ClEmptyState(message: 'CL* — Missing navigation data. Go back and try again.'),
-    );
-  }
-}
-
-/// Stub for deep-linked suggest when opened via /communities/:id/suggest
-class SuggestMovieDeepScreen extends StatelessWidget {
-  final String communityId;
-  const SuggestMovieDeepScreen({super.key, required this.communityId});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Suggest Movie')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            ClEmptyState(message: 'Suggest to community $communityId — search TMDB above.'),
-            const SizedBox(height: 16),
-            const SuggestMovieScreen(),
-          ],
-        ),
+      appBar: ClAppBar(title: title, fallbackRoute: '/communities'),
+      body: const ClEmptyState(
+        title: "Couldn't open this page",
+        message: 'Go back and try again.',
       ),
     );
   }

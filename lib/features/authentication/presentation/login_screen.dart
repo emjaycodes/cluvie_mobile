@@ -1,14 +1,15 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:cluvie_mobile/core/router/routes_name.dart';
+import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
-import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_loading.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/features/authentication/components/auth_backdrop.dart';
+import 'package:cluvie_mobile/features/authentication/components/auth_form_scaffold.dart';
 import 'package:cluvie_mobile/features/authentication/data/auth_provider.dart';
+import 'package:cluvie_mobile/features/authentication/data/launch_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:glassmorphism/glassmorphism.dart';
 import 'package:go_router/go_router.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -20,252 +21,92 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  String email = '';
-  String password = '';
+  bool _submitted = false;
+  final _email = TextEditingController();
+  final _password = TextEditingController();
 
-  void _handleLogin() async {
-    // if (!_formKey.currentState!.validate()) return;
-    _formKey.currentState!.save();
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
 
-    // final success = await ref.read(authNotifierProvider.notifier).login(_email, _password);
-
-    if (context.mounted) {
-      context.goNamed(RouteNames.home); 
-    }
+  Future<void> _submit() async {
+    // S7: ignore repeat submits (keyboard Done + button) while in flight.
+    if (ref.read(authNotifierProvider).isLoading) return;
+    FocusScope.of(context).unfocus();
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _submitted = true);
+    final ok = await ref.read(authNotifierProvider.notifier).login(_email.text.trim(), _password.text);
+    if (!ok || !mounted) return;
+    TextInput.finishAutofillContext();
+    await LaunchState.markOnboardingSeen();
+    if (mounted) context.goNamed(RouteNames.home);
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authNotifierProvider);
-
-    if (authState.isLoading) {
-      return Scaffold(body: Center(child: ClLoading()));
-    }
-    return Scaffold(
-      body: SafeArea(
-        child:
-            authState.error != null
-                ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        authState.error!,
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      ElevatedButton(
-                        onPressed: () async {
-                          await ref
-                              .read(authNotifierProvider.notifier)
-                              .login("email", "password");
-                        },
-                        child: Text("Retry"),
-                      ),
-                    ],
-                  ),
-                )
-                : Padding(
-                  padding: AppSpacing.clPadding,
-                  child: Expanded(
-                    child: Form(
-                      key: _formKey,
-                      child: ListView(
-                        children: [
-                          Text("Welcome Back", style: AppTextStyles.heading1),
-                          const SizedBox(height: AppSpacing.xs),
-                          //  Text(
-                          //   "Log in to continue using Cluvie.",
-                          //   style: AppTextStyles.heading2,
-                          // ),
-                          const SizedBox(height: AppSpacing.xl),
-                          Center(
-                            child: AuthGlassmorphicContainer(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  TextFormField(
-                                    decoration: const InputDecoration(
-                                      hintText: 'johndoe@example.com',
-                                    ),
-                                    keyboardType: TextInputType.emailAddress,
-                                    onSaved: (value) => email = value ?? '',
-                                    validator:
-                                        (value) =>
-                                            value != null && value.contains('@')
-                                                ? null
-                                                : 'Enter valid email',
-                                  ),
-                                  const SizedBox(height: 16),
-                                          
-                                  // Password
-                                  TextFormField(
-                                    decoration: const InputDecoration(
-                                      hintText: 'Password',
-                                    ),
-                                    obscureText: true,
-                                    onSaved: (value) => password = value ?? '',
-                                    validator:
-                                        (value) =>
-                                            value != null && value.length >= 6
-                                                ? null
-                                                : 'Min 6 characters',
-                                  ),
-                                  Row(
-                                    // mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Spacer(),
-                                      TextButton(
-                                        onPressed:
-                                            () => context.pushNamed(
-                                              RouteNames.forgotPassword,
-                                            ),
-                                        child: const Text("Forgot Password"),
-                                      ),
-                                    ],
-                                  ),
-                                          
-                                  const SizedBox(height: AppSpacing.sm),
-                                  ClButton(
-                                    label: 'Log in',
-                                    onPressed: _handleLogin,
-                                  ),
-                                          
-                                  const SizedBox(height: AppSpacing.md),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text("New Here?"),
-                                      const SizedBox(width: AppSpacing.xs),
-                                      TextButton(
-                                        onPressed:
-                                            () => context.pushNamed(
-                                              RouteNames.signup,
-                                            ),
-                                        child: const Text("Sign up"),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      //  Column(
-                    
-                      //   children: [
-                      //     const Spacer(),
-                      //     Text("Welcome Back 👋", style: AppTextStyles.heading1),
-                      //     const SizedBox(height: AppSpacing.xs),
-                      //     const Text(
-                      //       "Log in to continue using Cluvie.",
-                      //       style: AppTextStyles.heading2,
-                      //     ),
-                      //     const SizedBox(height: AppSpacing.xl),
-                    
-                      //     // Email
-                      //     TextFormField(
-                      //       decoration: const InputDecoration(
-                      //         hintText: 'johndoe@example.com',
-                      //       ),
-                      //       keyboardType: TextInputType.emailAddress,
-                      //       onSaved: (value) => _email = value ?? '',
-                      //       validator:
-                      //           (value) =>
-                      //               value != null && value.contains('@')
-                      //                   ? null
-                      //                   : 'Enter valid email',
-                      //     ),
-                      //     const SizedBox(height: 16),
-                    
-                      //     // Password
-                      //     TextFormField(
-                      //       decoration: const InputDecoration(labelText: 'Password'),
-                      //       obscureText: true,
-                      //       onSaved: (value) => _password = value ?? '',
-                      //       validator:
-                      //           (value) =>
-                      //               value != null && value.length >= 6
-                      //                   ? null
-                      //                   : 'Min 6 characters',
-                      //     ),
-                    
-                      //     Row(
-                      //       // mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      //       children: [
-                      //         Spacer(),
-                      //         TextButton(
-                      //           onPressed:
-                      //               () => context.pushNamed(RouteNames.forgotPassword),
-                      //           child: const Text("Forgot Password"),
-                      //         ),
-                      //       ],
-                      //     ),
-                    
-                      //     const SizedBox(height: AppSpacing.sm),
-                      //     // Login Button
-                      //     ClButton(
-                      //       label: 'Login',
-                      //       onPressed: _handleLogin,
-                      //     ),
-                    
-                      //     const SizedBox(height: AppSpacing.md),
-                    
-                      //     // Links
-                      //     Row(
-                      //       mainAxisAlignment: MainAxisAlignment.center,
-                      //       children: [
-                      //         Text("Don't have an account?"),
-                      //         const SizedBox(width: AppSpacing.xs),
-                      //         TextButton(
-                      //           onPressed: () => context.pushNamed(RouteNames.signup),
-                      //           child: const Text("Sign up"),
-                      //         ),
-                      //       ],
-                      //     ),
-                      //     const Spacer(),
-                      //   ],
-                      // ),
-                    ),
-                  ),
-                ),
-      ),
-    );
-  }
-}
-
-class AuthGlassmorphicContainer extends StatelessWidget {
-  final Widget? child;
-  final double? width;
-  final double? height;
-
-  const AuthGlassmorphicContainer({
-    super.key,
-    this.child,
-    this.width,
-    this.height,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassmorphicContainer(
-      width: width ?? 427.5,
-      height: height ?? 427.5,
-      borderRadius: 20,
-      linearGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.1),
-          Colors.purpleAccent.withOpacity(0.05),
+    final auth = ref.watch(authNotifierProvider);
+    return AuthFormScaffold(
+      children: [
+        const ClEntrance(child: AuthHeading(line1: 'Welcome back.', line2: 'Your club is waiting.')),
+        const SizedBox(height: AppSpacing.xl),
+        if (_submitted && auth.error != null && !auth.isLoading) ...[
+          ClStatusBanner(type: ClStatusType.error, message: auth.error!),
+          const SizedBox(height: AppSpacing.lg),
         ],
-      ),
-      border: 1,
-      blur: 10,
-      borderGradient: LinearGradient(
-        colors: [Colors.white.withOpacity(0.2), Colors.white.withOpacity(0.05)],
-      ),
-      child: Padding(padding: AppSpacing.clPadding, child: child),
+        Form(
+          key: _formKey,
+          child: AutofillGroup(
+            child: Column(
+              children: [
+                ClTextField(
+                  label: 'Email',
+                  controller: _email,
+                  hintText: 'ada@example.com',
+                  prefixIcon: AppIcons.email,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
+                  validator: validateEmail,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                ClTextField(
+                  label: 'Password',
+                  controller: _password,
+                  hintText: 'Your password',
+                  prefixIcon: AppIcons.lock,
+                  isPassword: true,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.password],
+                  validator: validatePassword,
+                  onSubmitted: (_) => _submit(),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (kPasswordResetAvailable)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => context.pushNamed(RouteNames.forgotPassword),
+              style: TextButton.styleFrom(foregroundColor: AppColors.purpleText),
+              child: const Text('Forgot password?'),
+            ),
+          )
+        else
+          const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
+        ClButton(label: 'Log in', isLoading: auth.isLoading, onPressed: _submit),
+        const SizedBox(height: AppSpacing.lg),
+        AuthSwitchLink(
+          prompt: 'New to Cluvie?',
+          action: 'Create an account',
+          onTap: () => context.pushReplacementNamed(RouteNames.signup),
+        ),
+      ],
     );
   }
 }

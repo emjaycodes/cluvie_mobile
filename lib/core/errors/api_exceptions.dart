@@ -21,6 +21,8 @@ class ApiException implements Exception {
       'ApiException($statusCode) $message\n↳ $path\n↳ $responseBody';
 
   factory ApiException.fromDio(Object error) {
+    // Already mapped (callers often re-wrap ApiClient errors): keep the status.
+    if (error is ApiException) return error;
     if (error is DioException) {
       return ApiException(
         message: error.message ?? 'Unknown Dio error',

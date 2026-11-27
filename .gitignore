@@ -47,3 +47,10 @@ app.*.map.json
 # Environment — never commit real secrets
 .env
 .env.local
+
+# Third-party design reference images (local only, see design/references/sources.md)
+design/references/screens/
+design/moodboard/refs/
+
+# flutter build --split-debug-info output
+/build-symbols/

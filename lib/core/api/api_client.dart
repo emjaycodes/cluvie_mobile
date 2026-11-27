@@ -10,10 +10,9 @@ import '../errors/api_exceptions.dart';
 ///   flutter run --dart-define=API_BASE_URL=http://localhost:5000/api           # iOS simulator / local
 ///   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api             # Android emulator (host loopback)
 ///   flutter run --dart-define=API_BASE_URL=http://`lan-ip`:5000/api            # Physical device on same LAN
-///   flutter build apk --dart-define=API_BASE_URL=https://api.cluvie.com/api    # QA / prod flavor
 ///
 /// See OPERATIONS.md §2.3 and README.md "Environment Configuration".
-/// Default is http://localhost:5000/api for local development.
+/// Default is the hosted API, https://cluvie-api.onrender.com/api.
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
 
@@ -21,18 +20,24 @@ class ApiClient {
 
   late final Dio _dio;
 
-  // Compile-time env — prefer --dart-define; fallback to localhost default.
-  // If flutter_dotenv is later adopted, this can be extended with dotenv fallback.
+  // Compile-time env: --dart-define wins; otherwise the hosted API.
   static const String _apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:5000/api',
+    defaultValue: 'https://cluvie-api.onrender.com/api',
   );
+
+  /// The API base URL this build talks to (`API_BASE_URL`).
+  static String get baseUrl => _apiBaseUrl;
 
   ApiClient._internal() {
     _dio = Dio(BaseOptions(
       baseUrl: _apiBaseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      // The hosted API (Render free plan) sleeps after 15 idle minutes and
+      // takes about 50 s to answer the first request. Connecting is quick
+      // (Render's proxy accepts at once), so only the wait for a response
+      // needs room for that.
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 75),
     ));
   }
 
@@ -58,6 +63,31 @@ class ApiClient {
   ));
   }
 
+  /// Called when a signed-in request answers 401: the token expired, or a
+  /// password reset revoked it (`code: SESSION_REVOKED`). The app signs out
+  /// and opens Log in. Auth routes are excluded: a wrong password is not an
+  /// ended session.
+  static void Function(ApiException error)? onSessionEnded;
+
+  ApiException _checked(Object error) {
+    final e = ApiException.fromDio(error);
+    // Only the current session can end: a slow request sent with an old
+    // token must not sign out a newer login (R10-N7).
+    final current = _dio.options.headers['Authorization'];
+    final sentWith = error is DioException ? error.requestOptions.headers['Authorization'] : current;
+    if (endsSession(e, signedIn: current != null && sentWith == current)) onSessionEnded?.call(e);
+    return e;
+  }
+
+  /// Routes that don't use the session: a 401 there is a wrong password or
+  /// a bad reset token, not an ended session.
+  static const _sessionlessPaths = {'/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'};
+
+  /// Whether [e] means the signed-in session is over (expired token, or
+  /// `SESSION_REVOKED` after a password reset).
+  static bool endsSession(ApiException e, {required bool signedIn}) =>
+      e.statusCode == 401 && signedIn && !_sessionlessPaths.contains(e.path);
+
   void setAuthToken(String token) {
     _dio.options.headers['Authorization'] = 'Bearer $token';
   }
@@ -70,7 +100,7 @@ class ApiClient {
     try {
       return await _dio.get(path, queryParameters: params);
     } catch (e) {
-      throw ApiException.fromDio(e);
+      throw _checked(e);
     }
   }
 
@@ -78,7 +108,7 @@ class ApiClient {
     try {
       return await _dio.post(path, data: data);
     } catch (e) {
-      throw ApiException.fromDio(e);
+      throw _checked(e);
     }
   }
 
@@ -86,7 +116,15 @@ class ApiClient {
     try {
       return await _dio.put(path, data: data);
     } catch (e) {
-      throw ApiException.fromDio(e);
+      throw _checked(e);
+    }
+  }
+
+  Future<Response> patch(String path, {Map<String, dynamic>? data}) async {
+    try {
+      return await _dio.patch(path, data: data);
+    } catch (e) {
+      throw _checked(e);
     }
   }
 
@@ -94,7 +132,7 @@ class ApiClient {
     try {
       return await _dio.delete(path);
     } catch (e) {
-      throw ApiException.fromDio(e);
+      throw _checked(e);
     }
   }
 }

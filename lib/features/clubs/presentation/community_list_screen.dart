@@ -1,19 +1,30 @@
-// ignore_for_file: deprecated_member_use
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cluvie_mobile/core/models/community.dart';
 import 'package:cluvie_mobile/core/theme/app_color.dart';
+import 'package:cluvie_mobile/core/theme/app_icons.dart';
 import 'package:cluvie_mobile/core/theme/app_spacing.dart';
 import 'package:cluvie_mobile/core/theme/app_text_styles.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_button.dart';
-import 'package:cluvie_mobile/core/theme/widgets/cl_empty_state.dart';
+import 'package:cluvie_mobile/core/theme/widgets/widgets.dart';
+import 'package:cluvie_mobile/features/authentication/data/current_user.dart';
 import 'package:cluvie_mobile/features/clubs/data/comunity_provider.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/join_feedback.dart';
+import 'package:cluvie_mobile/features/clubs/presentation/widgets/club_tile.dart';
+import 'package:cluvie_mobile/features/home/data/home_feed.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
 
-/// Communities List — CF-04
-/// Shows member count, role badge, last activity, empty CTA.
-/// Pull-to-refresh + invite code entry.
+/// Clubs (tab 3): your clubs, and other clubs to join.
+///
+/// * "Your clubs" comes from `GET /communities/joined`, "Find a club" from
+///   `GET /communities/all` minus yours. The search filters both by name
+///   and description.
+/// * Join is real (`POST /communities/:id/join`). There are no invite codes
+///   on the backend, so there is no code field.
+/// * While your clubs are loading or failed, other clubs show no Join
+///   button: membership is unknown, not "not a member".
+///
+/// Gold budget: "Create a club" in the empty state, when shown. Otherwise
+/// none.
 class CommunityListScreen extends ConsumerStatefulWidget {
   const CommunityListScreen({super.key});
   @override
@@ -21,173 +32,277 @@ class CommunityListScreen extends ConsumerStatefulWidget {
 }
 
 class _CommunityListScreenState extends ConsumerState<CommunityListScreen> {
-  final _inviteCtrl = TextEditingController();
+  final _search = TextEditingController();
+  String _query = '';
+  final _joining = <String>{};
 
   @override
   void dispose() {
-    _inviteCtrl.dispose();
+    _search.dispose();
     super.dispose();
+  }
+
+  bool _matches(Community c) {
+    if (_query.isEmpty) return true;
+    final q = _query.toLowerCase();
+    return c.displayName.toLowerCase().contains(q) || (c.description ?? '').toLowerCase().contains(q);
+  }
+
+  Future<void> _refresh() async {
+    final hadData = ref.read(joinedCommunitiesProvider).hasValue || ref.read(allCommunitiesProvider).hasValue;
+    ref.invalidate(joinedCommunitiesProvider);
+    ref.invalidate(allCommunitiesProvider);
+    try {
+      await Future.wait([
+        ref.read(joinedCommunitiesProvider.future),
+        ref.read(allCommunitiesProvider.future),
+      ]);
+    } catch (_) {
+      if (hadData && mounted) {
+        ClSnackbar.show(context, message: "Couldn't refresh. Showing earlier clubs.", type: ClSnackbarType.error);
+      }
+    }
+  }
+
+  Future<void> _join(Community club) async {
+    final id = club.id;
+    if (id == null || _joining.contains(id)) return;
+    setState(() => _joining.add(id));
+    // Busy until the lists are refetched, so Join can't be sent twice.
+    final (done, refusal) = await joinClub(ref, id);
+    if (!mounted) return;
+    setState(() => _joining.remove(id));
+    if (refusal == ClubActionRefusal.notFound) ref.invalidate(allCommunitiesProvider);
+    showJoinResult(context, club.displayName, done, refusal);
   }
 
   @override
   Widget build(BuildContext context) {
-    final allAsync = ref.watch(allCommunitiesProvider);
+    final joined = ref.watch(joinedCommunitiesProvider);
+    final all = ref.watch(allCommunitiesProvider);
+    final me = ref.watch(currentUserIdProvider).valueOrNull;
+    final unread = ref.watch(unreadCountProvider);
+    final bottom = MediaQuery.paddingOf(context).bottom;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Communities', style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-        actions: [
-          IconButton(icon: const Icon(Icons.notifications_none_rounded), onPressed: () => context.push('/notifications')),
-        ],
+    // Yours: this session's joins and leaves, /joined, and clubs whose own
+    // member list has you (/joined misses owners and older raw-id members).
+    final overrides = ref.watch(clubMembershipOverridesProvider);
+    final joinedIds = {for (final c in joined.valueOrNull ?? const <Community>[]) c.id};
+    bool isMine(Community c) => isMyClub(c, me: me, joinedIds: joinedIds, overrides: overrides);
+    final allClubs = all.valueOrNull ?? const <Community>[];
+    final mineAll = [
+      for (final c in joined.valueOrNull ?? const <Community>[])
+        if (overrides[c.id] != false) c,
+      for (final c in allClubs)
+        if (!joinedIds.contains(c.id) && isMine(c)) c,
+    ];
+    final mine = mineAll.where(_matches).toList();
+    final mineIds = {for (final c in mineAll) c.id};
+    final membershipKnown = joined.hasValue;
+    final others = allClubs.where((c) => c.id != null && !mineIds.contains(c.id) && _matches(c)).toList();
+
+    String? roleOf(Community c) => c.isOwner(me) ? 'Owner' : (c.isAdmin(me) ? 'Admin' : null);
+
+    final joinWidth = ClButton.intrinsicWidth(context, 'Join');
+
+    Widget section(String title, {String? subtitle}) => Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.section, AppSpacing.gutter, AppSpacing.md),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Semantics(header: true, child: Text(title, style: AppTextStyles.h3)),
+            if (subtitle != null) ...[
+              const SizedBox(height: AppSpacing.xxs),
+              Text(subtitle, style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary)),
+            ],
+          ]),
+        );
+
+    Widget tiles(List<Widget> children) => Padding(
+          padding: AppSpacing.screen,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (final (i, c) in children.indexed) ...[
+              if (i > 0) const SizedBox(height: AppSpacing.md),
+              ClEntrance(index: i, child: c),
+            ],
+          ]),
+        );
+
+    Widget skeletons(int n) => Padding(
+          padding: AppSpacing.screen,
+          child: Semantics(
+            label: 'Loading clubs',
+            liveRegion: true,
+            child: Column(children: [
+              for (var i = 0; i < n; i++) ...[
+                if (i > 0) const SizedBox(height: AppSpacing.md),
+                const ClSkeletonRow(thumbWidth: 44, thumbHeight: 44),
+              ],
+            ]),
+          ),
+        );
+
+    final searching = _query.isNotEmpty;
+    final bothLoaded = joined.hasValue && all.hasValue;
+    final noMatches = searching && bothLoaded && mine.isEmpty && others.isEmpty;
+
+    final children = <Widget>[
+      Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.sm, AppSpacing.gutter, 0),
+        child: ClSearchField(
+          controller: _search,
+          hintText: 'Find a club',
+          onChanged: (t) => setState(() => _query = t.trim()),
+          onSubmitted: (t) => setState(() => _query = t.trim()),
+          onCleared: () => setState(() => _query = ''),
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.accent,
-        foregroundColor: Colors.black,
-        onPressed: () => context.push('/createCommunity'),
-        icon: const Icon(Icons.add),
-        label: const Text('Create', style: TextStyle(fontWeight: FontWeight.w800)),
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          color: AppColors.accent,
-          onRefresh: () => ref.refresh(allCommunitiesProvider.future),
-          child: Padding(
-            padding: AppSpacing.clPadding,
-            child: Column(
-              children: [
-                // Invite code handling
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: AppColors.darkSurface, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)),
-                  child: Row(children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _inviteCtrl,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Enter invite code (e.g. CLUV-AB12)',
-                          hintStyle: const TextStyle(color: Colors.white54, fontSize: 13),
-                          filled: true,
-                          fillColor: Colors.white.withOpacity(0.04),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          prefixIcon: const Icon(Icons.vpn_key_outlined, color: Colors.white38, size: 18),
-                        ),
-                      ),
+      if (noMatches)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.xxl, AppSpacing.gutter, 0),
+          child: ClEmptyState(
+            icon: AppIcons.search,
+            title: "No clubs match '$_query'",
+            message: 'Try another name, or start the club yourself.',
+            actionLabel: 'Create a club',
+            actionVariant: ClButtonVariant.secondary,
+            onAction: () => context.push('/createCommunity'),
+          ),
+        )
+      else ...[
+        // ── Your clubs ──
+        section('Your clubs'),
+        ...joined.when(
+          skipLoadingOnRefresh: joined.hasValue,
+          skipError: joined.hasValue,
+          loading: () => [skeletons(2)],
+          error: (_, __) => [
+            Padding(
+              padding: AppSpacing.screen,
+              child: ClErrorState(
+                title: "Couldn't load your clubs",
+                compact: true,
+                onRetry: () => ref.invalidate(joinedCommunitiesProvider),
+              ),
+            ),
+          ],
+          data: (_) {
+            if (mineAll.isEmpty && !searching) {
+              return [
+                Padding(
+                  padding: AppSpacing.screen,
+                  child: ClCard(
+                    child: ClEmptyState(
+                      compact: true,
+                      illustration: ClIllustration.clubs,
+                      title: "You're not in a club yet",
+                      message: 'Start one for your friends, or join one below.',
+                      actionLabel: 'Create a club',
+                      actionVariant: ClButtonVariant.primary,
+                      onAction: () => context.push('/createCommunity'),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        final code = _inviteCtrl.text.trim();
-                        if (code.length < 4) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid invite code')));
-                          return;
-                        }
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Joining with code $code…')));
-                        _inviteCtrl.clear();
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: const Text('Join', style: TextStyle(fontWeight: FontWeight.w800)),
-                    ),
-                  ]),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: allAsync.when(
-                    loading: () => ListView.builder(
-                      itemCount: 3,
-                      itemBuilder: (_, __) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Shimmer.fromColors(baseColor: Colors.grey.shade800, highlightColor: Colors.grey.shade700, child: Container(height: 92, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)))),
-                      ),
-                    ),
-                    error: (e, _) => ListView(children: [
-                      const SizedBox(height: 40),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(color: AppColors.error.withOpacity(0.12), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.error.withOpacity(0.4))),
-                        child: Column(children: [
-                          const Icon(Icons.error_outline, color: AppColors.error, size: 36),
-                          const SizedBox(height: 10),
-                          Text("Couldn't load communities — tap to retry", style: AppTextStyles.body.copyWith(color: AppColors.error, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
-                          const SizedBox(height: 12),
-                          ElevatedButton(onPressed: () => ref.refresh(allCommunitiesProvider.future), style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white), child: const Text('Retry')),
-                        ]),
-                      ),
-                    ]),
-                    data: (communities) {
-                      if (communities.isEmpty) {
-                        return ListView(children: [
-                          const SizedBox(height: 40),
-                          const ClEmptyState(message: 'No communities yet.', icon: Icons.groups_rounded),
-                          const SizedBox(height: 8),
-                          Text('Create your first film club or join with an invite code.', style: AppTextStyles.body.copyWith(color: AppColors.darkTextSecondary), textAlign: TextAlign.center),
-                          const SizedBox(height: 20),
-                          ClButton(onPressed: () => context.push('/createCommunity'), label: 'Create a Community'),
-                          const SizedBox(height: 12),
-                          OutlinedButton(
-                            onPressed: () {},
-                            style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: BorderSide(color: AppColors.accent.withOpacity(0.5)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)),
-                            child: const Text('Enter invite code above'),
-                          ),
-                        ]);
-                      }
-                      return ListView.separated(
-                        itemCount: communities.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final community = communities[index];
-                          final isAdmin = community.admins.isNotEmpty;
-                          final memberCount = community.members.length;
-                          final lastActivity = 'Active 2h ago';
-                          return InkWell(
-                            onTap: () => context.push('/communities/${community.id}'),
-                            borderRadius: BorderRadius.circular(14),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: AppColors.darkSurface, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white10)),
-                              child: Row(children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: CachedNetworkImage(
-                                    imageUrl: 'https://picsum.photos/seed/${community.id}/80/80',
-                                    width: 56,
-                                    height: 56,
-                                    fit: BoxFit.cover,
-                                    placeholder: (c, u) => Shimmer.fromColors(baseColor: Colors.grey.shade800, highlightColor: Colors.grey.shade700, child: Container(width: 56, height: 56, color: Colors.white)),
-                                    errorWidget: (_, __, ___) => Container(width: 56, height: 56, color: Colors.white10, child: const Icon(Icons.group, color: Colors.white30)),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    Row(children: [
-                                      Expanded(child: Text(community.name ?? 'Untitled', style: AppTextStyles.body.copyWith(color: Colors.white, fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                        decoration: BoxDecoration(color: isAdmin ? AppColors.accent.withOpacity(0.18) : Colors.white10, borderRadius: BorderRadius.circular(20)),
-                                        child: Text(isAdmin ? 'ADMIN' : 'MEMBER', style: AppTextStyles.caption.copyWith(color: isAdmin ? AppColors.accent : Colors.white70, fontWeight: FontWeight.w800, fontSize: 9)),
-                                      ),
-                                    ]),
-                                    const SizedBox(height: 3),
-                                    Text('$memberCount members · $lastActivity', style: AppTextStyles.caption.copyWith(color: Colors.white54, fontSize: 11)),
-                                    const SizedBox(height: 4),
-                                    Text(community.description ?? 'Film club', style: AppTextStyles.caption.copyWith(color: AppColors.darkTextSecondary, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  ]),
-                                ),
-                                const SizedBox(width: 8),
-                                const Icon(Icons.chevron_right, color: Colors.white24, size: 18),
-                              ]),
-                            ),
-                          );
-                        },
-                      );
-                    },
                   ),
                 ),
+              ];
+            }
+            if (mine.isEmpty) {
+              return [
+                Padding(
+                  padding: AppSpacing.screen,
+                  child: Text('None of your clubs match.', style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary)),
+                ),
+              ];
+            }
+            return [tiles([for (final c in mine) ClubTile(club: c, role: roleOf(c))])];
+          },
+        ),
+
+        // ── Find a club ──
+        section('Find a club', subtitle: membershipKnown ? 'Join one to vote and suggest films' : null),
+        ...all.when(
+          skipLoadingOnRefresh: all.hasValue,
+          skipError: all.hasValue,
+          loading: () => [skeletons(3)],
+          error: (_, __) => [
+            Padding(
+              padding: AppSpacing.screen,
+              child: ClErrorState(
+                title: "Couldn't load clubs",
+                compact: true,
+                onRetry: () => ref.invalidate(allCommunitiesProvider),
+              ),
+            ),
+          ],
+          data: (_) {
+            if (others.isEmpty) {
+              return [
+                Padding(
+                  padding: AppSpacing.screen,
+                  child: Text(
+                    searching ? 'No other clubs match.' : "You're in every club so far.",
+                    style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                  ),
+                ),
+              ];
+            }
+            return [
+              tiles([
+                for (final c in others)
+                  ClubTile(
+                    club: c,
+                    actionWidth: membershipKnown ? joinWidth : 0,
+                    action: membershipKnown
+                        ? ClButton(
+                            label: 'Join',
+                            expand: false,
+                            variant: ClButtonVariant.secondary,
+                            isLoading: _joining.contains(c.id),
+                            semanticLabel: 'Join ${c.displayName}',
+                            onPressed: _joining.contains(c.id) ? null : () => _join(c),
+                          )
+                        : null,
+                  ),
+              ]),
+            ];
+          },
+        ),
+      ],
+      SizedBox(height: AppSpacing.xxl + bottom),
+    ];
+
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        color: AppColors.purple,
+        backgroundColor: AppColors.surfaceRaised,
+        edgeOffset: MediaQuery.paddingOf(context).top + kToolbarHeight,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              automaticallyImplyLeading: false,
+              backgroundColor: AppColors.bg,
+              scrolledUnderElevation: 0,
+              titleSpacing: AppSpacing.gutter,
+              title: Semantics(header: true, child: Text('Clubs', style: AppTextStyles.h2)),
+              actions: [
+                ClIconButton(
+                  icon: AppIcons.add,
+                  tooltip: 'Create a club',
+                  onPressed: () => context.push('/createCommunity'),
+                ),
+                ClIconButton(
+                  icon: AppIcons.bell,
+                  tooltip: 'Notifications',
+                  badge: unread > 0,
+                  badgeLabel: '$unread unread',
+                  onPressed: () => context.push('/notifications'),
+                ),
+                const SizedBox(width: AppSpacing.md),
               ],
             ),
-          ),
+            SliverList.list(children: children),
+          ],
         ),
       ),
     );
